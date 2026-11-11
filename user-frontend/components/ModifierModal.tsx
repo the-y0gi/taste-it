@@ -1,0 +1,1119 @@
+"use client";
+
+import React, { useState, useEffect, useMemo } from "react";
+import { X, Plus, Minus, Check, MessageSquare, ChefHat } from "lucide-react";
+import {
+  MenuItem,
+  ModifierGroup,
+  ModifierOption,
+  SelectedModifier,
+} from "../types";
+import { useCart } from "../context/CartContext";
+import { getCanadaDayName } from "../lib/timezone";
+
+interface ModifierModalProps {
+  item: MenuItem | null;
+  isOpen: boolean;
+  onClose: () => void;
+}
+
+export default function ModifierModal({
+  item,
+  isOpen,
+  onClose,
+}: ModifierModalProps) {
+  const { addToCart } = useCart();
+  const [quantity, setQuantity] = useState(1);
+  const [selections, setSelections] = useState<
+    Record<string, ModifierOption[]>
+  >({});
+  const [activeIdx, setActiveIdx] = useState(0);
+  const [note, setNote] = useState("");
+
+  // Helper to scope selection key: root groups use plain g.id, child groups use "parentOptId__childGroupId"
+  const getGroupKey = (groupId: string, parentOpt?: ModifierOption): string =>
+    parentOpt ? `${parentOpt.id}__${groupId}` : groupId;
+
+  const resolveGroup = (
+    gOrId: ModifierGroup | string,
+  ): ModifierGroup | undefined => {
+    if (!gOrId) return undefined;
+    if (typeof gOrId === "object") return gOrId;
+    let found: ModifierGroup | undefined;
+    const search = (groups?: ModifierGroup[]) => {
+      if (!groups) return;
+      for (const g of groups) {
+        if (g.id === gOrId || (g as any)._id === gOrId) {
+          found = g;
+          return;
+        }
+        if (g.options) {
+          for (const o of g.options) {
+            if (o.modifierGroups) search(o.modifierGroups);
+            if (found) return;
+          }
+        }
+      }
+    };
+    search(item?.modifierGroups);
+    return found;
+  };
+
+  // Check if an option is a fixed recipe included topping (from product or parent deal opt)
+  const isRecipeIncludedTopping = (
+    groupId: string,
+    optionId: string,
+    currentSelections?: Record<string, ModifierOption[]>,
+    parentOpt?: ModifierOption,
+  ) => {
+    // 1. If a specific parent option is provided (e.g. BBQ Chicken or Veggie Lovers), check its includedToppings ONLY
+    if (parentOpt?.includedToppings && parentOpt.includedToppings.length > 0) {
+      return parentOpt.includedToppings.some(
+        (it: { groupId: string; optionId: string }) =>
+          (it.groupId === groupId || (it.groupId as any)?._id === groupId) &&
+          (it.optionId === optionId || (it.optionId as any)?._id === optionId),
+      );
+    }
+
+    // 2. Check root product level
+    if (item?.includedToppings && item.includedToppings.length > 0) {
+      if (
+        item.includedToppings.some(
+          (it: { groupId: string; optionId: string }) =>
+            (it.groupId === groupId || (it.groupId as any)?._id === groupId) &&
+            (it.optionId === optionId ||
+              (it.optionId as any)?._id === optionId),
+        )
+      ) {
+        return true;
+      }
+    }
+
+    // 3. Fallback: Check active parent deal selections
+    const selSource = currentSelections || selections;
+    for (const gId of Object.keys(selSource)) {
+      const selectedOpts = selSource[gId] || [];
+      for (const opt of selectedOpts) {
+        if (opt.includedToppings && opt.includedToppings.length > 0) {
+          if (
+            opt.includedToppings.some(
+              (it: { groupId: string; optionId: string }) =>
+                (it.groupId === groupId ||
+                  (it.groupId as any)?._id === groupId) &&
+                (it.optionId === optionId ||
+                  (it.optionId as any)?._id === optionId),
+            )
+          ) {
+            return true;
+          }
+        }
+      }
+    }
+
+    return false;
+  };
+
+  // Check if an option is an included topping for this product OR for a specific parent option
+  const isIncludedTopping = (
+    groupId: string,
+    optionId: string,
+    currentSelections?: Record<string, ModifierOption[]>,
+    parentOpt?: ModifierOption,
+  ) => {
+    if (
+      isRecipeIncludedTopping(groupId, optionId, currentSelections, parentOpt)
+    ) {
+      return true;
+    }
+
+    // 4. Check freeSelectionLimit on the group (e.g. CYO Toppings with 2 free items limit)
+    const activeSel = currentSelections || selections;
+    const fslKey = getGroupKey(groupId, parentOpt);
+    const groupSelections = activeSel[fslKey] || [];
+    const itemIndex = groupSelections.findIndex((o) => o.id === optionId);
+
+    let targetGroup: ModifierGroup | undefined;
+    const findGroup = (groups?: ModifierGroup[]) => {
+      if (!groups) return;
+      for (const g of groups) {
+        if (
+          g.id === groupId ||
+          (g as any)._id === groupId ||
+          ((g as any)._id && (g as any)._id.toString() === groupId)
+        ) {
+          targetGroup = g;
+          return;
+        }
+        if (g.options) {
+          for (const o of g.options) {
+            if (o.modifierGroups) findGroup(o.modifierGroups);
+            if (targetGroup) return;
+          }
+        }
+      }
+    };
+    findGroup(item?.modifierGroups);
+    if (!targetGroup && parentOpt?.modifierGroups) {
+      findGroup(parentOpt.modifierGroups);
+    }
+    if (
+      targetGroup &&
+      typeof targetGroup.freeSelectionLimit === "number" &&
+      targetGroup.freeSelectionLimit > 0
+    ) {
+      if (itemIndex !== -1) {
+        return itemIndex < targetGroup.freeSelectionLimit;
+      }
+      return false;
+    }
+
+    return false;
+  };
+
+  // Reset/Initialize default selections when item opens
+  useEffect(() => {
+    if (!item) return;
+    setQuantity(1);
+    setActiveIdx(0);
+    setNote("");
+
+    const init: Record<string, ModifierOption[]> = {};
+    const initGroup = (g: ModifierGroup, parentOpt?: ModifierOption) => {
+      if (!g || !g.options) return;
+      const key = getGroupKey(g.id, parentOpt);
+      if (init[key] !== undefined) return;
+      const defs = g.options.filter((o) => o.isDefault);
+      const includedOpts = g.options.filter(
+        (o) =>
+          !o.isDefault && isRecipeIncludedTopping(g.id, o.id, init, parentOpt),
+      );
+      let selected = [...defs, ...includedOpts];
+      // Disabled auto-selection fallback of 1st item (e.g. Veggie Lovers) when no option is explicitly marked default in super-admin
+      // if (
+      //   selected.length === 0 &&
+      //   g.required &&
+      //   g.maxSelection === 1 &&
+      //   g.options.length > 0
+      // ) {
+      //   selected = [g.options[0]];
+      // }
+      init[key] = selected;
+
+      // Recurse nested groups
+      selected.forEach((opt) => {
+        if (opt.modifierGroups) {
+          opt.modifierGroups.forEach((subG) => initGroup(subG, opt));
+        }
+      });
+    };
+
+    item.modifierGroups?.forEach((g) => initGroup(g));
+    setSelections(init);
+  }, [item, isOpen]);
+
+  // Auto-scroll active tab into view
+  useEffect(() => {
+    if (!isOpen) return;
+    const timer = setTimeout(() => {
+      const activeTabEl = document.getElementById(`mod-tab-${activeIdx}`);
+      if (activeTabEl) {
+        activeTabEl.scrollIntoView({
+          behavior: "smooth",
+          block: "nearest",
+          inline: "center",
+        });
+      }
+    }, 50);
+    return () => clearTimeout(timer);
+  }, [activeIdx, isOpen]);
+
+  // Lock background scroll when open
+  useEffect(() => {
+    if (isOpen) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "";
+    }
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [isOpen]);
+
+  const activeGroup = useMemo(
+    () => item?.modifierGroups?.[activeIdx] ?? null,
+    [item, activeIdx],
+  );
+
+  // Recursively collect all active modifier groups (including nested groups for selected options)
+  const allActiveGroups = useMemo(() => {
+    if (!item || !item.modifierGroups) return [];
+    const result: {
+      group: ModifierGroup;
+      key: string;
+      parentOpt?: ModifierOption;
+    }[] = [];
+    const visited = new Set<string>();
+
+    const collect = (groups: ModifierGroup[], parentOpt?: ModifierOption) => {
+      groups.forEach((g) => {
+        const key = getGroupKey(g.id, parentOpt);
+        if (!g || visited.has(key)) return;
+        visited.add(key);
+        result.push({ group: g, key, parentOpt });
+
+        const selectedOpts = selections[key] ?? [];
+        selectedOpts.forEach((opt) => {
+          if (opt.modifierGroups && opt.modifierGroups.length > 0) {
+            const childGroups = opt.modifierGroups
+              .map((cg) => resolveGroup(cg))
+              .filter(Boolean) as ModifierGroup[];
+            collect(childGroups, opt);
+          }
+        });
+      });
+    };
+
+    collect(item.modifierGroups);
+    return result;
+  }, [item, selections]);
+
+  if (!isOpen || !item) return null;
+
+  // Helper to recursively clear sub-group selections when a parent option is unselected
+  const clearSubGroups = (
+    o: ModifierOption,
+    targetState: Record<string, ModifierOption[]>,
+  ) => {
+    if (o.modifierGroups) {
+      o.modifierGroups.forEach((subG) => {
+        const key = getGroupKey(subG.id, o);
+        delete targetState[key];
+        subG.options.forEach((so) => clearSubGroups(so, targetState));
+      });
+    }
+  };
+
+  const toggleOption = (g: ModifierGroup, opt: ModifierOption, parentOpt?: ModifierOption) => {
+    const key = getGroupKey(g.id, parentOpt);
+    const cur = selections[key] ?? [];
+    const has = cur.some((o) => o.id === opt.id);
+    let next: ModifierOption[];
+
+    const newSelections = { ...selections };
+
+    if (g.maxSelection === 1) {
+      // Clear sub-groups of previously selected option in single-choice radio group
+      cur.forEach((prevOpt) => {
+        if (prevOpt.id !== opt.id) {
+          clearSubGroups(prevOpt, newSelections);
+        }
+      });
+      next = has && !g.required ? [] : [opt];
+    } else if (has) {
+      // Unselecting an option -> clear its sub-groups
+      clearSubGroups(opt, newSelections);
+      next = cur.filter((o) => o.id !== opt.id);
+    } else if (cur.length < g.maxSelection) {
+      next = [...cur, opt];
+    } else {
+      return; // Reached limit
+    }
+
+    newSelections[key] = next;
+
+    // Initialize defaults and recipe toppings for sub-groups of newly selected options
+    // parentPizzaOpt = the deal pizza option (e.g. BBQ Chicken) that owns these sub-groups
+    const initNested = (o: ModifierOption, parentPizzaOpt?: ModifierOption) => {
+      if (o.modifierGroups) {
+        o.modifierGroups.forEach((subG) => {
+          const scopedKey = getGroupKey(subG.id, parentPizzaOpt || o);
+          if (newSelections[scopedKey] === undefined) {
+            const defs = subG.options.filter((so) => so.isDefault);
+            // Use the top-level pizza opt as parentOpt so only THIS pizza's
+            // includedToppings are checked — no cross-slot leakage
+            const parentForCheck = parentPizzaOpt || o;
+            const includedOpts = subG.options.filter(
+              (so) =>
+                !so.isDefault &&
+                isRecipeIncludedTopping(
+                  subG.id,
+                  so.id,
+                  newSelections,
+                  parentForCheck,
+                ),
+            );
+            let selected = [...defs, ...includedOpts];
+            // Disabled auto-selection fallback of 1st item when no option is explicitly marked default in super-admin
+            // if (
+            //   selected.length === 0 &&
+            //   subG.required &&
+            //   subG.maxSelection === 1 &&
+            //   subG.options.length > 0
+            // ) {
+            //   selected = [subG.options[0]];
+            // }
+            newSelections[scopedKey] = selected;
+            // Recurse deeper, keeping same top-level pizza as parent
+            newSelections[scopedKey].forEach((so) =>
+              initNested(so, parentForCheck),
+            );
+          }
+        });
+      }
+    };
+
+    next.forEach((o) => initNested(o, o));
+    setSelections(newSelections);
+  };
+
+  const isSelected = (groupId: string, optionId: string, parentOpt?: ModifierOption) =>
+    (selections[getGroupKey(groupId, parentOpt)] ?? []).some((o) => o.id === optionId);
+
+  // Validate selections against min/max constraints
+  const isValid = () =>
+    allActiveGroups.every(({ group: g, key }) => {
+      const count = (selections[key] ?? []).length;
+      return count >= g.minSelection && count <= g.maxSelection;
+    });
+
+  // Helper to check if an option is available for a given size code
+  const isOptionAvailableForSize = (opt: ModifierOption, sizeCode?: string) => {
+    if (!sizeCode) return true;
+    if (!opt.availableForSizes || opt.availableForSizes.length === 0)
+      return true;
+    return opt.availableForSizes.includes(sizeCode);
+  };
+
+  const getDealPriceForModifierOption = (
+    optionId: string,
+    optionName?: string,
+  ) => {
+    if (!item) return null;
+    const today = getCanadaDayName().toLowerCase();
+    const prodId = (item.id || (item as any)._id || item.productId) as string;
+
+    const deals = (item as any).dealsOfTheDay || (item as any).deals || [];
+    const matchedDeal = deals.find(
+      (d: any) =>
+        d.isActive &&
+        d.dayOfWeek?.toLowerCase() === today &&
+        (d.productId === prodId ||
+          (d.productId as any)?._id === prodId ||
+          (d.productId as any)?.id === prodId ||
+          !d.productId),
+    );
+
+    if (matchedDeal && matchedDeal.sizes) {
+      const optDeal = matchedDeal.sizes.find(
+        (s: any) =>
+          s.isEnabled &&
+          typeof s.dealPrice === "number" &&
+          (s.sizeCode === optionId ||
+            s.sizeName === optionName ||
+            s.sizeName?.endsWith(`: ${optionName}`)),
+      );
+      if (optDeal) {
+        return optDeal.dealPrice;
+      }
+    }
+    return null;
+  };
+
+  // Helper to resolve option price based on group/slot size context and pricesPerSize
+  const getOptionPrice = (
+    opt: ModifierOption,
+    groupId?: string,
+    groupName?: string,
+    parentOpt?: ModifierOption,
+  ) => {
+    // If this option is an included topping for an active selection, it's free ($0)
+    if (groupId && isIncludedTopping(groupId, opt.id, selections, parentOpt)) {
+      return 0;
+    }
+
+    const modDealPrice = getDealPriceForModifierOption(opt.id, opt.name);
+    if (modDealPrice !== null) {
+      return modDealPrice;
+    }
+
+    // Detect size from group/slot name (e.g. "Recipe Pizza Med" -> medium)
+    let detectedSize = "medium"; // Default for deals (most deals feature Medium pizzas)
+    if (groupName) {
+      const gLower = groupName.toLowerCase();
+      if (gLower.includes("panalicious")) detectedSize = "panalicious";
+      else if (gLower.includes("large") || gLower.includes('14"'))
+        detectedSize = "large";
+      else if (gLower.includes("small") || gLower.includes('9"'))
+        detectedSize = "small";
+      else if (gLower.includes("personal") || gLower.includes('6"'))
+        detectedSize = "personal";
+      else if (gLower.includes("xl") || gLower.includes("panormous"))
+        detectedSize = "xl";
+      else if (gLower.includes("med") || gLower.includes('12"'))
+        detectedSize = "medium";
+    }
+
+    // 1. Try size-specific price from pricesPerSize
+    const pricesList = opt.pricesPerSize as
+      | { sizeCode: string; price: number }[]
+      | undefined;
+    if (Array.isArray(pricesList) && pricesList.length > 0) {
+      const matched = pricesList.find((p) => p.sizeCode === detectedSize);
+      if (matched && typeof matched.price === "number" && matched.price > 0) {
+        return matched.price;
+      }
+      // Fallback: pick any non-zero price in pricesPerSize
+      const anyNonZero = pricesList.find((p) => p.price > 0);
+      if (anyNonZero) return anyNonZero.price;
+    }
+
+    // 2. Return base price
+    return opt.price || 0;
+  };
+
+  const getDealPriceForVariant = (variantSizeCode?: string) => {
+    if (!item) return null;
+    const today = getCanadaDayName().toLowerCase();
+    const prodId = (item.id || (item as any)._id || item.productId) as string;
+
+    const deals = (item as any).dealsOfTheDay || (item as any).deals || [];
+    const matchedDeal = deals.find(
+      (d: any) =>
+        d.isActive &&
+        d.dayOfWeek?.toLowerCase() === today &&
+        (d.productId === prodId ||
+          (d.productId as any)?._id === prodId ||
+          (d.productId as any)?.id === prodId ||
+          !d.productId),
+    );
+
+    if (matchedDeal && matchedDeal.sizes) {
+      const szConfig = matchedDeal.sizes.find(
+        (s: any) =>
+          (!variantSizeCode || s.sizeCode === variantSizeCode) &&
+          s.isEnabled &&
+          typeof s.dealPrice === "number" &&
+          s.dealPrice > 0,
+      );
+      if (szConfig) {
+        return szConfig.dealPrice;
+      }
+    }
+    return null;
+  };
+
+  const getBaseItemPrice = () => {
+    if (!item) return 0;
+    const dealPrice = getDealPriceForVariant();
+    return dealPrice !== null ? dealPrice : item.price;
+  };
+
+  const getLivePrice = () => {
+    let modSum = 0;
+    allActiveGroups.forEach(({ group: g, key, parentOpt }) => {
+      const selectedOpts = selections[key] ?? [];
+      selectedOpts.forEach((o) => {
+        modSum += getOptionPrice(o, g.id, g.name, parentOpt);
+      });
+    });
+    return (getBaseItemPrice() + modSum) * quantity;
+  };
+
+  const handleAddToCart = () => {
+    if (!isValid()) return;
+    const selectedMods: SelectedModifier[] = [];
+
+    allActiveGroups.forEach(({ group: g, key, parentOpt }) => {
+      const isRoot = item.modifierGroups?.some((rg) => rg.id === g.id) ?? false;
+      const opts = selections[key] ?? [];
+      opts.forEach((o) => {
+        selectedMods.push({
+          groupId: g.id,
+          groupName: g.name,
+          optionId: o.id,
+          optionName: o.name,
+          price: getOptionPrice(o, g.id, g.name, parentOpt),
+          isRoot,
+        });
+      });
+    });
+
+    addToCart(
+      { ...item, price: getBaseItemPrice() },
+      selectedMods,
+      quantity,
+      note,
+    );
+    onClose();
+  };
+
+  // Render a modifier group recursively
+  const renderModifierGroup = (
+    g: ModifierGroup,
+    pathName: string = "",
+    parentOpt?: ModifierOption,
+  ) => {
+    const isRoot = item.modifierGroups?.some((rg) => rg.id === g.id);
+    const displayName = pathName ? `${pathName} › ${g.name}` : g.name;
+    const selectedCount = (selections[g.id] ?? []).length;
+
+    // Detect size context for filtering available options
+    let detectedSize = "medium";
+    const gLower = displayName.toLowerCase();
+    if (gLower.includes("panalicious")) detectedSize = "panalicious";
+    else if (gLower.includes("large") || gLower.includes('14"'))
+      detectedSize = "large";
+    else if (gLower.includes("small") || gLower.includes('9"'))
+      detectedSize = "small";
+    else if (gLower.includes("personal") || gLower.includes('6"'))
+      detectedSize = "personal";
+    else if (gLower.includes("xl") || gLower.includes("panormous"))
+      detectedSize = "xl";
+    else if (gLower.includes("med") || gLower.includes('12"'))
+      detectedSize = "medium";
+
+    const availableOptions = g.options.filter((opt) =>
+      isOptionAvailableForSize(opt, detectedSize),
+    );
+
+    return (
+      <div
+        key={g.id}
+        className={`space-y-3.5 ${
+          !isRoot
+            ? "mt-4 p-3.5 rounded-xl border border-dashed border-orange-200 bg-orange-50/5 pl-4 border-l-4 border-l-brand-primary"
+            : ""
+        }`}
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between pb-1.5 border-b border-neutral-100">
+          <div>
+            <h4
+              className={`font-bold tracking-wide ${
+                isRoot
+                  ? "text-xs text-neutral-800"
+                  : "text-xs text-brand-primary"
+              }`}
+            >
+              {displayName}
+              {g.required && (
+                <span className="text-red-500 ml-1 font-bold">*</span>
+              )}
+            </h4>
+            <p className="text-[10px] text-neutral-400 font-medium mt-0.5">
+              {g.required ? `Select at least ${g.minSelection}` : "Optional"}
+              {g.maxSelection > 1 ? ` (Max ${g.maxSelection})` : ""}
+            </p>
+          </div>
+          <div className="flex items-center gap-1.5">
+            {typeof g.freeSelectionLimit === "number" &&
+              g.freeSelectionLimit > 0 && (
+                <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100/80 px-2.5 py-0.5 rounded-full">
+                  🎁 First {g.freeSelectionLimit} Free
+                </span>
+              )}
+            <span className="text-[10px] font-bold text-neutral-500 bg-neutral-100 px-2.5 py-0.5 rounded-full">
+              {selectedCount} / {g.maxSelection}
+            </span>
+          </div>
+        </div>
+
+        {/* Options Grid */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+          {availableOptions.map((opt) => {
+            const sel = isSelected(g.id, opt.id);
+            const isCard = g.displayType === "card";
+            const optPrice = getOptionPrice(opt, g.id, displayName);
+            const isInc = isIncludedTopping(
+              g.id,
+              opt.id,
+              selections,
+              parentOpt,
+            );
+
+            return (
+              <div key={opt.id} className="flex flex-col">
+                <button
+                  type="button"
+                  onClick={() => toggleOption(g, opt)}
+                  className={`relative flex items-center gap-3 p-3 rounded-xl border text-left transition-all cursor-pointer active:scale-[0.98] w-full ${
+                    sel
+                      ? "border-brand-primary bg-orange-50/50 ring-1 ring-brand-primary"
+                      : "border-neutral-200 bg-white hover:bg-neutral-50"
+                  }`}
+                >
+                  {/* Select Circle/Box */}
+                  {!isCard && (
+                    <div
+                      className={`w-4 h-4 border flex items-center justify-center flex-shrink-0 transition-all ${
+                        g.maxSelection === 1 ? "rounded-full" : "rounded"
+                      } ${
+                        sel
+                          ? "bg-brand-primary border-brand-primary text-white"
+                          : "border-neutral-300 bg-white"
+                      }`}
+                    >
+                      {sel && <Check size={10} strokeWidth={3} />}
+                    </div>
+                  )}
+
+                  {/* Thumbnail Image for Card type or if option has an image */}
+                  {(isCard || !!opt.image) && (
+                    <div className="w-10 h-10 rounded-lg overflow-hidden bg-neutral-100 border border-neutral-200 flex-shrink-0">
+                      <img
+                        src={
+                          opt.image ||
+                          item.image ||
+                          "https://images.unsplash.com/photo-1569058242253-92a9c755a0ec?w=150&auto=format&fit=crop&q=60"
+                        }
+                        alt={opt.name}
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).src =
+                            "https://images.unsplash.com/photo-1569058242253-92a9c755a0ec?w=150&auto=format&fit=crop&q=60";
+                        }}
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
+                  )}
+
+                  <div className="flex-1 min-w-0 pr-4">
+                    <p className="text-[11px] font-semibold text-neutral-800 truncate">
+                      {opt.name}
+                    </p>
+                    {isInc ? (
+                      <p className="text-[9.5px] font-bold text-emerald-600 mt-0.5">
+                        ✓ Included
+                      </p>
+                    ) : optPrice > 0 ? (
+                      <div className="text-[10px] font-bold text-brand-primary mt-0.5">
+                        {(() => {
+                          const dealP = getDealPriceForModifierOption(
+                            opt.id,
+                            opt.name,
+                          );
+                          if (dealP !== null && dealP < opt.price) {
+                            return (
+                              <span className="flex items-center gap-1">
+                                <span className="line-through text-neutral-400 font-normal text-[9px]">
+                                  +${opt.price.toFixed(2)}
+                                </span>
+                                <span className="font-bold text-brand-primary">
+                                  🔥 +${dealP.toFixed(2)}
+                                </span>
+                              </span>
+                            );
+                          }
+                          return `+$${optPrice.toFixed(2)}`;
+                        })()}
+                      </div>
+                    ) : null}
+                  </div>
+
+                  {/* Top-Right Tick for Cards */}
+                  {isCard && (
+                    <div
+                      className={`absolute top-2 right-2 w-4 h-4 border flex items-center justify-center transition-all ${
+                        g.maxSelection === 1 ? "rounded-full" : "rounded"
+                      } ${
+                        sel
+                          ? "bg-brand-primary border-brand-primary text-white"
+                          : "border-neutral-300"
+                      }`}
+                    >
+                      {sel && <Check size={10} strokeWidth={3} />}
+                    </div>
+                  )}
+                </button>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Nested Modifier Groups */}
+        {g.options.map((opt) => {
+          const sel = isSelected(g.id, opt.id, parentOpt);
+          if (sel && opt.modifierGroups && opt.modifierGroups.length > 0) {
+            return (
+              <div key={`child-of-${opt.id}`} className="space-y-3.5 pl-2">
+                {opt.modifierGroups.map((childG) =>
+                  renderModifierGroup(
+                    childG,
+                    isRoot ? opt.name : `${pathName} › ${opt.name}`,
+                    opt,
+                  ),
+                )}
+              </div>
+            );
+          }
+          return null;
+        })}
+      </div>
+    );
+  };
+
+  // Helper to render selections hierarchically with clean UI styling
+  const renderSelectedChoicesTree = () => {
+    if (!item || !item.modifierGroups) return null;
+
+    const renderChoicesForGroup = (
+      gOrId: ModifierGroup | string,
+      parentOpt?: ModifierOption,
+    ): React.ReactNode => {
+      const g = resolveGroup(gOrId);
+      if (!g) return null;
+      const gId = (g.id || (g as any)._id) as string;
+
+      const selKey = getGroupKey(gId, parentOpt);
+      const opts = selections[selKey] ?? [];
+      if (!opts.length) return null;
+
+      const isRootSlot = item.modifierGroups?.some(
+        (rg) => (rg.id || (rg as any)._id) === gId,
+      );
+
+      return (
+        <div key={`${gId}_${parentOpt?.id || "root"}`} className="space-y-0.5">
+          {opts.map((o) => {
+            const optPrice = getOptionPrice(o, gId, g.name);
+            const included = isIncludedTopping(gId, o.id, selections, parentOpt);
+
+            return (
+              <div key={o.id} className="space-y-0.5">
+                <div
+                  className={`flex items-center justify-between gap-1 ${
+                    isRootSlot
+                      ? "text-brand-primary font-bold text-[11px] mt-1.5"
+                      : included
+                        ? "text-emerald-600 text-[10px] pl-2"
+                        : "text-neutral-700 text-[10px] pl-2"
+                  }`}
+                >
+                  <span className="truncate">{o.name}</span>
+                  {included && !isRootSlot ? (
+                    <span className="text-[8.5px] text-emerald-600 font-bold shrink-0">
+                      Included
+                    </span>
+                  ) : optPrice > 0 ? (
+                    <span className="text-[9.5px] text-neutral-400 shrink-0">
+                      +${optPrice.toFixed(2)}
+                    </span>
+                  ) : null}
+                </div>
+
+                {/* Child groups for this selected option */}
+                {o.modifierGroups && o.modifierGroups.length > 0 && (
+                  <div className="space-y-0.5">
+                    {o.modifierGroups.map((subG) =>
+                      renderChoicesForGroup(subG, o),
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      );
+    };
+
+    return item.modifierGroups.map((g) => renderChoicesForGroup(g));
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center md:justify-end select-none">
+      {/* Backdrop */}
+      <div
+        onClick={onClose}
+        className="absolute inset-0 bg-black/40 backdrop-blur-sm animate-fade-in"
+      />
+
+      {/* 
+        Responsive Drawer Shell
+        - Mobile: Slides up from bottom, occupies h-[88vh], w-full, rounded-t-3xl
+        - Desktop: Slides from right, occupies full height, w-[45rem], rounded-l-2xl
+      */}
+      <div className="relative w-full md:max-w-[46rem] md:h-full bg-white rounded-t-3xl md:rounded-t-none md:rounded-l-2xl overflow-hidden shadow-2xl flex flex-col md:flex-row z-10 h-[88vh] animate-slide-up-mobile md:animate-drawer-slide-in">
+        {/* LEFT COLUMN: Customizer Options */}
+        <div className="flex-1 flex flex-col bg-white overflow-hidden min-h-0">
+          {/* Header */}
+          <div className="flex items-center justify-between px-5 py-4 border-b border-neutral-100 flex-shrink-0">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 bg-orange-50 rounded-lg flex items-center justify-center">
+                <ChefHat size={15} className="text-brand-primary" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-[9px] font-bold text-neutral-400 uppercase tracking-widest leading-none">
+                  Customize
+                </p>
+                <h3 className="text-xs font-black text-neutral-900 leading-tight mt-1 truncate max-w-[200px] sm:max-w-sm">
+                  {item.name}
+                </h3>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <span className="text-[10px] font-bold text-neutral-400 bg-neutral-50 px-2 py-1 rounded-md border border-neutral-200/40">
+                Group {activeIdx + 1} of {item.modifierGroups?.length ?? 1}
+              </span>
+              <button
+                onClick={onClose}
+                className="w-7 h-7 flex items-center justify-center rounded-lg bg-neutral-100 text-neutral-500 hover:bg-neutral-200 hover:text-neutral-700 transition-all cursor-pointer"
+              >
+                <X size={15} />
+              </button>
+            </div>
+          </div>
+
+          {/* Modifier Tabs Indicator (Wrapping list) */}
+          {item.modifierGroups && item.modifierGroups.length > 0 && (
+            <div className="flex flex-wrap gap-2 px-5 py-3 border-b border-neutral-100/50 bg-neutral-50/50 flex-shrink-0">
+              {item.modifierGroups.map((g, i) => {
+                const active = i === activeIdx;
+                const count = (selections[g.id] ?? []).length;
+                return (
+                  <button
+                    key={g.id}
+                    id={`mod-tab-${i}`}
+                    onClick={() => setActiveIdx(i)}
+                    className={`flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-[10px] font-bold transition-all cursor-pointer ${
+                      active
+                        ? "bg-brand-primary border-brand-primary text-white shadow-sm"
+                        : "bg-white border-neutral-200 text-neutral-600 hover:bg-neutral-50"
+                    }`}
+                  >
+                    {g.name}
+                    {count > 0 ? (
+                      <span
+                        className={`text-[8px] px-1.5 py-0.5 rounded-full font-black ${
+                          active
+                            ? "bg-white/20 text-white"
+                            : "bg-brand-primary/10 text-brand-primary"
+                        }`}
+                      >
+                        {count}
+                      </span>
+                    ) : (
+                      g.required && (
+                        <span className="text-red-500 ml-0.5 font-bold">*</span>
+                      )
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Options Scrollable Panel */}
+          <div className="flex-1 overflow-y-auto px-5 py-4 min-h-0 space-y-4">
+            {activeGroup ? (
+              renderModifierGroup(activeGroup)
+            ) : (
+              <div className="flex items-center justify-center h-32 text-neutral-400 text-[10px] italic">
+                No configurations required for this product.
+              </div>
+            )}
+
+            {/* Note Area (Displayed below selections directly on mobile to save vertical scrolling) */}
+            {activeIdx === (item.modifierGroups?.length ?? 1) - 1 && (
+              <div className="md:hidden pt-4 border-t border-neutral-100 animate-fade-in">
+                <label className="flex items-center gap-1.5 text-[9px] font-bold text-neutral-400 uppercase tracking-wider mb-1.5">
+                  <MessageSquare size={10} />
+                  Special Notes (Optional)
+                </label>
+                <textarea
+                  value={note}
+                  onChange={(e) => setNote(e.target.value)}
+                  placeholder="E.g. Sauce on the side, no onions..."
+                  rows={2}
+                  className="w-full bg-white border border-neutral-200 rounded-xl p-2.5 text-xs text-neutral-700 placeholder-neutral-400 focus:outline-none focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/10 resize-none transition-all"
+                />
+              </div>
+            )}
+          </div>
+
+          {/* Navigation Tab Actions (Mobile inline pagination) */}
+          {item.modifierGroups && item.modifierGroups.length > 1 && (
+            <div className="flex items-center justify-between px-5 py-3 border-t border-neutral-100 flex-shrink-0 bg-neutral-50/20 md:hidden">
+              <button
+                onClick={() => setActiveIdx(Math.max(0, activeIdx - 1))}
+                disabled={activeIdx === 0}
+                className={`px-3 py-1.5 rounded-lg border text-[10px] font-bold transition-all ${
+                  activeIdx === 0
+                    ? "border-neutral-100 bg-neutral-50 text-neutral-300 cursor-not-allowed"
+                    : "border-neutral-200 bg-white text-neutral-600 active:scale-95"
+                }`}
+              >
+                Previous
+              </button>
+              <span className="text-[10px] font-bold text-neutral-400">
+                Step {activeIdx + 1} of {item.modifierGroups.length}
+              </span>
+              <button
+                onClick={() =>
+                  setActiveIdx(
+                    Math.min(
+                      (item.modifierGroups?.length ?? 1) - 1,
+                      activeIdx + 1,
+                    ),
+                  )
+                }
+                disabled={activeIdx === (item.modifierGroups?.length ?? 1) - 1}
+                className={`px-3 py-1.5 rounded-lg border text-[10px] font-bold transition-all ${
+                  activeIdx === (item.modifierGroups?.length ?? 1) - 1
+                    ? "border-neutral-100 bg-neutral-50 text-neutral-300 cursor-not-allowed"
+                    : "border-brand-primary bg-brand-primary text-white active:scale-95"
+                }`}
+              >
+                Next
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* 
+          RIGHT COLUMN: Selection Summary (Only displayed on Desktop)
+          On mobile, we hide this column and integrate the Note and Quantity selectors directly 
+          into a clean bottom drawer bar.
+        */}
+        <div className="hidden md:flex md:w-[35%] flex-col bg-neutral-50 p-5 justify-between overflow-hidden border-l border-neutral-200/50 flex-shrink-0">
+          <div className="flex-1 flex flex-col min-h-0 space-y-4 mb-4">
+            {/* Base Item description */}
+            <div className="pb-3 border-b border-neutral-200 flex-shrink-0 flex gap-2.5">
+              {item.image && (
+                <div className="w-12 h-12 rounded-lg overflow-hidden bg-white border border-neutral-200/60 flex-shrink-0">
+                  <img
+                    src={item.image}
+                    alt={item.name}
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+              )}
+              <div className="min-w-0">
+                <h4 className="text-[11px] font-bold text-neutral-800 leading-none truncate">
+                  {item.name}
+                </h4>
+                <p className="text-[10px] font-semibold text-brand-primary mt-1.5">
+                  Base Price: ${item.price.toFixed(2)}
+                </p>
+              </div>
+            </div>
+
+            {/* Summary details */}
+            <div className="flex-1 overflow-y-auto min-h-0 space-y-3.5 pr-0.5 no-scrollbar">
+              <p className="text-[9px] font-bold text-neutral-400 uppercase tracking-widest sticky top-0 bg-neutral-50 pb-1 flex items-center justify-between">
+                <span>Selections</span>
+                <span className="bg-brand-primary-light text-brand-primary px-2 py-0.5 rounded-full text-[8.5px] font-extrabold border border-brand-primary/15">
+                  {allActiveGroups.reduce(
+                    (acc, { key }) => acc + (selections[key] ?? []).length,
+                    0,
+                  )}
+                </span>
+              </p>
+
+              {renderSelectedChoicesTree()}
+
+              {allActiveGroups.reduce(
+                (acc, { key }) => acc + (selections[key] ?? []).length,
+                0,
+              ) === 0 && (
+                <p className="text-[10px] text-neutral-400 italic">
+                  No customization chosen yet.
+                </p>
+              )}
+            </div>
+          </div>
+
+          {/* Desktop Instruction input and controls */}
+          <div className="space-y-3.5 border-t border-neutral-200/80 pt-3.5 flex-shrink-0">
+            <div>
+              <label className="flex items-center gap-1 text-[9px] font-bold text-neutral-400 uppercase tracking-wider mb-1">
+                <MessageSquare size={10} />
+                Special Instructions
+              </label>
+              <textarea
+                value={note}
+                onChange={(e) => setNote(e.target.value)}
+                placeholder="E.g. No onions, sauce on the side..."
+                rows={2}
+                className="w-full bg-white border border-neutral-200 rounded-lg p-2 text-xs text-neutral-700 placeholder-neutral-400 focus:outline-none focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/10 resize-none transition-all"
+              />
+            </div>
+
+            <div className="flex items-center justify-between">
+              <span className="text-[10.5px] font-bold text-neutral-600">
+                Quantity
+              </span>
+              <div className="flex items-center gap-2.5 border border-neutral-200 bg-white rounded-lg px-2 py-0.5">
+                <button
+                  onClick={() => setQuantity(Math.max(1, quantity - 1))}
+                  className="text-neutral-500 hover:text-brand-primary transition-colors cursor-pointer p-0.5"
+                >
+                  <Minus size={10} />
+                </button>
+                <span className="text-xs font-extrabold text-neutral-800 w-3 text-center">
+                  {quantity}
+                </span>
+                <button
+                  onClick={() => setQuantity(quantity + 1)}
+                  className="text-neutral-500 hover:text-brand-primary transition-colors cursor-pointer p-0.5"
+                >
+                  <Plus size={10} />
+                </button>
+              </div>
+            </div>
+
+            <button
+              onClick={handleAddToCart}
+              disabled={!isValid()}
+              className={`w-full py-3 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all active:scale-[0.99] cursor-pointer ${
+                isValid()
+                  ? "bg-brand-primary text-white hover:bg-brand-primary-hover shadow-md shadow-brand-primary/15"
+                  : "bg-neutral-200 text-neutral-400 cursor-not-allowed shadow-none"
+              }`}
+            >
+              Add to Order&nbsp;·&nbsp;${getLivePrice().toFixed(2)}
+            </button>
+          </div>
+        </div>
+
+        {/* 
+          MOBILE FIXED STICKY FOOTER ACTION BAR
+          Includes the quantity adjustments and the main Add to Cart button in a clean bottom layout.
+        */}
+        <div className="md:hidden flex items-center justify-between gap-4 p-4 border-t border-neutral-100 bg-white flex-shrink-0 z-20">
+          {/* Quantity selector */}
+          <div className="flex items-center gap-3 border border-neutral-200 bg-neutral-50 rounded-xl px-3 py-2 flex-shrink-0">
+            <button
+              onClick={() => setQuantity(Math.max(1, quantity - 1))}
+              className="text-neutral-500 hover:text-brand-primary p-0.5 active:scale-90"
+            >
+              <Minus size={13} strokeWidth={2.5} />
+            </button>
+            <span className="text-xs font-black text-neutral-800 w-3 text-center">
+              {quantity}
+            </span>
+            <button
+              onClick={() => setQuantity(quantity + 1)}
+              className="text-neutral-500 hover:text-brand-primary p-0.5 active:scale-90"
+            >
+              <Plus size={13} strokeWidth={2.5} />
+            </button>
+          </div>
+
+          {/* Add to cart CTA */}
+          <button
+            onClick={handleAddToCart}
+            disabled={!isValid()}
+            className={`flex-1 py-3.5 rounded-xl text-xs font-black flex items-center justify-center gap-2 transition-all active:scale-[0.98] ${
+              isValid()
+                ? "bg-brand-primary text-white shadow-lg shadow-brand-primary/15"
+                : "bg-neutral-100 text-neutral-400 cursor-not-allowed border border-neutral-200/50"
+            }`}
+          >
+            Add to Bag&nbsp;·&nbsp;${getLivePrice().toFixed(2)}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
