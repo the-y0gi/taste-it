@@ -25,19 +25,30 @@ const orderItemSchema = new mongoose.Schema(
     name: { type: String, required: true },
     image: { type: String, default: "" },
     basePrice: { type: Number, required: true },
+    foodType: { type: String, enum: ["veg", "non_veg", "egg"], default: "veg" },
+    shortcode: { type: String, default: "" },
+    selectedVariant: {
+      name: { type: String, default: "" },
+      price: { type: Number, default: 0 },
+    },
     selectedSize: {
       sizeCode: { type: String, default: "" },
       sizeName: { type: String, default: "" },
       price: { type: Number, default: 0 },
     },
+    selectedAddons: [
+      {
+        name: { type: String, default: "" },
+        price: { type: Number, default: 0 },
+      },
+    ],
     selectedModifiers: { type: [selectedModifierSchema], default: [] },
     quantity: { type: Number, required: true, min: 1 },
     totalPrice: { type: Number, required: true },
     note: { type: String, default: "" },
     kitchenLabel: {
       type: String,
-      enum: ["make_table", "wings_station", "pizza", "chicken"],
-      default: "make_table",
+      default: "general",
     },
   },
   { _id: false },

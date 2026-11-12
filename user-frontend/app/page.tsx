@@ -47,6 +47,7 @@ export default function HomePage() {
     isCartOpen,
     setIsCartOpen,
     addToCart,
+    addVariantToCart,
     setBranchDeliveryFee,
     branchTaxRate,
     setBranchTaxRate,
@@ -64,6 +65,7 @@ export default function HomePage() {
   const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState("all");
+  const [foodTypeFilter, setFoodTypeFilter] = useState<"all" | "veg" | "non_veg">("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [sortBy, setSortBy] = useState("popular");
   const [addressInput, setAddressInput] = useState("");
@@ -79,6 +81,13 @@ export default function HomePage() {
   const [autoOpenMap, setAutoOpenMap] = useState(false);
 
   const applyBranchSettings = (branch: BranchStore) => {
+    // Dynamically apply Restaurant Brand Theme Color
+    const themeColor = branch.themeColor || branch.settings?.mainSettings?.themeColor || "#F97316";
+    if (typeof document !== "undefined") {
+      document.documentElement.style.setProperty("--color-brand-primary", themeColor);
+      document.documentElement.style.setProperty("--color-brand-primary-hover", themeColor);
+    }
+
     const taxFees = branch.settings?.taxFeesSettings;
     if (taxFees) {
       if (taxFees.deliveryFee !== undefined) {
@@ -314,18 +323,24 @@ export default function HomePage() {
   const filteredItems = useMemo(() => {
     let list = menuItems;
 
+    // Indian Food Type filter (🟢 Veg / 🔴 Non-Veg)
+    if (foodTypeFilter !== "all") {
+      list = list.filter((item) => (item.foodType || "veg") === foodTypeFilter);
+    }
+
     // Category filter
     if (selectedCategory !== "all") {
       list = list.filter((item) => item.categoryId === selectedCategory);
     }
 
-    // Search query filter
+    // Search query filter (Name, Description, Shortcode)
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase().trim();
       list = list.filter(
         (item) =>
           item.name.toLowerCase().includes(q) ||
-          item.description.toLowerCase().includes(q),
+          item.description?.toLowerCase().includes(q) ||
+          (item.shortcode && item.shortcode.toLowerCase().includes(q)),
       );
     }
 
@@ -377,11 +392,25 @@ export default function HomePage() {
             onClick={handleSwitchStoreClick}
             className="flex items-center gap-2.5 cursor-pointer group"
           >
-            <img
-              src="/pizza-hut-logo.webp"
-              alt="Pizza Hut"
-              className="h-14 w-[100px] object-contain rounded-sm transition-transform group-hover:scale-105"
-            />
+            {selectedBranch.logo ? (
+              <img
+                src={selectedBranch.logo}
+                alt={selectedBranch.name}
+                className="h-12 w-auto max-w-[140px] object-contain rounded-lg transition-transform group-hover:scale-105"
+              />
+            ) : (
+              <div className="flex items-center gap-2">
+                <span
+                  className="w-10 h-10 rounded-xl flex items-center justify-center text-white font-900 text-lg shadow-sm"
+                  style={{ backgroundColor: selectedBranch.themeColor || "#F97316" }}
+                >
+                  {selectedBranch.name.charAt(0)}
+                </span>
+                <span className="font-900 text-neutral-900 text-sm sm:text-base tracking-tight truncate max-w-[180px]">
+                  {selectedBranch.name}
+                </span>
+              </div>
+            )}
           </div>
 
           <button
@@ -390,7 +419,7 @@ export default function HomePage() {
             className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1 bg-neutral-100 hover:bg-neutral-200 text-neutral-700 rounded-full text-[11px] font-bold transition-all cursor-pointer border border-neutral-200"
           >
             <MapPin size={12} className="text-brand-primary" />
-            <span>Switch Store</span>
+            <span>Switch Restaurant</span>
           </button>
         </div>
 
@@ -569,12 +598,12 @@ export default function HomePage() {
           </div>
           <div className="flex items-center gap-1.5">
             <Info size={13} className="text-brand-primary" />
-            <span>Min. Order $15.00</span>
+            <span>Min. Order ₹100.00</span>
           </div>
         </div>
       </section>
 
-      {/* ── CATEGORY STICKY BAR & SEARCH ── */}
+      {/* ── CATEGORY STICKY BAR, FOOD TYPE TOGGLE & SEARCH ── */}
       <div className="sticky top-[61px] md:top-[63px] z-30 bg-brand-bg border-b border-neutral-200 px-4 sm:px-6 py-2.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-sm">
         {/* Category Carousel */}
         <div className="flex-1 overflow-x-auto no-scrollbar -mx-4 px-4 sm:mx-0 sm:px-0 flex gap-2">
@@ -603,9 +632,44 @@ export default function HomePage() {
           ))}
         </div>
 
-        {/* Search & Sort Panel */}
+        {/* Indian Food Type Toggle (🟢 Veg / 🔴 Non-Veg) & Search */}
         <div className="flex items-center gap-2 flex-shrink-0">
-          <div className="relative w-full sm:w-[180px]">
+          <div className="flex items-center gap-1 bg-white p-1 rounded-xl border border-neutral-200 shadow-2xs">
+            <button
+              onClick={() => setFoodTypeFilter("all")}
+              className={`px-2.5 py-1.5 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${
+                foodTypeFilter === "all"
+                  ? "bg-neutral-900 text-white shadow-xs"
+                  : "text-neutral-600 hover:text-neutral-900"
+              }`}
+            >
+              All
+            </button>
+            <button
+              onClick={() => setFoodTypeFilter("veg")}
+              className={`px-2.5 py-1.5 rounded-lg text-[11px] font-bold transition-all flex items-center gap-1 cursor-pointer ${
+                foodTypeFilter === "veg"
+                  ? "bg-emerald-600 text-white shadow-xs"
+                  : "text-neutral-600 hover:text-emerald-700"
+              }`}
+            >
+              <span className="w-2 h-2 rounded-full bg-emerald-500" />
+              Veg
+            </button>
+            <button
+              onClick={() => setFoodTypeFilter("non_veg")}
+              className={`px-2.5 py-1.5 rounded-lg text-[11px] font-bold transition-all flex items-center gap-1 cursor-pointer ${
+                foodTypeFilter === "non_veg"
+                  ? "bg-red-600 text-white shadow-xs"
+                  : "text-neutral-600 hover:text-red-700"
+              }`}
+            >
+              <span className="w-2 h-2 rounded-full bg-red-500" />
+              Non-Veg
+            </button>
+          </div>
+
+          <div className="relative w-full sm:w-[170px]">
             <Search
               className="absolute left-3 top-2.5 text-neutral-400"
               size={13}
@@ -686,6 +750,24 @@ export default function HomePage() {
                         }}
                         className={`w-full h-full object-cover transition-transform duration-300 ${!isOutOfStock ? "group-hover:scale-105" : "grayscale"}`}
                       />
+                      {/* Indian Food Type Badge */}
+                      <div className="absolute top-2 left-2 bg-white/95 rounded p-0.5 shadow-xs border border-neutral-200">
+                        <span
+                          className={`block w-2.5 h-2.5 rounded-full ${
+                            item.foodType === "non_veg"
+                              ? "bg-red-600"
+                              : item.foodType === "egg"
+                              ? "bg-amber-500"
+                              : "bg-emerald-600"
+                          }`}
+                        />
+                      </div>
+                      {/* Shortcode Badge */}
+                      {item.shortcode && (
+                        <span className="absolute top-2 right-2 bg-neutral-900/80 text-white text-[8px] font-900 px-1.5 py-0.5 rounded shadow-sm">
+                          {item.shortcode}
+                        </span>
+                      )}
                       {/* Out of Stock Overlay */}
                       {isOutOfStock && (
                         <div className="absolute inset-0 bg-neutral-900/50 z-20 flex items-center justify-center">
@@ -696,7 +778,7 @@ export default function HomePage() {
                       )}
                       {/* Badge (e.g. Popular, New) */}
                       {item.badge && !isOutOfStock && (
-                        <span className="absolute top-2 left-2 bg-brand-primary text-white text-[8px] sm:text-[8.5px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded-md flex items-center gap-0.5 shadow-sm">
+                        <span className="absolute bottom-2 left-2 bg-brand-primary text-white text-[8px] sm:text-[8.5px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded-md flex items-center gap-0.5 shadow-sm">
                           <Flame
                             size={9}
                             className="fill-white animate-pulse"
@@ -707,94 +789,86 @@ export default function HomePage() {
                     </div>
 
                     {/* Food Info */}
-                    <div className="flex-1 flex flex-col justify-between gap-1.5 sm:gap-3 min-w-0">
+                    <div className="flex-1 flex flex-col justify-between gap-1.5 sm:gap-2 min-w-0">
                       <div>
-                        <h3
-                          className={`text-xs sm:text-[13px] font-extrabold leading-snug truncate sm:whitespace-normal ${isOutOfStock ? "text-neutral-450" : "text-neutral-800 group-hover:text-brand-primary transition-colors"}`}
-                        >
-                          {item.name}
-                        </h3>
-                        <p className="text-[9.5px] sm:text-[10px] text-neutral-400 font-medium leading-relaxed mt-1 sm:mt-1.5 line-clamp-2">
+                        <div className="flex items-center gap-1.5">
+                          <h3
+                            className={`text-xs sm:text-[13px] font-extrabold leading-snug truncate sm:whitespace-normal ${isOutOfStock ? "text-neutral-450" : "text-neutral-800 group-hover:text-brand-primary transition-colors"}`}
+                          >
+                            {item.name}
+                          </h3>
+                          {item.isJainAvailable && (
+                            <span className="text-[8.5px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-1 rounded shrink-0">
+                              Jain
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-[9.5px] sm:text-[10px] text-neutral-400 font-medium leading-relaxed mt-1 line-clamp-2">
                           {item.description}
                         </p>
                       </div>
 
-                      {/* Pricing & CTA Button */}
-                      <div className="flex justify-between items-center mt-1 border-t border-neutral-50 pt-2 sm:pt-2.5">
-                        <div>
-                          <p className="text-[8.5px] sm:text-[10px] text-neutral-400 font-bold uppercase tracking-wider">
-                            Price
+                      {/* Pricing & 1-Tap Variant Selection or Direct Add */}
+                      {item.pricingType === "variant" && item.variants && item.variants.length > 0 ? (
+                        <div className="mt-1 border-t border-neutral-100 pt-2">
+                          <p className="text-[8.5px] text-neutral-400 font-bold uppercase tracking-wider mb-1">
+                            Choose Variant
                           </p>
-                          <div className="flex items-center gap-1.5">
-                            {(() => {
-                              const today = getCanadaDayName().toLowerCase();
-                              const prodId = (item.id || (item as any)._id || item.productId) as string;
-                              const deals = (item as any).dealsOfTheDay || [];
-                              const matchedDeal = deals.find(
-                                (d: any) =>
-                                  d.isActive &&
-                                  d.dayOfWeek?.toLowerCase() === today &&
-                                  (d.productId === prodId ||
-                                    (d.productId as any)?._id === prodId ||
-                                    (d.productId as any)?.id === prodId ||
-                                    !d.productId),
-                              );
-                              const szConfig = matchedDeal?.sizes?.find(
-                                (s: any) =>
-                                  s.isEnabled &&
-                                  typeof s.dealPrice === "number" &&
-                                  s.dealPrice > 0,
-                              );
-                              const dealPrice = szConfig ? szConfig.dealPrice : null;
-
-                              if (dealPrice !== null) {
-                                return (
-                                  <>
-                                    <span className="text-[10px] text-neutral-400 line-through">
-                                      ${item.price.toFixed(2)}
-                                    </span>
-                                    <span className="text-[12px] sm:text-[14px] font-black text-brand-primary">
-                                      🔥 ${dealPrice.toFixed(2)}
-                                    </span>
-                                  </>
-                                );
-                              }
-
-                              return (
-                                <span
-                                  className={`text-[12px] sm:text-[14px] font-black ${
-                                    isOutOfStock
-                                      ? "text-neutral-400"
-                                      : "text-neutral-800"
-                                  }`}
-                                >
-                                  ${item.price.toFixed(2)}
+                          <div className="flex flex-wrap gap-1">
+                            {item.variants.map((v, vIdx) => (
+                              <button
+                                key={vIdx}
+                                type="button"
+                                disabled={isOutOfStock}
+                                onClick={() => addVariantToCart(item, v)}
+                                className="px-2 py-1 rounded-lg bg-orange-50/70 hover:bg-brand-primary hover:text-white text-neutral-800 border border-orange-200/80 text-[10px] sm:text-[11px] font-800 transition-all cursor-pointer shadow-2xs active:scale-95 flex items-center gap-1"
+                              >
+                                <span>{v.name}</span>
+                                <span className="font-900 text-brand-primary group-hover:text-white">
+                                  ₹{v.price}
                                 </span>
-                              );
-                            })()}
+                              </button>
+                            ))}
                           </div>
                         </div>
-                        <button
-                          onClick={() =>
-                            !isOutOfStock && handleOpenModifiers(item)
-                          }
-                          disabled={isOutOfStock}
-                          className={`px-2.5 py-1.5 sm:p-2.5 rounded-lg sm:rounded-xl shadow-md transition-all flex items-center justify-center gap-1 font-bold text-[10px] sm:text-xs ${
-                            isOutOfStock
-                              ? "bg-neutral-200 border border-neutral-350 text-neutral-400 cursor-not-allowed shadow-none"
-                              : "bg-brand-primary text-white hover:bg-brand-primary-hover shadow-brand-primary/10 active:scale-90 cursor-pointer"
-                          }`}
-                        >
-                          {!isOutOfStock ? (
-                            <>
-                              <Plus size={12} strokeWidth={3} />
-                              <span>{hasModifiers ? "Customize" : "Add"}</span>
-                            </>
-                          ) : (
-                            <span>Out of stock</span>
-                          )}
-                        </button>
-                      </div>
+                      ) : (
+                        <div className="flex justify-between items-center mt-1 border-t border-neutral-50 pt-2 sm:pt-2.5">
+                          <div>
+                            <p className="text-[8.5px] sm:text-[10px] text-neutral-400 font-bold uppercase tracking-wider">
+                              Price
+                            </p>
+                            <span
+                              className={`text-[12px] sm:text-[14px] font-black ${
+                                isOutOfStock
+                                  ? "text-neutral-400"
+                                  : "text-neutral-800"
+                              }`}
+                            >
+                              ₹{item.price.toFixed(2)}
+                            </span>
+                          </div>
+                          <button
+                            onClick={() =>
+                              !isOutOfStock && handleOpenModifiers(item)
+                            }
+                            disabled={isOutOfStock}
+                            className={`px-3 py-1.5 sm:px-3 sm:py-2 rounded-lg sm:rounded-xl shadow-md transition-all flex items-center justify-center gap-1 font-bold text-[10px] sm:text-xs ${
+                              isOutOfStock
+                                ? "bg-neutral-200 border border-neutral-350 text-neutral-400 cursor-not-allowed shadow-none"
+                                : "bg-brand-primary text-white hover:bg-brand-primary-hover shadow-brand-primary/10 active:scale-90 cursor-pointer"
+                            }`}
+                          >
+                            {!isOutOfStock ? (
+                              <>
+                                <Plus size={12} strokeWidth={3} />
+                                <span>{hasModifiers ? "Customize" : "Add"}</span>
+                              </>
+                            ) : (
+                              <span>Out of stock</span>
+                            )}
+                          </button>
+                        </div>
+                      )}
                     </div>
                   </div>
                 );
@@ -845,9 +919,41 @@ export default function HomePage() {
                 <div key={cartItem.id} className="py-3 flex flex-col gap-1.5">
                   <div className="flex items-start gap-2 justify-between">
                     <div>
-                      <h4 className="text-[11px] font-extrabold text-neutral-800 leading-snug">
-                        {cartItem.name}
-                      </h4>
+                      <div className="flex items-center gap-1.5">
+                        {cartItem.foodType && (
+                          <span
+                            className={`w-2 h-2 rounded-full shrink-0 ${
+                              cartItem.foodType === "non_veg"
+                                ? "bg-red-600"
+                                : cartItem.foodType === "egg"
+                                ? "bg-amber-500"
+                                : "bg-emerald-600"
+                            }`}
+                          />
+                        )}
+                        <h4 className="text-[11px] font-extrabold text-neutral-800 leading-snug">
+                          {cartItem.name}
+                        </h4>
+                      </div>
+
+                      {/* Selected Variant */}
+                      {cartItem.selectedVariant?.name && (
+                        <p className="text-[9.5px] font-bold text-brand-primary mt-0.5">
+                          Variant: {cartItem.selectedVariant.name}
+                        </p>
+                      )}
+
+                      {/* Selected Addons */}
+                      {cartItem.selectedAddons && cartItem.selectedAddons.length > 0 && (
+                        <div className="text-[9px] text-neutral-500 mt-0.5 space-y-0.5">
+                          {cartItem.selectedAddons.map((addon, aIdx) => (
+                            <p key={aIdx}>
+                              + {addon.name} (₹{addon.price})
+                            </p>
+                          ))}
+                        </div>
+                      )}
+
                       {/* Selected modifiers display */}
                       {cartItem.selectedModifiers.length > 0 && (
                         <div className="text-[9px] text-neutral-400 mt-1 space-y-0.5">
@@ -859,7 +965,7 @@ export default function HomePage() {
                               <span className="text-brand-primary">•</span>
                               <span>{mod.optionName}</span>
                               {mod.price > 0 && (
-                                <span>(+${mod.price.toFixed(2)})</span>
+                                <span>(+₹{mod.price.toFixed(2)})</span>
                               )}
                             </p>
                           ))}
@@ -872,7 +978,7 @@ export default function HomePage() {
                       )}
                     </div>
                     <span className="text-xs font-extrabold text-neutral-700 ml-auto flex-shrink-0">
-                      ${cartItem.totalPrice.toFixed(2)}
+                      ₹{cartItem.totalPrice.toFixed(2)}
                     </span>
                   </div>
 
@@ -924,22 +1030,22 @@ export default function HomePage() {
             <div className="border-t border-neutral-200/80 pt-3.5 space-y-2 flex-shrink-0">
               <div className="flex justify-between text-[11px] text-neutral-500 font-semibold">
                 <span>Subtotal</span>
-                <span>${subtotal.toFixed(2)}</span>
+                <span>₹{subtotal.toFixed(2)}</span>
               </div>
               {orderType === "delivery" && (
                 <div className="flex justify-between text-[11px] text-neutral-500 font-semibold">
                   <span>Delivery Fee</span>
-                  <span>${deliveryFee.toFixed(2)}</span>
+                  <span>₹{deliveryFee.toFixed(2)}</span>
                 </div>
               )}
               <div className="flex justify-between text-[11px] text-neutral-500 font-semibold">
                 <span>GST ({branchTaxRate}%)</span>
-                <span>${tax.toFixed(2)}</span>
+                <span>₹{tax.toFixed(2)}</span>
               </div>
               <div className="flex justify-between text-xs font-black text-neutral-800 border-t border-neutral-100 pt-2 flex-shrink-0">
                 <span>Total Amount</span>
                 <span className="text-sm text-brand-primary">
-                  ${total.toFixed(2)}
+                  ₹{total.toFixed(2)}
                 </span>
               </div>
 
@@ -986,9 +1092,41 @@ export default function HomePage() {
                   <div key={cartItem.id} className="py-3 flex flex-col gap-1.5">
                     <div className="flex items-start gap-2 justify-between">
                       <div>
-                        <h4 className="text-[11px] font-extrabold text-neutral-800 leading-snug">
-                          {cartItem.name}
-                        </h4>
+                        <div className="flex items-center gap-1.5">
+                          {cartItem.foodType && (
+                            <span
+                              className={`w-2 h-2 rounded-full shrink-0 ${
+                                cartItem.foodType === "non_veg"
+                                  ? "bg-red-600"
+                                  : cartItem.foodType === "egg"
+                                  ? "bg-amber-500"
+                                  : "bg-emerald-600"
+                              }`}
+                            />
+                          )}
+                          <h4 className="text-[11px] font-extrabold text-neutral-800 leading-snug">
+                            {cartItem.name}
+                          </h4>
+                        </div>
+
+                        {/* Selected Variant */}
+                        {cartItem.selectedVariant?.name && (
+                          <p className="text-[9.5px] font-bold text-brand-primary mt-0.5">
+                            Variant: {cartItem.selectedVariant.name}
+                          </p>
+                        )}
+
+                        {/* Selected Addons */}
+                        {cartItem.selectedAddons && cartItem.selectedAddons.length > 0 && (
+                          <div className="text-[9px] text-neutral-500 mt-0.5 space-y-0.5">
+                            {cartItem.selectedAddons.map((addon, aIdx) => (
+                              <p key={aIdx}>
+                                + {addon.name} (₹{addon.price})
+                              </p>
+                            ))}
+                          </div>
+                        )}
+
                         {cartItem.selectedModifiers.length > 0 && (
                           <div className="text-[9px] text-neutral-400 mt-1 space-y-0.5">
                             {cartItem.selectedModifiers.map((mod) => (
@@ -999,7 +1137,7 @@ export default function HomePage() {
                                 <span className="text-brand-primary">•</span>
                                 <span>{mod.optionName}</span>
                                 {mod.price > 0 && (
-                                  <span>(+${mod.price.toFixed(2)})</span>
+                                  <span>(+₹{mod.price.toFixed(2)})</span>
                                 )}
                               </p>
                             ))}
@@ -1012,7 +1150,7 @@ export default function HomePage() {
                         )}
                       </div>
                       <span className="text-xs font-extrabold text-neutral-700 ml-auto flex-shrink-0">
-                        ${cartItem.totalPrice.toFixed(2)}
+                        ₹{cartItem.totalPrice.toFixed(2)}
                       </span>
                     </div>
 
@@ -1063,22 +1201,22 @@ export default function HomePage() {
               <div className="border-t border-neutral-200 pt-3.5 space-y-2 flex-shrink-0">
                 <div className="flex justify-between text-[11px] text-neutral-500 font-semibold">
                   <span>Subtotal</span>
-                  <span>${subtotal.toFixed(2)}</span>
+                  <span>₹{subtotal.toFixed(2)}</span>
                 </div>
                 {orderType === "delivery" && (
                   <div className="flex justify-between text-[11px] text-neutral-500 font-semibold">
                     <span>Delivery Fee</span>
-                    <span>${deliveryFee.toFixed(2)}</span>
+                    <span>₹{deliveryFee.toFixed(2)}</span>
                   </div>
                 )}
                 <div className="flex justify-between text-[11px] text-neutral-500 font-semibold">
                   <span>GST ({branchTaxRate}%)</span>
-                  <span>${tax.toFixed(2)}</span>
+                  <span>₹{tax.toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between text-xs font-black text-neutral-800 border-t border-neutral-100 pt-2">
                   <span>Total Amount</span>
                   <span className="text-sm text-brand-primary">
-                    ${total.toFixed(2)}
+                    ₹{total.toFixed(2)}
                   </span>
                 </div>
 
@@ -1114,7 +1252,7 @@ export default function HomePage() {
               My Bag Total
             </p>
             <p className="text-[13px] font-black text-neutral-800">
-              ${total.toFixed(2)}&nbsp;
+              ₹{total.toFixed(2)}&nbsp;
               <span className="text-[10px] text-neutral-400 font-normal">
                 ({cartItems.reduce((acc, curr) => acc + curr.quantity, 0)} item
                 {cartItems.length !== 1 ? "s" : ""})

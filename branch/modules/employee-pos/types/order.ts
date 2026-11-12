@@ -24,7 +24,7 @@ export interface TableInfo {
 }
 
 export interface SplitPayment {
-  method: "cash" | "card" | "credit" | "debit" | "interac";
+  method: "cash" | "card" | "credit" | "debit" | "interac" | "upi";
   amount: number;
   personName?: string;
   cashGiven?: number;
@@ -45,6 +45,7 @@ export interface PromoApplied {
 }
 
 export interface Order {
+  branchName?: string;
   hasPizza: boolean;
   hasWings: boolean;
   refundedAt: any;

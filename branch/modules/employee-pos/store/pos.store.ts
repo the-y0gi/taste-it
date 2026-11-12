@@ -17,6 +17,7 @@ import {
 interface PosState {
   // ── Menu / Category ─────────────────────────────────────────
   selectedCategory: string;
+  foodTypeFilter: "all" | "veg" | "non_veg" | "egg";
   search: string;
   sortBy: string;
   categories: Category[];
@@ -49,7 +50,7 @@ interface PosState {
   // ── Payment ──────────────────────────────────────────────────
   paymentTiming: "pay-now" | "pay-later";
   paymentType: "one-time" | "split";
-  paymentMethod: "cash" | "card" | "credit" | "debit";
+  paymentMethod: "cash" | "card" | "credit" | "debit" | "upi";
   splitPayments: SplitPayment[];
   cashDenominations: Record<number, number>;
   cashGiven: number;
@@ -80,6 +81,7 @@ interface PosState {
 
   // ── Actions ──────────────────────────────────────────────────
   setCategory: (category: string) => void;
+  setFoodTypeFilter: (filter: "all" | "veg" | "non_veg" | "egg") => void;
   setSearch: (query: string) => void;
   setSort: (sort: string) => void;
   setOrderType: (
@@ -93,6 +95,12 @@ interface PosState {
     selectedModifiers: SelectedModifier[],
     quantity?: number,
     note?: string,
+    variant?: { name: string; price: number },
+    addons?: { name: string; price: number }[],
+  ) => void;
+  addVariantToCart: (
+    menuItem: MenuItem,
+    variant: { name: string; price: number },
   ) => void;
   removeFromCart: (cartItemId: string) => void;
   increaseQuantity: (cartItemId: string) => void;
@@ -111,7 +119,7 @@ interface PosState {
   resetCheckoutState: () => void;
   setPaymentTiming: (timing: "pay-now" | "pay-later") => void;
   setPaymentType: (type: "one-time" | "split") => void;
-  setPaymentMethod: (method: "cash" | "card" | "credit" | "debit") => void;
+  setPaymentMethod: (method: "cash" | "card" | "credit" | "debit" | "upi") => void;
   setCashDenomination: (denom: number, qty: number) => void;
   setCashGiven: (amount: number) => void;
   addSplitPayment: (payment: SplitPayment) => void;
@@ -144,13 +152,15 @@ const generateCartItemId = (
   menuItemId: string,
   modifiers: SelectedModifier[],
   name?: string,
+  variantName?: string,
 ): string => {
   const sortedOptionIds = modifiers
     .map((m) => `${m.optionId}_${m.price}`)
     .sort()
     .join("-");
   const nameSlug = name ? name.toLowerCase().replace(/[^a-z0-9]/g, "") : "";
-  const baseKey = nameSlug ? `${menuItemId}_${nameSlug}` : menuItemId;
+  const varSlug = variantName ? `_v_${variantName.toLowerCase().replace(/[^a-z0-9]/g, "")}` : "";
+  const baseKey = nameSlug ? `${menuItemId}_${nameSlug}${varSlug}` : `${menuItemId}${varSlug}`;
   return sortedOptionIds ? `${baseKey}-${sortedOptionIds}` : baseKey;
 };
 
@@ -247,6 +257,7 @@ const getInitialCategoryState = (): string => {
 export const usePosStore = create<PosState>((set, get) => ({
   // ── Initial State ────────────────────────────────────────────
   selectedCategory: getInitialCategoryState(),
+  foodTypeFilter: "all",
   search: "",
   sortBy: "default",
   orderType: "takeout",
@@ -348,16 +359,30 @@ export const usePosStore = create<PosState>((set, get) => ({
   },
   setTable: (table) => set({ selectedTable: table }),
   setVehicle: (vehicle) => set({ selectedVehicle: vehicle }),
+  setFoodTypeFilter: (filter) => set({ foodTypeFilter: filter }),
 
   // ── Cart ─────────────────────────────────────────────────────
-  addToCart: (menuItem, selectedModifiers, quantity = 1, note = "") => {
+  addVariantToCart: (menuItem, variant) => {
+    get().addToCart(menuItem, [], 1, "", variant);
+  },
+  addToCart: (menuItem, selectedModifiers, quantity = 1, note = "", variant, addons) => {
     const { cartItems } = get();
-    const cartItemId = generateCartItemId(menuItem.id, selectedModifiers, menuItem.name);
+    const effectiveBasePrice = variant ? variant.price : menuItem.price;
+    const cartItemId = generateCartItemId(
+      menuItem.id,
+      selectedModifiers,
+      menuItem.name,
+      variant?.name,
+    );
     const modifierSum = selectedModifiers.reduce(
       (sum, mod) => sum + mod.price,
       0,
     );
-    const itemUnitCost = menuItem.price + modifierSum;
+    const addonsSum = (addons || []).reduce(
+      (sum, a) => sum + a.price,
+      0,
+    );
+    const itemUnitCost = effectiveBasePrice + modifierSum + addonsSum;
     const existingIndex = cartItems.findIndex((item) => item.id === cartItemId);
     let updatedCartItems = [...cartItems];
 
@@ -380,7 +405,7 @@ export const usePosStore = create<PosState>((set, get) => ({
         (menuItem as any).category ||
         "";
 
-      let currentRootStation: any = menuItem.kitchenLabel || "make_table";
+      let currentRootStation: any = menuItem.kitchenLabel || "general";
       const stampedModifiers = selectedModifiers.map((mod) => {
         const modLabelMapping = (menuItem.modifierKitchenLabels || []).find((m) => m.groupId === mod.groupId);
         const mappedLabel = modLabelMapping?.kitchenLabel || mod.kitchenLabel;
@@ -397,19 +422,27 @@ export const usePosStore = create<PosState>((set, get) => ({
         };
       });
 
+      const displayName = variant?.name
+        ? `${menuItem.name} (${variant.name})`
+        : menuItem.name;
+
       const newItem: CartItem = {
         id: cartItemId,
         menuItemId: menuItem.id,
         categoryId: menuItem.categoryId,
         categoryName: categoryName,
-        name: menuItem.name,
+        name: displayName,
+        foodType: menuItem.foodType || "veg",
+        shortcode: menuItem.shortcode || "",
         image: menuItem.image,
-        basePrice: menuItem.price,
+        basePrice: effectiveBasePrice,
+        selectedVariant: variant,
+        selectedAddons: addons || [],
         selectedModifiers: stampedModifiers,
         quantity,
         totalPrice: roundToTwo(itemUnitCost * quantity),
         note,
-        kitchenLabel: menuItem.kitchenLabel || "make_table",
+        kitchenLabel: menuItem.kitchenLabel || "general",
       };
       updatedCartItems.push(newItem);
     }

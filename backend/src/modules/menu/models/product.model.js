@@ -1,6 +1,12 @@
 const mongoose = require('mongoose');
 
 const productSchema = new mongoose.Schema({
+  branchId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Branch',
+    default: null,
+    index: true,
+  },
   categoryId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Category',
@@ -10,6 +16,27 @@ const productSchema = new mongoose.Schema({
     type: String,
     required: [true, 'Product name is required'],
     trim: true,
+  },
+  shortcode: {
+    type: String,
+    trim: true,
+    default: '',
+    uppercase: true,
+  },
+  foodType: {
+    type: String,
+    enum: ['veg', 'non_veg', 'egg'],
+    default: 'veg',
+    index: true,
+  },
+  isJainAvailable: {
+    type: Boolean,
+    default: false,
+  },
+  pricingType: {
+    type: String,
+    enum: ['single', 'variant'],
+    default: 'single',
   },
   description: {
     type: String,
@@ -37,7 +64,7 @@ const productSchema = new mongoose.Schema({
   itemType: {
     type: String,
     enum: ['simple', 'combo'],
-    default: 'combo',
+    default: 'simple',
   },
   isHalfAndHalf: {
     type: Boolean,
@@ -48,10 +75,16 @@ const productSchema = new mongoose.Schema({
     default: false,
   },
   variants: [{
-    sizeCode: { type: String, required: true },
-    sizeName: { type: String, required: true },
+    name: { type: String, default: '' },
+    sizeCode: { type: String, default: '' },
+    sizeName: { type: String, default: '' },
     price: { type: Number, required: true },
     isDefault: { type: Boolean, default: false },
+    isEnabled: { type: Boolean, default: true },
+  }],
+  addons: [{
+    name: { type: String, required: true },
+    price: { type: Number, required: true },
     isEnabled: { type: Boolean, default: true },
   }],
   includedToppings: [{
@@ -72,8 +105,11 @@ const productSchema = new mongoose.Schema({
   },
   kitchenLabel: {
     type: String,
-    enum: ['make_table', 'wings_station', 'pizza', 'chicken'],
-    default: 'make_table',
+    enum: [
+      'make_table', 'wings_station', 'pizza', 'chicken',
+      'tandoor', 'chinese', 'main_kitchen', 'beverages', 'fast_food', 'general'
+    ],
+    default: 'general',
   },
   modifierKitchenLabels: [{
     groupId: {
@@ -143,6 +179,9 @@ productSchema.set('toJSON', { virtuals: true });
 productSchema.set('toObject', { virtuals: true });
 
 productSchema.index({ categoryId: 1 });
+productSchema.index({ branchId: 1, categoryId: 1, isActive: 1 });
+productSchema.index({ branchId: 1, foodType: 1 });
+productSchema.index({ branchId: 1, shortcode: 1 });
 productSchema.index({ isActive: 1 });
 productSchema.index({ name: 1 });
 productSchema.index({ isActive: 1, categoryId: 1 });

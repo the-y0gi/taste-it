@@ -17,9 +17,13 @@ const clearPOSMenuCache = () => {
   }
 };
 
-exports.getAllCategories = async () => {
+exports.getAllCategories = async (query = {}) => {
   try {
-    return await Category.find().sort({ displayOrder: 1 }).lean();
+    const filter = {};
+    if (query && query.branchId) {
+      filter.$or = [{ branchId: query.branchId }, { branchId: null }];
+    }
+    return await Category.find(filter).sort({ displayOrder: 1 }).lean();
   } catch (error) {
     logger.error(`Menu Service Error: getAllCategories - ${error.message}`);
     throw error;
@@ -28,10 +32,13 @@ exports.getAllCategories = async () => {
 
 exports.createCategory = async (categoryData) => {
   try {
-    const { slug } = categoryData;
-    const existing = await Category.findOne({ slug });
+    const { slug, branchId } = categoryData;
+    const existing = await Category.findOne({
+      slug,
+      branchId: branchId || null,
+    });
     if (existing) {
-      throw new Error("Slug already exists.");
+      throw new Error("Category with this slug already exists for this branch.");
     }
     const category = await Category.create(categoryData);
     clearPOSMenuCache();
@@ -129,17 +136,34 @@ exports.deleteModifierGroup = async (id) => {
 
 exports.getAllProducts = async (query = {}) => {
   try {
+    const filter = {};
+    if (query.branchId) {
+      filter.$or = [{ branchId: query.branchId }, { branchId: null }];
+    }
+    if (query.categoryId) {
+      filter.categoryId = query.categoryId;
+    }
+    if (query.foodType) {
+      filter.foodType = query.foodType;
+    }
+    if (query.search) {
+      filter.$or = [
+        { name: { $regex: query.search, $options: "i" } },
+        { shortcode: { $regex: query.search, $options: "i" } },
+      ];
+    }
+
     if (query.minimal === "true" || query.minimal === true) {
-      return await Product.find()
+      return await Product.find(filter)
         .select(
-          "_id name price image categoryId productId isActive kitchenLabel displayOrder disabledBranches outOfStockBranches",
+          "_id name shortcode foodType isJainAvailable pricingType price variants addons image categoryId productId isActive kitchenLabel displayOrder disabledBranches outOfStockBranches",
         )
         .populate("categoryId", "name")
         .sort({ displayOrder: 1, name: 1 })
         .lean();
     }
 
-    return await Product.find()
+    return await Product.find(filter)
       .populate("categoryId")
       .populate({
         path: "modifierGroups",
@@ -403,9 +427,14 @@ exports.getPOSMenuFeed = async (branchId = null) => {
       return cachedPOSMenuFeed;
     }
 
-    const categoryFilter = { isActive: true };
+    let categoryFilter = { isActive: true };
     if (branchId) {
-      categoryFilter.disabledBranches = { $ne: branchId };
+      const branchHasCats = await Category.exists({ branchId, isActive: true });
+      if (branchHasCats) {
+        categoryFilter = { branchId, isActive: true };
+      } else {
+        categoryFilter = { branchId: null, isActive: true, disabledBranches: { $ne: branchId } };
+      }
     }
 
     const categories = await Category.find(categoryFilter)
@@ -413,12 +442,18 @@ exports.getPOSMenuFeed = async (branchId = null) => {
       .lean();
     const activeCategoryIds = categories.map((cat) => cat._id);
 
-    const productFilter = {
+    let productFilter = {
       isActive: true,
       categoryId: { $in: activeCategoryIds },
     };
     if (branchId) {
-      productFilter.disabledBranches = { $ne: branchId };
+      const branchHasProds = await Product.exists({ branchId, isActive: true });
+      if (branchHasProds) {
+        productFilter.branchId = branchId;
+      } else {
+        productFilter.branchId = null;
+        productFilter.disabledBranches = { $ne: branchId };
+      }
     }
 
     const products = await Product.find(productFilter)
@@ -450,6 +485,8 @@ exports.getPOSMenuFeed = async (branchId = null) => {
         image: cat.image,
         displayOrder: cat.displayOrder ?? 0,
         disabledBranches: cat.disabledBranches || [],
+        branchId: cat.branchId ? cat.branchId.toString() : null,
+        operatingHours: cat.operatingHours || { isRestricted: false, startTime: "", endTime: "" },
       })),
       menuItems: products.map((prod) => {
         const isOutOfStockForBranch =
@@ -463,31 +500,42 @@ exports.getPOSMenuFeed = async (branchId = null) => {
           productId: prod.productId || "",
           categoryId: prod.categoryId.toString(),
           name: prod.name,
+          shortcode: prod.shortcode || "",
+          foodType: prod.foodType || "veg",
+          isJainAvailable: !!prod.isJainAvailable,
+          pricingType: prod.pricingType || (prod.hasVariants ? "variant" : "single"),
           description: prod.description,
           image: prod.image,
           price: prod.price,
           badge: prod.badge,
           isPopular: prod.isPopular,
-          kitchenLabel: prod.kitchenLabel || "make_table",
+          kitchenLabel: prod.kitchenLabel || "general",
           modifierKitchenLabels: (prod.modifierKitchenLabels || []).map((m) => ({
             groupId: m.groupId ? m.groupId.toString() : "",
-            kitchenLabel: m.kitchenLabel || "make_table",
+            kitchenLabel: m.kitchenLabel || "general",
           })),
           modifierSizeCodes: (prod.modifierSizeCodes || []).map((m) => ({
             groupId: m.groupId ? m.groupId.toString() : "",
             sizeCode: m.sizeCode || "medium",
           })),
           displayOrder: prod.displayOrder ?? 0,
-          itemType: prod.itemType,
-          hasVariants: !!prod.hasVariants,
+          itemType: prod.itemType || "simple",
+          hasVariants: !!prod.hasVariants || (prod.variants && prod.variants.length > 0),
           isHalfAndHalf: !!prod.isHalfAndHalf,
           variants: (prod.variants || []).map((v) => ({
-            sizeCode: v.sizeCode,
-            sizeName: v.sizeName,
+            name: v.name || v.sizeName || "",
+            sizeCode: v.sizeCode || "",
+            sizeName: v.sizeName || v.name || "",
             price: v.price,
             isDefault: !!v.isDefault,
             isEnabled: v.isEnabled !== false,
           })),
+          addons: (prod.addons || []).map((a) => ({
+            name: a.name,
+            price: a.price,
+            isEnabled: a.isEnabled !== false,
+          })),
+          branchId: prod.branchId ? prod.branchId.toString() : null,
           includedToppings: (prod.includedToppings || []).map((it) => ({
             groupId: it.groupId ? it.groupId.toHexString() : "",
             optionId: it.optionId ? it.optionId.toHexString() : "",
@@ -495,7 +543,7 @@ exports.getPOSMenuFeed = async (branchId = null) => {
           isOutOfStock: !!isOutOfStockForBranch,
           disabledBranches: prod.disabledBranches || [],
           outOfStockBranches: prod.outOfStockBranches || [],
-          modifierGroups: prod.modifierGroups.map((g) => ({
+          modifierGroups: (prod.modifierGroups || []).map((g) => ({
             id: g._id.toHexString(),
             name: g.name,
             required: g.required,

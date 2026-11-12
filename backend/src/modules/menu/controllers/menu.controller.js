@@ -10,7 +10,11 @@ const handleError = (res, error, status = 400) => {
 
 exports.getCategories = async (req, res) => {
   try {
-    const categories = await menuService.getAllCategories();
+    const query = { ...req.query };
+    if (!query.branchId && req.activeBranchId) {
+      query.branchId = req.activeBranchId;
+    }
+    const categories = await menuService.getAllCategories(query);
     res.status(200).json({ success: true, data: categories });
   } catch (error) {
     handleError(res, error, 500);
@@ -19,7 +23,11 @@ exports.getCategories = async (req, res) => {
 
 exports.createCategory = async (req, res) => {
   try {
-    const category = await menuService.createCategory(req.body);
+    const payload = { ...req.body };
+    if (!payload.branchId && req.activeBranchId) {
+      payload.branchId = req.activeBranchId;
+    }
+    const category = await menuService.createCategory(payload);
     res.status(201).json({ success: true, data: category });
   } catch (error) {
     handleError(res, error, 400);
@@ -89,7 +97,11 @@ exports.deleteModifierGroup = async (req, res) => {
 
 exports.getProducts = async (req, res) => {
   try {
-    const products = await menuService.getAllProducts(req.query);
+    const query = { ...req.query };
+    if (!query.branchId && req.activeBranchId) {
+      query.branchId = req.activeBranchId;
+    }
+    const products = await menuService.getAllProducts(query);
     res.status(200).json({ success: true, data: products });
   } catch (error) {
     handleError(res, error, 500);
@@ -138,7 +150,11 @@ exports.toggleProductStock = async (req, res) => {
 
 exports.createProduct = async (req, res) => {
   try {
-    const product = await menuService.createProduct(req.body);
+    const payload = { ...req.body };
+    if (!payload.branchId && req.activeBranchId) {
+      payload.branchId = req.activeBranchId;
+    }
+    const product = await menuService.createProduct(payload);
     res.status(201).json({ success: true, data: product });
   } catch (error) {
     handleError(res, error, 400);
@@ -168,8 +184,8 @@ exports.deleteProduct = async (req, res) => {
 
 exports.getPOSMenu = async (req, res) => {
   try {
-    const { branchId } = req.query;
-    const feedData = await menuService.getPOSMenuFeed(branchId || null);
+    const branchId = req.query.branchId || req.activeBranchId || null;
+    const feedData = await menuService.getPOSMenuFeed(branchId);
     res.status(200).json({ success: true, data: feedData });
   } catch (error) {
     handleError(res, error, 500);

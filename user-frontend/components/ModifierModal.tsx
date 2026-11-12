@@ -695,15 +695,15 @@ export default function ModifierModal({
                             return (
                               <span className="flex items-center gap-1">
                                 <span className="line-through text-neutral-400 font-normal text-[9px]">
-                                  +${opt.price.toFixed(2)}
+                                  +₹{opt.price.toFixed(2)}
                                 </span>
                                 <span className="font-bold text-brand-primary">
-                                  🔥 +${dealP.toFixed(2)}
+                                  🔥 +₹{dealP.toFixed(2)}
                                 </span>
                               </span>
                             );
                           }
-                          return `+$${optPrice.toFixed(2)}`;
+                          return `+₹${optPrice.toFixed(2)}`;
                         })()}
                       </div>
                     ) : null}
@@ -795,7 +795,7 @@ export default function ModifierModal({
                     </span>
                   ) : optPrice > 0 ? (
                     <span className="text-[9.5px] text-neutral-400 shrink-0">
-                      +${optPrice.toFixed(2)}
+                      +₹{optPrice.toFixed(2)}
                     </span>
                   ) : null}
                 </div>
@@ -992,7 +992,7 @@ export default function ModifierModal({
                   {item.name}
                 </h4>
                 <p className="text-[10px] font-semibold text-brand-primary mt-1.5">
-                  Base Price: ${item.price.toFixed(2)}
+                  Base Price: ₹{item.price.toFixed(2)}
                 </p>
               </div>
             </div>
@@ -1070,7 +1070,7 @@ export default function ModifierModal({
                   : "bg-neutral-200 text-neutral-400 cursor-not-allowed shadow-none"
               }`}
             >
-              Add to Order&nbsp;·&nbsp;${getLivePrice().toFixed(2)}
+              Add to Order&nbsp;·&nbsp;₹{getLivePrice().toFixed(2)}
             </button>
           </div>
         </div>
@@ -1109,7 +1109,7 @@ export default function ModifierModal({
                 : "bg-neutral-100 text-neutral-400 cursor-not-allowed border border-neutral-200/50"
             }`}
           >
-            Add to Bag&nbsp;·&nbsp;${getLivePrice().toFixed(2)}
+            Add to Bag&nbsp;·&nbsp;₹{getLivePrice().toFixed(2)}
           </button>
         </div>
       </div>

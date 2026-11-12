@@ -95,14 +95,41 @@ function CheckoutModalInner({
   const [promoError, setPromoError] = useState("");
 
   const handleApplyPromo = async () => {
-    if (!promoCodeInput.trim()) return;
+    const rawCode = promoCodeInput.trim().toUpperCase();
+    if (!rawCode) return;
     setValidatingPromo(true);
     setPromoError("");
+
+    // Indian Promo Perks (1st order WELCOME30 - ₹30 off, share referral SHARE20 - ₹20 off)
+    if (rawCode === "WELCOME30") {
+      setAppliedPromo({
+        code: "WELCOME30",
+        description: "New User First Order Special",
+        discountType: "flat",
+        discountAmount: Math.min(30, subtotal),
+      });
+      toast.success("Welcome offer applied: -₹30 off! 🎉");
+      setValidatingPromo(false);
+      return;
+    }
+
+    if (rawCode === "SHARE20") {
+      setAppliedPromo({
+        code: "SHARE20",
+        description: "Friend Referral Share Discount",
+        discountType: "flat",
+        discountAmount: Math.min(20, subtotal),
+      });
+      toast.success("Referral discount applied: -₹20 off! 🤝");
+      setValidatingPromo(false);
+      return;
+    }
+
     try {
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api";
       const branchId = selectedBranch?._id || selectedBranch?.id;
       const res = await axios.post(`${apiUrl}/promos/validate`, {
-        code: promoCodeInput.trim(),
+        code: rawCode,
         channel: "online",
         branchId,
         subtotal,
@@ -111,7 +138,7 @@ function CheckoutModalInner({
 
       if (res.data.success && res.data.data) {
         setAppliedPromo(res.data.data);
-        toast.success(`Promo "${res.data.data.code}" applied! -$${res.data.data.discountAmount.toFixed(2)}`);
+        toast.success(`Promo "${res.data.data.code}" applied! -₹${res.data.data.discountAmount.toFixed(2)}`);
       } else {
         setPromoError(res.data.message || "Invalid promo code.");
       }
@@ -144,8 +171,8 @@ function CheckoutModalInner({
     return Math.round(taxableBase * rate * 100) / 100;
   }, [discountedSubtotal, branchTaxRate, orderType, deliveryFee]);
 
-  // Tip state ($0, $1, $3, $5, $10, custom)
-  const [tipOption, setTipOption] = useState<"0" | "1" | "3" | "5" | "10" | "custom">("3");
+  // Tip state (₹0, ₹10, ₹20, ₹30, ₹50, custom)
+  const [tipOption, setTipOption] = useState<"0" | "10" | "20" | "30" | "50" | "custom">("10");
   const [customTipInput, setCustomTipInput] = useState("");
 
   const tipAmount = useMemo(() => {
@@ -185,10 +212,10 @@ function CheckoutModalInner({
     }
   }, [branchStatus.isOpen]);
 
-  // Payment states
+  // Payment states (default to UPI in Indian restaurants)
   const [paymentMethod, setPaymentMethod] = useState<
-    "cash" | "card" | "stripe"
-  >("stripe");
+    "cash" | "card" | "stripe" | "upi"
+  >("upi");
   const [isCardComplete, setIsCardComplete] = useState(false);
   const [isCardFocused, setIsCardFocused] = useState(false);
 
@@ -450,11 +477,15 @@ function CheckoutModalInner({
         name: item.name,
         image: item.image || "",
         basePrice: item.basePrice,
+        foodType: item.foodType || "veg",
+        shortcode: item.shortcode || "",
+        selectedVariant: item.selectedVariant || undefined,
+        selectedAddons: item.selectedAddons || [],
         selectedModifiers: item.selectedModifiers,
         quantity: item.quantity,
         totalPrice: item.totalPrice,
         note: item.note || "",
-        kitchenLabel: item.kitchenLabel || 'make_table',
+        kitchenLabel: item.kitchenLabel || "main_kitchen",
       })),
       subtotal: subtotal,
       discount: promoDiscountAmount,
@@ -465,7 +496,7 @@ function CheckoutModalInner({
       deliveryFee: orderType === "delivery" ? deliveryFee : 0,
       tip: tipAmount,
       total: finalTotal,
-      paymentTiming: paymentMethod === "stripe" ? "pay-now" : "pay-later", // Stripe is paid immediately
+      paymentTiming: paymentMethod === "cash" ? "pay-later" : "pay-now",
       paymentType: "one-time",
       paymentStatus: paymentStatus,
       paymentMethod: paymentMethod, // stripe, cash, or card (terminal)
@@ -827,40 +858,125 @@ function CheckoutModalInner({
             )}
           </div>
 
-          {/* Stripe Card Element Input */}
-          <div className="space-y-2 animate-scale-up p-4 bg-neutral-50 border border-neutral-200/60 rounded-2xl">
-            <label className="block text-[9px] font-bold text-neutral-555 uppercase tracking-wide">
-              Credit or Debit Card Details *
+          {/* PAYMENT METHOD SELECTION */}
+          <div className="space-y-3 p-4 bg-neutral-50 border border-neutral-200/60 rounded-2xl">
+            <label className="block text-[9px] font-bold text-neutral-500 uppercase tracking-wider flex items-center justify-between">
+              <span>Select Payment Method *</span>
+              <span className="text-[9px] font-semibold text-emerald-600">⚡ 100% Safe & Secure</span>
             </label>
-            <div
-              className={`bg-white border rounded-xl px-3.5 py-3.5 shadow-3xs transition-all duration-200 ${
-                isCardFocused
-                  ? "border-brand-primary ring-2 ring-brand-primary/10"
-                  : "border-neutral-200 hover:border-neutral-300"
-              }`}
-            >
-              <CardElement
-                onFocus={() => setIsCardFocused(true)}
-                onBlur={() => setIsCardFocused(false)}
-                onChange={(e) => setIsCardComplete(e.complete)}
-                options={{
-                  hidePostalCode: true,
-                  style: {
-                    base: {
-                      fontSize: "13.5px",
-                      color: "#262626",
-                      fontFamily: "system-ui, -apple-system, sans-serif",
-                      "::placeholder": {
-                        color: "#a3a3a3",
-                      },
-                    },
-                    invalid: {
-                      color: "#dc2626",
-                    },
-                  },
-                }}
-              />
+
+            {/* Payment Method Pills */}
+            <div className="grid grid-cols-3 gap-2">
+              <button
+                type="button"
+                onClick={() => setPaymentMethod("upi")}
+                className={`py-3 px-2 rounded-xl border text-center transition-all cursor-pointer flex flex-col items-center justify-center gap-1 ${
+                  paymentMethod === "upi"
+                    ? "bg-purple-50 border-purple-600 text-purple-700 shadow-sm shadow-purple-100 ring-2 ring-purple-650/20"
+                    : "bg-white border-neutral-200 hover:bg-neutral-50 text-neutral-700"
+                }`}
+              >
+                <span className="text-base">📱</span>
+                <span className="text-[11px] font-black leading-tight">UPI / QR</span>
+                <span className="text-[8px] font-bold text-neutral-400">GPay, PhonePe, Paytm</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setPaymentMethod("cash")}
+                className={`py-3 px-2 rounded-xl border text-center transition-all cursor-pointer flex flex-col items-center justify-center gap-1 ${
+                  paymentMethod === "cash"
+                    ? "bg-emerald-50 border-emerald-600 text-emerald-700 shadow-sm shadow-emerald-100 ring-2 ring-emerald-600/20"
+                    : "bg-white border-neutral-200 hover:bg-neutral-50 text-neutral-700"
+                }`}
+              >
+                <span className="text-base">💵</span>
+                <span className="text-[11px] font-black leading-tight">
+                  {orderType === "delivery" ? "Cash On Delivery" : "Pay At Counter"}
+                </span>
+                <span className="text-[8px] font-bold text-neutral-400">Cash / Physical</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setPaymentMethod("stripe")}
+                className={`py-3 px-2 rounded-xl border text-center transition-all cursor-pointer flex flex-col items-center justify-center gap-1 ${
+                  paymentMethod === "stripe"
+                    ? "bg-brand-primary/10 border-brand-primary text-brand-primary shadow-sm shadow-brand-primary/10 ring-2 ring-brand-primary/20"
+                    : "bg-white border-neutral-200 hover:bg-neutral-50 text-neutral-700"
+                }`}
+              >
+                <span className="text-base">💳</span>
+                <span className="text-[11px] font-black leading-tight">Debit / Credit</span>
+                <span className="text-[8px] font-bold text-neutral-400">Visa, RuPay, MC</span>
+              </button>
             </div>
+
+            {/* UPI Payment Info */}
+            {paymentMethod === "upi" && (
+              <div className="bg-purple-50/70 border border-purple-200 rounded-xl p-3 flex items-start gap-2.5 animate-scale-up">
+                <span className="text-lg">📲</span>
+                <div className="text-[10px] text-purple-900 leading-snug">
+                  <p className="font-bold">Instant UPI QR / App Payment</p>
+                  <p className="text-purple-700/80 mt-0.5">
+                    Pay using Google Pay, PhonePe, Paytm or BHIM via QR code on delivery or at the order counter.
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* Cash Payment Info */}
+            {paymentMethod === "cash" && (
+              <div className="bg-emerald-50/70 border border-emerald-200 rounded-xl p-3 flex items-start gap-2.5 animate-scale-up">
+                <span className="text-lg">💰</span>
+                <div className="text-[10px] text-emerald-900 leading-snug">
+                  <p className="font-bold">
+                    {orderType === "delivery" ? "Cash On Delivery (COD)" : "Pay at Billing Counter"}
+                  </p>
+                  <p className="text-emerald-700/80 mt-0.5">
+                    Please keep exact change ready (₹{finalTotal.toFixed(0)}) for a smooth experience.
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* Stripe Card Element Input */}
+            {paymentMethod === "stripe" && (
+              <div className="space-y-2 animate-scale-up pt-1">
+                <label className="block text-[9px] font-bold text-neutral-500 uppercase tracking-wide">
+                  Card Details (Secure Stripe Payment) *
+                </label>
+                <div
+                  className={`bg-white border rounded-xl px-3.5 py-3.5 shadow-3xs transition-all duration-200 ${
+                    isCardFocused
+                      ? "border-brand-primary ring-2 ring-brand-primary/10"
+                      : "border-neutral-200 hover:border-neutral-300"
+                  }`}
+                >
+                  <CardElement
+                    onFocus={() => setIsCardFocused(true)}
+                    onBlur={() => setIsCardFocused(false)}
+                    onChange={(e) => setIsCardComplete(e.complete)}
+                    options={{
+                      hidePostalCode: true,
+                      style: {
+                        base: {
+                          fontSize: "13.5px",
+                          color: "#262626",
+                          fontFamily: "system-ui, -apple-system, sans-serif",
+                          "::placeholder": {
+                            color: "#a3a3a3",
+                          },
+                        },
+                        invalid: {
+                          color: "#dc2626",
+                        },
+                      },
+                    }}
+                  />
+                </div>
+              </div>
+            )}
           </div>
 
           {/* TIP SELECTION SECTION */}
@@ -868,11 +984,11 @@ function CheckoutModalInner({
             <div className="flex items-center justify-between">
               <label className="text-[10px] font-black text-neutral-500 uppercase tracking-wider flex items-center gap-1.5">
                 <Heart size={13} className="text-brand-primary fill-brand-primary/20" />
-                <span>Add Tip for Driver</span>
+                <span>Add Tip for Delivery Partner</span>
               </label>
               {tipAmount > 0 && (
                 <span className="text-xs font-black text-brand-primary">
-                  +${tipAmount.toFixed(2)}
+                  +₹{tipAmount.toFixed(0)}
                 </span>
               )}
             </div>
@@ -880,10 +996,10 @@ function CheckoutModalInner({
             <div className="grid grid-cols-5 gap-1.5">
               {[
                 { label: "No Tip", value: "0" },
-                { label: "$1", value: "1" },
-                { label: "$3", value: "3" },
-                { label: "$5", value: "5" },
-                { label: "$10", value: "10" },
+                { label: "₹10", value: "10" },
+                { label: "₹20", value: "20" },
+                { label: "₹30", value: "30" },
+                { label: "₹50", value: "50" },
               ].map((preset) => (
                 <button
                   key={preset.value}
@@ -953,7 +1069,7 @@ function CheckoutModalInner({
               <span>Have a Promo Code?</span>
               {appliedPromo && (
                 <span className="text-[9.5px] font-bold text-emerald-600">
-                  -${appliedPromo.discountAmount.toFixed(2)} OFF
+                  -₹{appliedPromo.discountAmount.toFixed(0)} OFF
                 </span>
               )}
             </label>
@@ -967,7 +1083,7 @@ function CheckoutModalInner({
                       {appliedPromo.code}
                     </p>
                     <p className="text-[9.5px] text-emerald-700 font-semibold">
-                      Saving ${appliedPromo.discountAmount.toFixed(2)} on your order
+                      Saving ₹{appliedPromo.discountAmount.toFixed(0)} on your order
                     </p>
                   </div>
                 </div>
@@ -996,7 +1112,7 @@ function CheckoutModalInner({
                         handleApplyPromo();
                       }
                     }}
-                    placeholder="Enter Promo Code (e.g. WELCOME50)"
+                    placeholder="Enter Promo Code (e.g. WELCOME30)"
                     className="w-full bg-white border border-neutral-200 rounded-xl pl-9 pr-3 py-2 text-xs font-mono font-bold text-neutral-800 uppercase tracking-wider focus:outline-none focus:border-brand-primary placeholder:font-sans placeholder:normal-case placeholder:tracking-normal placeholder:text-neutral-400"
                   />
                 </div>
@@ -1022,34 +1138,34 @@ function CheckoutModalInner({
           <div className="bg-neutral-50 p-4 rounded-2xl border border-neutral-200/50 space-y-2">
             <div className="flex justify-between text-[10px] text-neutral-500 font-semibold">
               <span>Subtotal</span>
-              <span>${subtotal.toFixed(2)}</span>
+              <span>₹{subtotal.toFixed(2)}</span>
             </div>
             {promoDiscountAmount > 0 && (
               <div className="flex justify-between text-[10px] text-amber-600 font-bold">
                 <span>Promo Discount ({appliedPromo?.code})</span>
-                <span>-${promoDiscountAmount.toFixed(2)}</span>
+                <span>-₹{promoDiscountAmount.toFixed(2)}</span>
               </div>
             )}
             {orderType === "delivery" && (
               <div className="flex justify-between text-[10px] text-neutral-500 font-semibold">
                 <span>Delivery Fee</span>
-                <span>${deliveryFee.toFixed(2)}</span>
+                <span>₹{deliveryFee.toFixed(2)}</span>
               </div>
             )}
             <div className="flex justify-between text-[10px] text-neutral-500 font-semibold">
               <span>GST ({branchTaxRate}%)</span>
-              <span>${calculatedTax.toFixed(2)}</span>
+              <span>₹{calculatedTax.toFixed(2)}</span>
             </div>
             {tipAmount > 0 && (
               <div className="flex justify-between text-[10px] text-brand-primary font-bold">
                 <span>Tip (Driver)</span>
-                <span>+${tipAmount.toFixed(2)}</span>
+                <span>+₹{tipAmount.toFixed(2)}</span>
               </div>
             )}
             <div className="flex justify-between text-xs font-black text-neutral-800 border-t border-neutral-200/70 pt-2">
               <span>Total Amount</span>
               <span className="text-sm text-brand-primary">
-                ${finalTotal.toFixed(2)}
+                ₹{finalTotal.toFixed(2)}
               </span>
             </div>
           </div>
@@ -1062,7 +1178,7 @@ function CheckoutModalInner({
               Total Order Price
             </p>
             <p className="text-[14px] font-black text-neutral-800">
-              ${finalTotal.toFixed(2)}
+              ₹{finalTotal.toFixed(2)}
             </p>
           </div>
 

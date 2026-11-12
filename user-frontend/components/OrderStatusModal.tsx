@@ -596,20 +596,52 @@ export default function OrderStatusModal({
             </div>
 
             <div className="p-4 space-y-3">
-              <div className="divide-y divide-neutral-100 max-h-[140px] overflow-y-auto pr-0.5 no-scrollbar">
+              <div className="divide-y divide-neutral-100 max-h-[160px] overflow-y-auto pr-0.5 no-scrollbar">
                 {liveOrder.items?.map((item: any, idx: number) => (
                   <div
                     key={idx}
-                    className="py-2 flex justify-between text-xs font-semibold text-neutral-700 first:pt-0 last:pb-0"
+                    className="py-2 flex justify-between items-start text-xs font-semibold text-neutral-700 first:pt-0 last:pb-0"
                   >
-                    <div className="min-w-0 pr-4">
-                      <span>{item.name}</span>
-                      <span className="text-[10px] text-neutral-400 ml-1">
-                        x{item.quantity}
-                      </span>
+                    <div className="min-w-0 pr-4 flex-1">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        {/* Food Type Dot */}
+                        {item.foodType === "non-veg" ? (
+                          <span className="w-3 h-3 rounded-sm border border-red-500 flex items-center justify-center shrink-0">
+                            <span className="w-1.5 h-1.5 rounded-full bg-red-600"></span>
+                          </span>
+                        ) : (
+                          <span className="w-3 h-3 rounded-sm border border-emerald-500 flex items-center justify-center shrink-0">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-600"></span>
+                          </span>
+                        )}
+
+                        <span className="font-bold text-neutral-800">{item.name}</span>
+
+                        {item.shortcode && (
+                          <span className="text-[9px] px-1 py-0.2 bg-neutral-100 text-neutral-500 font-mono rounded border border-neutral-200">
+                            {item.shortcode}
+                          </span>
+                        )}
+
+                        <span className="text-[10px] text-neutral-400 font-bold">
+                          x{item.quantity}
+                        </span>
+                      </div>
+
+                      {/* Variant & Addons Details */}
+                      {item.selectedVariant && (
+                        <p className="text-[10px] text-brand-primary font-bold mt-0.5">
+                          Variant: {item.selectedVariant.name} (₹{item.selectedVariant.price})
+                        </p>
+                      )}
+                      {item.selectedAddons && item.selectedAddons.length > 0 && (
+                        <p className="text-[9.5px] text-neutral-400 mt-0.5">
+                          + {item.selectedAddons.map((a: any) => `${a.name} (₹${a.price})`).join(", ")}
+                        </p>
+                      )}
                     </div>
-                    <span className="text-neutral-800 font-bold">
-                      ${item.totalPrice.toFixed(2)}
+                    <span className="text-neutral-900 font-bold shrink-0">
+                      ₹{item.totalPrice.toFixed(2)}
                     </span>
                   </div>
                 ))}
@@ -620,9 +652,17 @@ export default function OrderStatusModal({
                 <div className="flex justify-between">
                   <span>Sub Total</span>
                   <span className="text-neutral-700 font-mono">
-                    ${(liveOrder.subtotal ?? 0).toFixed(2)}
+                    ₹{(liveOrder.subtotal ?? 0).toFixed(2)}
                   </span>
                 </div>
+                {liveOrder.discount > 0 && (
+                  <div className="flex justify-between text-emerald-600">
+                    <span>Discount {liveOrder.promoCode ? `(${liveOrder.promoCode})` : ""}</span>
+                    <span className="font-mono">
+                      -₹{(liveOrder.discount ?? 0).toFixed(2)}
+                    </span>
+                  </div>
+                )}
                 {(() => {
                   const taxRatePercentage = liveOrder.taxRate
                     ? Math.round(liveOrder.taxRate * 100)
@@ -633,7 +673,7 @@ export default function OrderStatusModal({
                     <div className="flex justify-between">
                       <span>GST ({taxRatePercentage}%)</span>
                       <span className="text-neutral-700 font-mono">
-                        ${(liveOrder.tax ?? 0).toFixed(2)}
+                        ₹{(liveOrder.tax ?? 0).toFixed(2)}
                       </span>
                     </div>
                   );
@@ -642,15 +682,15 @@ export default function OrderStatusModal({
                   <div className="flex justify-between">
                     <span>Delivery Fee</span>
                     <span className="text-neutral-700 font-mono">
-                      +${(liveOrder.deliveryFee as number).toFixed(2)}
+                      +₹{(liveOrder.deliveryFee as number).toFixed(2)}
                     </span>
                   </div>
                 )}
                 {((liveOrder.tip as number | undefined) ?? 0) > 0 && (
                   <div className="flex justify-between text-brand-primary">
-                    <span>Driver Tip</span>
+                    <span>Partner Tip</span>
                     <span className="font-mono">
-                      +${(liveOrder.tip as number).toFixed(2)}
+                      +₹{(liveOrder.tip as number).toFixed(2)}
                     </span>
                   </div>
                 )}
@@ -659,7 +699,7 @@ export default function OrderStatusModal({
               <div className="border-t border-neutral-200 pt-3 flex justify-between items-center text-xs font-black text-neutral-800">
                 <span>Total Amount Paid</span>
                 <span className="text-sm text-brand-primary">
-                  ${liveOrder.total?.toFixed(2)}
+                  ₹{liveOrder.total?.toFixed(2)}
                 </span>
               </div>
             </div>

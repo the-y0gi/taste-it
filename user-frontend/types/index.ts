@@ -4,9 +4,24 @@ export interface Category {
   slug: string;
   description?: string;
   image?: string;
+  operatingHours?: string;
 }
 
 export type MenuItemType = 'simple' | 'combo' | 'modifier';
+
+export interface ProductVariant {
+  name: string;
+  price: number;
+  isDefault?: boolean;
+  sizeCode?: string;
+  sizeName?: string;
+  isEnabled?: boolean;
+}
+
+export interface ProductAddon {
+  name: string;
+  price: number;
+}
 
 export interface MenuItem {
   productId?: any;
@@ -19,11 +34,17 @@ export interface MenuItem {
   badge?: 'Popular' | 'Best Seller' | 'New' | null;
   isPopular?: boolean;
   itemType: MenuItemType;
+  foodType?: 'veg' | 'non_veg' | 'egg';
+  shortcode?: string;
+  pricingType?: 'single' | 'variant';
+  variants?: ProductVariant[];
+  addons?: ProductAddon[];
+  isJainAvailable?: boolean;
   modifierGroupIds?: string[];
   modifierGroups?: ModifierGroup[];
   includedToppings?: { groupId: string; optionId: string }[];
-  kitchenLabel?: 'chicken' | 'pizza' | 'make_table' | 'wings_station';
-  modifierKitchenLabels?: { groupId: string; kitchenLabel: 'make_table' | 'wings_station' | 'chicken' | 'pizza' }[];
+  kitchenLabel?: string;
+  modifierKitchenLabels?: { groupId: string; kitchenLabel: string }[];
   isOutOfStock?: boolean;
 }
 
@@ -58,20 +79,30 @@ export interface SelectedModifier {
   optionName: string;
   price: number;
   isRoot?: boolean;
-  kitchenLabel?: 'chicken' | 'pizza' | 'make_table' | 'wings_station';
+  kitchenLabel?: string;
 }
 
 export interface CartItem {
-  id: string; // unique composite key (menuItemId + selected option IDs)
+  id: string; // unique composite key (menuItemId + selected option IDs / variant)
   menuItemId: string;
   categoryId?: string;
   categoryName?: string;
   name: string;
   image?: string;
   basePrice: number;
+  foodType?: 'veg' | 'non_veg' | 'egg';
+  shortcode?: string;
+  selectedVariant?: {
+    name: string;
+    price: number;
+  };
+  selectedAddons?: {
+    name: string;
+    price: number;
+  }[];
   selectedModifiers: SelectedModifier[];
   quantity: number;
   totalPrice: number; // (basePrice + sum(selectedModifiers.price)) * quantity
   note?: string;
-  kitchenLabel?: 'chicken' | 'pizza' | 'make_table' | 'wings_station';
+  kitchenLabel?: string;
 }

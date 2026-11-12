@@ -65,6 +65,29 @@ const branchSchema = new mongoose.Schema(
       default: false,
       index: true,
     },
+    logo: {
+      type: String,
+      default: "",
+    },
+    themeColor: {
+      type: String,
+      default: "#F97316", // Default Orange
+    },
+    restaurantType: {
+      type: String,
+      enum: ["cafe", "fine_dine", "qsr", "pizzeria", "bakery", "cloud_kitchen", "bar_pub", "general"],
+      default: "general",
+    },
+    featureToggles: {
+      pos: { type: Boolean, default: true },
+      kotKitchen: { type: Boolean, default: true },
+      receptionView: { type: Boolean, default: false },
+      deliveryFleet: { type: Boolean, default: false },
+      tableManagement: { type: Boolean, default: true },
+      accountClosing: { type: Boolean, default: true },
+      employeeAttendance: { type: Boolean, default: false },
+      expenses: { type: Boolean, default: false },
+    },
     qrCodePayload: {
       type: String,
       default: "",

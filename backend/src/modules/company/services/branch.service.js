@@ -226,7 +226,7 @@ exports.getPublicBranches = async () => {
   await exports.ensureBranchQrCodes();
   return await Branch.find({ isActive: true, isLive: true })
     .select(
-      "name code address city phone email lat lng isActive isLive isLocationConfigured settings.mainSettings.isEmergencyClosed settings.storeTimings settings.taxFeesSettings",
+      "name code address city phone email lat lng logo themeColor restaurantType featureToggles isActive isLive isLocationConfigured settings.mainSettings.isEmergencyClosed settings.storeTimings settings.taxFeesSettings",
     )
     .sort({ name: 1 })
     .lean();
@@ -404,12 +404,29 @@ exports.changeBranchPassword = async (
 
 exports.getBranchSettings = async (branchId) => {
   const branch = await Branch.findById(branchId)
-    .select("settings name code")
+    .select("settings name code logo themeColor restaurantType featureToggles")
     .lean();
   if (!branch) {
     throw new Error("Branch not found");
   }
-  return branch.settings || {};
+  return {
+    ...(branch.settings || {}),
+    name: branch.name,
+    code: branch.code,
+    logo: branch.logo || "",
+    themeColor: branch.themeColor || "#F97316",
+    restaurantType: branch.restaurantType || "general",
+    featureToggles: branch.featureToggles || {
+      pos: true,
+      kotKitchen: true,
+      receptionView: false,
+      deliveryFleet: false,
+      tableManagement: true,
+      accountClosing: true,
+      employeeAttendance: false,
+      expenses: false,
+    },
+  };
 };
 
 exports.getKitchenSettingsOnly = async (branchId) => {
@@ -474,6 +491,18 @@ exports.updateBranchSettings = async (branchId, settingsData) => {
   }
   if (settingsData.kitchenSettings) {
     $set["settings.kitchenSettings"] = settingsData.kitchenSettings;
+  }
+  if (settingsData.featureToggles) {
+    $set["featureToggles"] = settingsData.featureToggles;
+  }
+  if (settingsData.themeColor) {
+    $set["themeColor"] = settingsData.themeColor;
+  }
+  if (settingsData.restaurantType) {
+    $set["restaurantType"] = settingsData.restaurantType;
+  }
+  if (settingsData.logo !== undefined) {
+    $set["logo"] = settingsData.logo;
   }
 
   const updated = await Branch.findByIdAndUpdate(

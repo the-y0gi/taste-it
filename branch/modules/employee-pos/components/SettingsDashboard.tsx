@@ -5,7 +5,7 @@ import PosNavbar from './PosNavbar';
 import POSSidebarDrawer from './POSSidebarDrawer';
 
 // Split Tab Components
-import MainSettingsTab from './settings-components/MainSettingsTab';
+import MainSettingsTab, { BranchCustomization } from './settings-components/MainSettingsTab';
 import TaxFeesTab from './settings-components/TaxFeesTab';
 import TerminalSetupTab from './settings-components/TerminalSetupTab';
 import TillSetupTab from './settings-components/TillSetupTab';
@@ -25,17 +25,34 @@ export default function SettingsDashboard() {
 
   // ── 1. Main Settings State ──
   const [mainSettings, setMainSettings] = useState({
-    timezone: 'Mountain Standard Time (MST) - America/Edmonton',
+    timezone: 'Indian Standard Time (IST) - Asia/Kolkata',
     defaultTimeMinutes: '15',
     reportingStartTime: '12:00 AM',
     reportingEndTime: '12:00 AM',
-    latitude: '51.05643',
-    longitude: '-113.37832',
+    latitude: '28.6139',
+    longitude: '77.2090',
     commission: '0.00',
-    gstNumber: '123456789',
+    gstNumber: '07AAAAA0000A1Z5',
     showMenuImage: true,
     showCategoryImage: true,
     backgroundColor: '#000000'
+  });
+
+  // ── Branch Customization & Feature Toggles ──
+  const [branchCustomization, setBranchCustomization] = useState<BranchCustomization>({
+    logo: '',
+    themeColor: '#F97316',
+    restaurantType: 'cafe',
+    featureToggles: {
+      pos: true,
+      kds: true,
+      reception: true,
+      delivery: true,
+      tableManagement: true,
+      accountClosing: true,
+      reports: true,
+      onlineOrders: true,
+    },
   });
 
   // ── 2. Tax & Fees Settings State ──
@@ -144,6 +161,23 @@ export default function SettingsDashboard() {
             localStorage.setItem('rms_branch_settings', JSON.stringify({ ...stored, kitchenSettings: s.kitchenSettings }));
           } catch (e) {}
         }
+        if (s.logo !== undefined || s.themeColor !== undefined || s.restaurantType || s.featureToggles) {
+          setBranchCustomization({
+            logo: s.logo || '',
+            themeColor: s.themeColor || '#F97316',
+            restaurantType: s.restaurantType || 'cafe',
+            featureToggles: {
+              pos: s.featureToggles?.pos ?? true,
+              kds: s.featureToggles?.kds ?? true,
+              reception: s.featureToggles?.reception ?? true,
+              delivery: s.featureToggles?.delivery ?? true,
+              tableManagement: s.featureToggles?.tableManagement ?? true,
+              accountClosing: s.featureToggles?.accountClosing ?? true,
+              reports: s.featureToggles?.reports ?? true,
+              onlineOrders: s.featureToggles?.onlineOrders ?? true,
+            },
+          });
+        }
       }
     } catch (err) {
       console.warn('Could not load branch settings from backend');
@@ -184,15 +218,29 @@ export default function SettingsDashboard() {
   // ── Main Settings Submit Handler ──
   const handleMainSettingsSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    await saveSettingsToBackend({ mainSettings }, 'Main Settings updated successfully!');
-    // Also update rms_branch localStorage so delivery map picks up new lat/lng immediately
+    await saveSettingsToBackend(
+      {
+        mainSettings,
+        logo: branchCustomization.logo,
+        themeColor: branchCustomization.themeColor,
+        restaurantType: branchCustomization.restaurantType,
+        featureToggles: branchCustomization.featureToggles,
+      },
+      'Main Settings & Feature Customizations updated successfully!'
+    );
+    // Also update rms_branch localStorage so delivery map and navigation pick up new values immediately
     try {
       const raw = localStorage.getItem('rms_branch');
       if (raw) {
         const b = JSON.parse(raw);
         b.lat = Number(mainSettings.latitude) || b.lat;
         b.lng = Number(mainSettings.longitude) || b.lng;
+        b.logo = branchCustomization.logo;
+        b.themeColor = branchCustomization.themeColor;
+        b.restaurantType = branchCustomization.restaurantType;
+        b.featureToggles = branchCustomization.featureToggles;
         localStorage.setItem('rms_branch', JSON.stringify(b));
+        window.dispatchEvent(new Event('rms_branch_settings_changed'));
       }
     } catch (e) {}
   };
@@ -383,6 +431,8 @@ export default function SettingsDashboard() {
                 <MainSettingsTab
                   mainSettings={mainSettings}
                   setMainSettings={setMainSettings}
+                  branchCustomization={branchCustomization}
+                  setBranchCustomization={setBranchCustomization}
                   onSubmit={handleMainSettingsSubmit}
                   saving={saving}
                 />

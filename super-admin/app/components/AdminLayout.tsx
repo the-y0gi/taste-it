@@ -264,10 +264,13 @@ export default function AdminLayout({ children }: Props) {
       {/* ── SIDEBAR (Desktop) ── */}
       <aside className="hidden md:flex flex-col w-64 bg-brand-dark text-white flex-shrink-0 border-r border-neutral-800">
         <div className="h-16 px-6 flex items-center gap-3 border-b border-neutral-800 bg-[#161412]">
-          <img src="/pizza-hut-logo.webp" alt="Pizza Hut" className="h-12 w-[86px] object-contain rounded-sm" />
+          <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-orange-500 to-amber-500 flex items-center justify-center text-white font-900 text-sm shadow-md shadow-orange-500/20 shrink-0">
+            ⚡
+          </div>
           <div>
-            <p className="text-[9px] font-600 text-brand-primary uppercase tracking-wider leading-none">
-              RMS Admin
+            <h2 className="text-sm font-900 text-white tracking-tight">Taste-It</h2>
+            <p className="text-[8.5px] font-700 text-orange-400 uppercase tracking-wider leading-none">
+              RMS Central Admin
             </p>
           </div>
         </div>
@@ -480,10 +483,13 @@ export default function AdminLayout({ children }: Props) {
           <div className="relative w-64 bg-brand-dark text-white flex flex-col animate-drawer-slide-in">
             <div className="h-16 px-6 flex items-center justify-between border-b border-neutral-800 bg-[#161412]">
               <div className="flex items-center gap-3">
-                <img src="/pizza-hut-logo.webp" alt="Pizza Hut" className="h-12 w-[86px] object-contain rounded-sm" />
+                <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-orange-500 to-amber-500 flex items-center justify-center text-white font-900 text-sm shadow-md shadow-orange-500/20 shrink-0">
+                  ⚡
+                </div>
                 <div>
-                  <p className="text-[9px] font-600 text-brand-primary uppercase tracking-wider leading-none">
-                    RMS Admin
+                  <h2 className="text-sm font-900 text-white tracking-tight">Taste-It</h2>
+                  <p className="text-[8.5px] font-700 text-orange-400 uppercase tracking-wider leading-none">
+                    RMS Central Admin
                   </p>
                 </div>
               </div>

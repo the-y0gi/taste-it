@@ -7,29 +7,34 @@ async function seed() {
     await connectDB();
     console.log("\n📦 Connected to MongoDB. Seeding Super Admin account...");
 
-    // Remove old superadmin records for clean reset
-    await SuperAdmin.deleteMany({ email: "admin@cybernest.com" });
-
-    const admin = new SuperAdmin({
-      name: "Pizza Hut Super Admin",
-      email: "admin@cybernest.com",
-      password: "admin123",
-      role: "super_admin",
-    });
+    let admin = await SuperAdmin.findOne({ email: "admin@admin.com" });
+    if (!admin) {
+      admin = new SuperAdmin({
+        name: "Taste-It Super Admin",
+        email: "admin@admin.com",
+        password: "123456",
+        role: "super_admin",
+        isActive: true,
+      });
+    } else {
+      admin.name = "Taste-It Super Admin";
+      admin.password = "123456";
+      admin.isActive = true;
+    }
 
     await admin.save();
 
     console.log("\n==================================================");
-    console.log("  SUPER ADMIN ACCOUNT SEEDED SUCCESSFULLY!");
+    console.log("  SUPER ADMIN ACCOUNT CONFIGURED SUCCESSFULLY!");
     console.log("==================================================");
-    console.log("  Portal URL : http://localhost:3002/login");
-    console.log("  Email      : admin@cybernest.com");
-    console.log("  Password   : admin123");
+    console.log("  Portal URL : http://localhost:3001/login");
+    console.log("  Email      : admin@admin.com");
+    console.log("  Password   : 123456");
     console.log("==================================================\n");
 
     process.exit(0);
   } catch (err) {
-    console.error("\n Super Admin Seed Error:", err.message);
+    console.error("\n❌ Super Admin Seed Error:", err.message);
     process.exit(1);
   }
 }

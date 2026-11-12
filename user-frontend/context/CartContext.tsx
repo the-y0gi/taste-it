@@ -18,7 +18,8 @@ interface CartContextType {
   setBranchDeliveryFee: (fee: number) => void;
   branchTaxRate: number;
   setBranchTaxRate: (rate: number) => void;
-  addToCart: (menuItem: MenuItem, selectedModifiers: SelectedModifier[], quantity?: number, note?: string) => void;
+  addToCart: (menuItem: MenuItem, selectedModifiers?: SelectedModifier[], quantity?: number, note?: string) => void;
+  addVariantToCart: (menuItem: MenuItem, variant: { name: string; price: number }, addons?: { name: string; price: number }[], quantity?: number, note?: string) => void;
   removeFromCart: (cartItemId: string) => void;
   increaseQuantity: (cartItemId: string) => void;
   decreaseQuantity: (cartItemId: string) => void;
@@ -32,9 +33,16 @@ const CartContext = createContext<CartContextType | undefined>(undefined);
 const roundToTwo = (num: number): number =>
   Math.round((num + Number.EPSILON) * 100) / 100;
 
+const getItemUnitCost = (item: CartItem): number => {
+  const base = item.selectedVariant?.price ?? item.basePrice;
+  const addonSum = item.selectedAddons?.reduce((s, a) => s + (a.price || 0), 0) ?? 0;
+  const modSum = item.selectedModifiers?.reduce((s, m) => s + (m.price || 0), 0) ?? 0;
+  return base + addonSum + modSum;
+};
+
 const generateCartItemId = (
   menuItemId: string,
-  modifiers: SelectedModifier[]
+  modifiers: SelectedModifier[] = []
 ): string => {
   const sortedOptionIds = modifiers
     .map((m) => m.optionId)
@@ -48,8 +56,8 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [orderType, setOrderTypeState] = useState<'takeout' | 'delivery'>('takeout');
   const [address, setAddressState] = useState<string>('');
   const [isCartOpen, setIsCartOpen] = useState<boolean>(false);
-  const [branchDeliveryFee, setBranchDeliveryFee] = useState<number>(0);
-  const [branchTaxRate, setBranchTaxRate] = useState<number>(5);
+  const [branchDeliveryFee, setBranchDeliveryFee] = useState<number>(30); // Default ₹30 in India
+  const [branchTaxRate, setBranchTaxRate] = useState<number>(5); // Standard 5% GST in India
 
   // Load cart from localStorage on mount
   useEffect(() => {
@@ -95,7 +103,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const addToCart = (menuItem: MenuItem, selectedModifiers: SelectedModifier[], quantity = 1, note = '') => {
+  const addToCart = (menuItem: MenuItem, selectedModifiers: SelectedModifier[] = [], quantity = 1, note = '') => {
     const cartItemId = generateCartItemId(menuItem.id, selectedModifiers);
     const modifierSum = selectedModifiers.reduce((sum, mod) => sum + mod.price, 0);
     const itemUnitCost = menuItem.price + modifierSum;
@@ -128,11 +136,13 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
         name: menuItem.name,
         image: menuItem.image,
         basePrice: menuItem.price,
+        foodType: menuItem.foodType,
+        shortcode: menuItem.shortcode,
         selectedModifiers: stampedModifiers,
         quantity,
         totalPrice: roundToTwo(itemUnitCost * quantity),
         note,
-        kitchenLabel: menuItem.kitchenLabel || 'make_table',
+        kitchenLabel: menuItem.kitchenLabel || 'main_kitchen',
       };
       updatedCartItems.push(newItem);
     }
@@ -140,6 +150,56 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setCartItems(updatedCartItems);
     saveCartToStorage(updatedCartItems);
     toast.success(`${menuItem.name} added to cart!`);
+  };
+
+  const addVariantToCart = (
+    menuItem: MenuItem,
+    variant: { name: string; price: number },
+    addons: { name: string; price: number }[] = [],
+    quantity = 1,
+    note = ''
+  ) => {
+    const safeVariantSlug = variant.name.replace(/\s+/g, '-').toLowerCase();
+    const cartItemId = `${menuItem.id}-${safeVariantSlug}`;
+    const addonSum = addons.reduce((sum, a) => sum + (a.price || 0), 0);
+    const itemUnitCost = variant.price + addonSum;
+
+    let updatedCartItems = [...cartItems];
+    const existingIndex = cartItems.findIndex((item) => item.id === cartItemId);
+
+    if (existingIndex > -1) {
+      const item = updatedCartItems[existingIndex];
+      const newQty = item.quantity + quantity;
+      updatedCartItems[existingIndex] = {
+        ...item,
+        quantity: newQty,
+        totalPrice: roundToTwo(itemUnitCost * newQty),
+        note: note || item.note,
+      };
+    } else {
+      const newItem: CartItem = {
+        id: cartItemId,
+        menuItemId: menuItem.id,
+        categoryId: menuItem.categoryId,
+        name: menuItem.name,
+        image: menuItem.image,
+        basePrice: variant.price,
+        foodType: menuItem.foodType,
+        shortcode: menuItem.shortcode,
+        selectedVariant: variant,
+        selectedAddons: addons,
+        selectedModifiers: [],
+        quantity,
+        totalPrice: roundToTwo(itemUnitCost * quantity),
+        note,
+        kitchenLabel: menuItem.kitchenLabel || 'main_kitchen',
+      };
+      updatedCartItems.push(newItem);
+    }
+
+    setCartItems(updatedCartItems);
+    saveCartToStorage(updatedCartItems);
+    toast.success(`${menuItem.name} (${variant.name}) added to cart!`);
   };
 
   const removeFromCart = (cartItemId: string) => {
@@ -156,11 +216,11 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const updated = cartItems.map((item) => {
       if (item.id === cartItemId) {
         const newQty = item.quantity + 1;
-        const modSum = item.selectedModifiers.reduce((s, m) => s + m.price, 0);
+        const unitCost = getItemUnitCost(item);
         return {
           ...item,
           quantity: newQty,
-          totalPrice: roundToTwo((item.basePrice + modSum) * newQty),
+          totalPrice: roundToTwo(unitCost * newQty),
         };
       }
       return item;
@@ -181,11 +241,11 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
       updated = cartItems.map((item) => {
         if (item.id === cartItemId) {
           const newQty = item.quantity - 1;
-          const modSum = item.selectedModifiers.reduce((s, m) => s + m.price, 0);
+          const unitCost = getItemUnitCost(item);
           return {
             ...item,
             quantity: newQty,
-            totalPrice: roundToTwo((item.basePrice + modSum) * newQty),
+            totalPrice: roundToTwo(unitCost * newQty),
           };
         }
         return item;
@@ -226,6 +286,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
         branchTaxRate,
         setBranchTaxRate,
         addToCart,
+        addVariantToCart,
         removeFromCart,
         increaseQuantity,
         decreaseQuantity,
@@ -241,7 +302,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
 export const useCart = () => {
   const context = useContext(CartContext);
-  if (context === undefined) {
+  if (!context) {
     throw new Error('useCart must be used within a CartProvider');
   }
   return context;

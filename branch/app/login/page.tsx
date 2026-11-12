@@ -162,12 +162,11 @@ export default function BranchLoginPage() {
 
         {/* Logo */}
         <div className="text-center space-y-2">
-          <img
-            src="/pizza-hut-logo.webp"
-            alt="Pizza Hut"
-            className="mx-auto h-24 w-44 object-contain rounded-md"
-          />
-          <p className="text-xs font-600 text-neutral-500">Branch POS &amp; Terminal Login</p>
+          <div className="inline-flex w-14 h-14 rounded-2xl bg-gradient-to-tr from-orange-600 to-amber-500 items-center justify-center shadow-lg shadow-orange-500/20 mx-auto">
+            <span className="text-2xl font-black text-white">🍴</span>
+          </div>
+          <h1 className="text-xl font-900 tracking-tight text-neutral-900">Taste-It POS</h1>
+          <p className="text-xs font-600 text-neutral-500">Branch Terminal &amp; Cashier Login</p>
         </div>
 
         {/* Tab Switcher */}

@@ -1685,8 +1685,8 @@ export default function ModifierDrawer({
                     (v) => v.isEnabled !== false,
                   );
                   const sortedVariants = [...availableVariants].sort((a, b) => {
-                    const idxA = SIZE_ORDER.indexOf(a.sizeCode);
-                    const idxB = SIZE_ORDER.indexOf(b.sizeCode);
+                    const idxA = SIZE_ORDER.indexOf(a.sizeCode || "");
+                    const idxB = SIZE_ORDER.indexOf(b.sizeCode || "");
                     if (idxA !== -1 && idxB !== -1) return idxA - idxB;
                     return a.price - b.price;
                   });

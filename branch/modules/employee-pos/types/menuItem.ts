@@ -3,10 +3,17 @@ import { ModifierGroup } from './modifier';
 export type MenuItemType = 'simple' | 'combo' | 'modifier';
 
 export interface ProductVariant {
-  sizeCode: string;
-  sizeName: string;
+  name?: string;
+  sizeCode?: string;
+  sizeName?: string;
   price: number;
   isDefault?: boolean;
+  isEnabled?: boolean;
+}
+
+export interface MenuItemAddon {
+  name: string;
+  price: number;
   isEnabled?: boolean;
 }
 
@@ -16,6 +23,10 @@ export interface MenuItem {
   id: string;
   categoryId: string;
   name: string;
+  shortcode?: string;
+  foodType?: 'veg' | 'non_veg' | 'egg';
+  isJainAvailable?: boolean;
+  pricingType?: 'single' | 'variant';
   description: string;
   image: string;
   price: number;
@@ -25,12 +36,14 @@ export interface MenuItem {
   hasVariants?: boolean;
   isHalfAndHalf?: boolean;
   variants?: ProductVariant[];
+  addons?: MenuItemAddon[];
   includedToppings?: { groupId: string; optionId: string }[];
   modifierGroupIds?: string[];
   modifierGroups?: ModifierGroup[];
-  kitchenLabel?: 'make_table' | 'wings_station' | 'cut_station' | 'chicken' | 'pizza';
-  modifierKitchenLabels?: { groupId: string; kitchenLabel: 'make_table' | 'wings_station' | 'chicken' | 'pizza' }[];
+  kitchenLabel?: string;
+  modifierKitchenLabels?: { groupId: string; kitchenLabel: string }[];
   modifierSizeCodes?: { groupId: string; sizeCode: string }[];
   displayOrder?: number;
   isOutOfStock?: boolean;
+  branchId?: string | null;
 }

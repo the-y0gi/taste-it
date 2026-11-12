@@ -56,6 +56,10 @@ export interface Product {
   description: string;
   price: number;
   image: string;
+  foodType?: "veg" | "non_veg" | "egg";
+  shortcode?: string;
+  isJainAvailable?: boolean;
+  pricingType?: "single" | "variant";
   itemType: "simple" | "combo";
   hasVariants?: boolean;
   isHalfAndHalf?: boolean;
@@ -66,8 +70,8 @@ export interface Product {
   badge?: "Popular" | "Best Seller" | "New" | null;
   productId?: string;
   isActive?: boolean;
-  kitchenLabel?: "make_table" | "wings_station" | "chicken" | "pizza";
-  modifierKitchenLabels?: { groupId: string; kitchenLabel: "make_table" | "wings_station" }[];
+  kitchenLabel?: "fast_food" | "tandoor" | "chinese" | "main_kitchen" | "beverages" | "general" | "make_table" | "wings_station" | "chicken" | "pizza";
+  modifierKitchenLabels?: { groupId: string; kitchenLabel: string }[];
   modifierSizeCodes?: { groupId: string; sizeCode: string }[];
   displayOrder?: number;
   disabledBranches?: string[];

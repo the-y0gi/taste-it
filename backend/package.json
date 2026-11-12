@@ -5,7 +5,9 @@
   "scripts": {
     "dev": "node --watch src/server.js",
     "start": "node src/server.js",
+    "seed:auth": "node src/scripts/seedAuthUsers.js",
     "seed:superadmin": "node src/scripts/seedSuperAdmin.js",
+    "seed:indian": "node src/scripts/seedIndianRestaurants.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],

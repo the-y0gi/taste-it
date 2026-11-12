@@ -1,6 +1,12 @@
 const mongoose = require('mongoose');
 
 const categorySchema = new mongoose.Schema({
+  branchId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Branch',
+    default: null,
+    index: true,
+  },
   name: {
     type: String,
     required: [true, 'Category name is required'],
@@ -10,7 +16,6 @@ const categorySchema = new mongoose.Schema({
     type: String,
     required: [true, 'Category slug is required'],
     trim: true,
-    unique: true,
   },
   image: {
     type: String,
@@ -19,6 +24,20 @@ const categorySchema = new mongoose.Schema({
   description: {
     type: String,
     trim: true,
+  },
+  operatingHours: {
+    isRestricted: {
+      type: Boolean,
+      default: false,
+    },
+    startTime: {
+      type: String,
+      default: '', // e.g. "09:00 AM"
+    },
+    endTime: {
+      type: String,
+      default: '', // e.g. "11:00 AM"
+    },
   },
   isActive: {
     type: Boolean,
@@ -36,6 +55,8 @@ const categorySchema = new mongoose.Schema({
   timestamps: true
 });
 
+categorySchema.index({ branchId: 1, slug: 1 });
+categorySchema.index({ branchId: 1, isActive: 1, displayOrder: 1 });
 categorySchema.index({ isActive: 1, displayOrder: 1 });
 
 module.exports = mongoose.model('Category', categorySchema);

@@ -113,11 +113,30 @@ export default function POSSidebarDrawer({ isOpen, onClose, activeTab, onSelectT
     { key: 'master_logout', label: 'Master Logout', icon: LogOut, isLogout: true },
   ];
 
-  // Filter menu items based on role
+  // Filter menu items based on role and branch feature toggles
   const isSuperAdminImp = typeof window !== 'undefined' && localStorage.getItem('rms_superadmin_impersonation') === 'true';
   const isManagerMode = !activeEmployee || activeEmployee.role === 'manager' || isSuperAdminImp;
 
+  let branchFeatureToggles: Record<string, boolean> = {};
+  if (typeof window !== 'undefined') {
+    try {
+      const rawBranch = localStorage.getItem('rms_branch');
+      if (rawBranch) {
+        const parsed = JSON.parse(rawBranch);
+        if (parsed.featureToggles) branchFeatureToggles = parsed.featureToggles;
+      }
+    } catch (e) {}
+  }
+
   const menuItems = rawMenuItems.filter(item => {
+    // Branch modular feature toggles check
+    if (item.key === 'kitchen' && branchFeatureToggles.kds === false) return false;
+    if (item.key === 'reception_view' && branchFeatureToggles.reception === false) return false;
+    if (item.key === 'delivery' && branchFeatureToggles.delivery === false) return false;
+    if (item.key === 'account_closing' && branchFeatureToggles.accountClosing === false) return false;
+    if (item.key === 'reports' && branchFeatureToggles.reports === false) return false;
+    if (item.key === 'pos' && branchFeatureToggles.pos === false) return false;
+
     // Master Logout: only for manager/admin (no active employee OR active employee is manager)
     if (item.key === 'master_logout') {
       return isManagerMode;

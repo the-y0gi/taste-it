@@ -19,6 +19,7 @@ import {
   Loader2,
   Truck,
   ChevronDown,
+  QrCode,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { usePosStore } from "../store/pos.store";
@@ -26,7 +27,7 @@ import OrderLaterModal from "./OrderLaterModal";
 import PromoDiscountModal from "./PromoDiscountModal";
 import CustomerModal from "./CustomerModal";
 
-const DENOMINATIONS = [5, 10, 20, 50, 100];
+const DENOMINATIONS = [10, 20, 50, 100, 200, 500];
 
 const ORDER_TYPE_LABELS: Record<
   string,
@@ -214,7 +215,7 @@ export default function CheckoutModal() {
         const sumOk = Math.abs(splitTotal - total) < 0.01;
         if (!sumOk) {
           toast.error(
-            `Remaining split balance is $${splitRemaining.toFixed(2)}. Please pay the full amount before placing the order.`,
+            `Remaining split balance is ₹${splitRemaining.toFixed(2)}. Please pay the full amount before placing the order.`,
           );
           submittingRef.current = false;
           return;
@@ -250,7 +251,7 @@ export default function CheckoutModal() {
               <span className="font-600 text-[10px] text-green-950">
                 {order.paymentStatus === "unpaid"
                   ? "⏳ Payment Pending"
-                  : `✓ Paid $${order.total.toFixed(2)}`}
+                  : `✓ Paid ₹${order.total.toFixed(2)}`}
               </span>
             </div>,
           );
@@ -264,11 +265,11 @@ export default function CheckoutModal() {
   if (!checkoutOpen) return null;
 
   const discountLabel = appliedPromo
-    ? `${appliedPromo.code} (-$${appliedPromo.discountAmount.toFixed(2)})`
+    ? `${appliedPromo.code} (-₹${appliedPromo.discountAmount.toFixed(2)})`
     : manualDiscountType === "percentage"
-      ? `${manualDiscountValue}% off (-$${discount.toFixed(2)})`
+      ? `${manualDiscountValue}% off (-₹${discount.toFixed(2)})`
       : manualDiscountType === "flat"
-        ? `-$${discount.toFixed(2)}`
+        ? `-₹${discount.toFixed(2)}`
         : null;
 
   const formatScheduled = (iso: string | null) => {
@@ -405,17 +406,17 @@ export default function CheckoutModal() {
                       {/* Amount */}
                       <div>
                         <label className="block text-[10px] font-600 text-neutral-500 mb-1.5 uppercase tracking-wide">
-                          Amount To Pay ($)
+                          Amount To Pay (₹)
                         </label>
                         <div className="border border-neutral-200 rounded-xl px-3.5 py-2.5 bg-brand-primary/5">
                           <span className="text-[16px] font-800 text-brand-primary">
-                            ${total.toFixed(2)}
+                            ₹{total.toFixed(2)}
                           </span>
                         </div>
                       </div>
 
-                      {/* Cash / Card */}
-                      <div className="grid grid-cols-2 gap-2">
+                      {/* Cash / UPI / Card */}
+                      <div className="grid grid-cols-3 gap-2">
                         <button
                           onClick={() => setPaymentMethod("cash")}
                           className={`py-2.5 rounded-xl text-[11px] font-700 uppercase tracking-wide transition-all cursor-pointer flex items-center justify-center gap-1.5 active:scale-[0.98] ${
@@ -425,6 +426,16 @@ export default function CheckoutModal() {
                           }`}
                         >
                           <Banknote size={13} /> Cash
+                        </button>
+                        <button
+                          onClick={() => setPaymentMethod("upi")}
+                          className={`py-2.5 rounded-xl text-[11px] font-700 uppercase tracking-wide transition-all cursor-pointer flex items-center justify-center gap-1.5 active:scale-[0.98] ${
+                            paymentMethod === "upi"
+                              ? "bg-emerald-600 text-white shadow-sm"
+                              : "bg-neutral-100 text-neutral-500 hover:bg-neutral-200"
+                          }`}
+                        >
+                          <QrCode size={13} /> UPI / QR
                         </button>
                         <button
                           onClick={() => setPaymentMethod("card")}
@@ -438,11 +449,28 @@ export default function CheckoutModal() {
                         </button>
                       </div>
 
+                      {/* UPI Info Panel */}
+                      {paymentMethod === "upi" && (
+                        <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3.5 flex flex-col items-center text-center gap-2">
+                          <div className="w-10 h-10 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600">
+                            <QrCode size={22} />
+                          </div>
+                          <div>
+                            <p className="text-[12px] font-800 text-emerald-950">
+                              UPI / Dynamic QR Ready
+                            </p>
+                            <p className="text-[10px] text-emerald-700 mt-0.5">
+                              Customer scans branch QR code via Google Pay, PhonePe, Paytm, or BHIM.
+                            </p>
+                          </div>
+                        </div>
+                      )}
+
                       {/* Cash denomination picker */}
                       {paymentMethod === "cash" && (
                         <div className="space-y-2">
                           <p className="text-[10px] font-600 text-neutral-500 uppercase tracking-wide">
-                            Cash Denominations
+                            Cash Denominations (₹)
                           </p>
                           <div className="grid grid-cols-3 gap-1.5">
                             {DENOMINATIONS.map((denom) => {
@@ -454,7 +482,7 @@ export default function CheckoutModal() {
                                 >
                                   <div className="flex items-center justify-between w-full">
                                     <span className="text-[10px] font-700 text-neutral-700">
-                                      ${denom}
+                                      ₹{denom}
                                     </span>
                                     <button
                                       onClick={() =>
@@ -490,13 +518,13 @@ export default function CheckoutModal() {
                             </label>
                             <div className="relative">
                               <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[12px] font-500 text-neutral-400">
-                                $
+                                ₹
                               </span>
                               <input
                                 type="number"
                                 placeholder="0.00"
                                 min="0"
-                                step="0.01"
+                                step="1"
                                 value={
                                   cashGiven > 0 &&
                                   Object.values(cashDenominations).every(
@@ -521,7 +549,7 @@ export default function CheckoutModal() {
                                   Cash Given
                                 </span>
                                 <span className="text-[11px] font-700 text-neutral-800">
-                                  ${cashGiven.toFixed(2)}
+                                  ₹{cashGiven.toFixed(2)}
                                 </span>
                               </div>
                               <div className="flex items-center justify-between">
@@ -531,7 +559,7 @@ export default function CheckoutModal() {
                                 <span
                                   className={`text-[12px] font-800 ${changeAmount > 0 ? "text-green-600" : "text-neutral-400"}`}
                                 >
-                                  ${changeAmount.toFixed(2)}
+                                  ₹{changeAmount.toFixed(2)}
                                 </span>
                               </div>
                             </div>
@@ -549,11 +577,11 @@ export default function CheckoutModal() {
                       {/* Amount */}
                       <div>
                         <label className="block text-[10px] font-600 text-neutral-500 mb-1.5 uppercase tracking-wide">
-                          Amount To Pay ($)
+                          Amount To Pay (₹)
                         </label>
                         <div className="border border-neutral-200 rounded-xl px-3.5 py-2.5 bg-brand-primary/5">
                           <span className="text-[16px] font-800 text-brand-primary">
-                            ${total.toFixed(2)}
+                            ₹{total.toFixed(2)}
                           </span>
                         </div>
                       </div>
@@ -593,7 +621,7 @@ export default function CheckoutModal() {
                       <span
                         className={`text-[11px] font-800 ${splitRemaining < 0.01 ? "text-green-600" : "text-brand-primary"}`}
                       >
-                        Paid: ${splitTotal.toFixed(2)} / ${total.toFixed(2)}
+                        Paid: ₹{splitTotal.toFixed(2)} / ₹{total.toFixed(2)}
                       </span>
                     </div>
 
@@ -613,7 +641,7 @@ export default function CheckoutModal() {
                                 #{i + 1}
                               </span>
                               <span className="text-[11px] font-700 text-neutral-800">
-                                ${sp.amount.toFixed(2)}
+                                ₹{sp.amount.toFixed(2)}
                               </span>
                               <span
                                 className={`px-2 py-0.5 rounded-full text-[9px] font-700 uppercase ${
@@ -647,7 +675,7 @@ export default function CheckoutModal() {
 
                         <div className="space-y-1">
                           <label className="block text-[9px] font-600 text-neutral-500 uppercase tracking-wide">
-                            Amount to Pay ($)
+                            Amount to Pay (₹)
                           </label>
                           <input
                             type="number"
@@ -696,7 +724,7 @@ export default function CheckoutModal() {
                             }
                             if (amt > splitRemaining + 0.01) {
                               toast.error(
-                                `Amount cannot exceed remaining balance of $${splitRemaining.toFixed(2)}`,
+                                `Amount cannot exceed remaining balance of ₹${splitRemaining.toFixed(2)}`,
                               );
                               return;
                             }
@@ -707,7 +735,7 @@ export default function CheckoutModal() {
                           }}
                           className="w-full py-2 bg-neutral-800 hover:bg-neutral-900 text-white rounded-lg text-[10.5px] font-700 uppercase transition-all cursor-pointer shadow-xs"
                         >
-                          Pay ${parseFloat(nextSplitAmount || "0").toFixed(2)} (
+                          Pay ₹{parseFloat(nextSplitAmount || "0").toFixed(2)} (
                           {nextSplitMethod})
                         </button>
                       </div>
@@ -721,14 +749,6 @@ export default function CheckoutModal() {
                         </p>
                       </div>
                     )}
-
-                    {/* Remaining hint */}
-                    {/* {splitRemaining > 0.01 && (
-                    <div className="flex items-center gap-1.5 bg-amber-50/50 border border-amber-200/40 rounded-lg px-2.5 py-1.5 text-[10px] text-amber-700 font-600">
-                      <AlertCircle size={12} className="flex-shrink-0" />
-                      <span>Remaining balance to be split: ${splitRemaining.toFixed(2)}</span>
-                    </div>
-                  )} */}
                   </div>
                 )}
               </div>
@@ -765,11 +785,11 @@ export default function CheckoutModal() {
                   ) : paymentTiming === "pay-now" &&
                     paymentType === "split" &&
                     splitRemaining > 0.01 ? (
-                    <>Remaining split balance: ${splitRemaining.toFixed(2)}</>
+                    <>Remaining split balance: ₹{splitRemaining.toFixed(2)}</>
                   ) : paymentTiming === "pay-later" ? (
                     <>{editingOrderId ? "Update Order (Pay Later)" : "Place Order (Pay Later)"}</>
                   ) : (
-                    <>{editingOrderId ? `Update Order $${total.toFixed(2)}` : `Place Order $${total.toFixed(2)}`}</>
+                    <>{editingOrderId ? `Update Order ₹${total.toFixed(2)}` : `Place Order ₹${total.toFixed(2)}`}</>
                   )}
                 </button>
               </div>
@@ -985,7 +1005,7 @@ export default function CheckoutModal() {
                     {cartItems.length} item{cartItems.length !== 1 ? "s" : ""}
                   </span>
                   <span className="text-[10px] font-600 text-neutral-700">
-                    ${subtotal.toFixed(2)}
+                    ₹{subtotal.toFixed(2)}
                   </span>
                 </div>
 
@@ -995,7 +1015,7 @@ export default function CheckoutModal() {
                       Sub Total
                     </span>
                     <span className="text-[10px] font-600 text-neutral-700">
-                      ${subtotal.toFixed(2)}
+                      ₹{subtotal.toFixed(2)}
                     </span>
                   </div>
                   {discount > 0 && (
@@ -1004,7 +1024,7 @@ export default function CheckoutModal() {
                         <CheckCircle size={9} /> Discount
                       </span>
                       <span className="text-[10px] font-600 text-green-600">
-                        -${discount.toFixed(2)}
+                        -₹{discount.toFixed(2)}
                       </span>
                     </div>
                   )}
@@ -1014,7 +1034,7 @@ export default function CheckoutModal() {
                         <Truck size={10} /> Delivery Fee
                       </span>
                       <span className="text-[10px] font-700 text-brand-primary">
-                        +${(branchTaxFees?.deliveryFee ?? 4.99).toFixed(2)}
+                        +₹{(branchTaxFees?.deliveryFee ?? 30).toFixed(2)}
                       </span>
                     </div>
                   )}
@@ -1023,19 +1043,7 @@ export default function CheckoutModal() {
                       GST ({branchTaxFees?.gstTaxRate ?? 5}%)
                     </span>
                     <span className="text-[10px] font-600 text-neutral-700">
-                      ${tax.toFixed(2)}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-[10px] text-neutral-500 font-500">
-                      Total Tax (
-                      {(branchTaxFees?.gstTaxRate ?? 5) +
-                        (branchTaxFees?.pstTaxRate ?? 0) +
-                        (branchTaxFees?.hstTaxRate ?? 0)}
-                      %)
-                    </span>
-                    <span className="text-[10px] font-600 text-neutral-700">
-                      ${tax.toFixed(2)}
+                      ₹{tax.toFixed(2)}
                     </span>
                   </div>
                 </div>
@@ -1045,7 +1053,7 @@ export default function CheckoutModal() {
                     Amount To Pay
                   </span>
                   <span className="text-[15px] font-800 text-brand-primary">
-                    ${total.toFixed(2)}
+                    ₹{total.toFixed(2)}
                   </span>
                 </div>
 

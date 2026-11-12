@@ -9,8 +9,7 @@ import {
   Building2,
   ArrowRight,
   Sparkles,
-  AlertCircle,
-  Info,
+  Utensils,
 } from "lucide-react";
 
 import { isBranchCurrentlyOpen } from "../lib/storeTimingUtils";
@@ -26,6 +25,9 @@ export interface BranchStore {
   isActive: boolean;
   qrCodePayload?: string;
   settings?: any;
+  logo?: string;
+  themeColor?: string;
+  restaurantType?: string;
 }
 
 interface StoreLandingViewProps {
@@ -33,6 +35,16 @@ interface StoreLandingViewProps {
   loading: boolean;
   onSelectStore: (store: BranchStore) => void;
 }
+
+const RESTAURANT_TYPE_LABELS: Record<string, string> = {
+  cafe: "Cafe & Fast Bites ☕",
+  fine_dine: "Family Restaurant 🍛",
+  fast_food: "Fast Food & QSR 🍔",
+  pizzeria: "Pizzeria 🍕",
+  bar: "Restro-Bar & Lounge 🍸",
+  bakery: "Bakery & Desserts 🍰",
+  other: "Restaurant & Kitchen",
+};
 
 export default function StoreLandingView({
   branches,
@@ -65,16 +77,22 @@ export default function StoreLandingView({
       <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-neutral-200/80 px-4 sm:px-6 py-3 flex items-center justify-between shadow-sm">
         {/* Brand Logo */}
         <div className="flex items-center gap-2.5">
-          <img
-            src="/pizza-hut-logo.webp"
-            alt="Pizza Hut"
-            className="h-14 w-[100px] object-contain rounded-sm"
-          />
+          <div className="w-10 h-10 rounded-xl bg-orange-500 text-white font-900 text-xl flex items-center justify-center shadow-sm">
+            T
+          </div>
+          <div>
+            <span className="text-base font-black tracking-tight text-neutral-900 block leading-tight">
+              Taste-It
+            </span>
+            <span className="text-[10px] font-bold text-neutral-400 block tracking-wider uppercase">
+              Restaurants & Cafes
+            </span>
+          </div>
         </div>
 
-        <div className="hidden sm:flex items-center gap-2 bg-orange-50/60 border border-orange-100 px-3.5 py-1.5 rounded-xl text-xs text-neutral-700 font-medium">
+        <div className="hidden sm:flex items-center gap-2 bg-orange-50/70 border border-orange-200/60 px-3.5 py-1.5 rounded-xl text-xs text-neutral-700 font-semibold">
           <Sparkles size={14} className="text-brand-primary animate-pulse" />
-          <span>Select your nearest branch to view menu & order</span>
+          <span>Select your favorite restaurant to view menu & order</span>
         </div>
       </header>
 
@@ -83,15 +101,15 @@ export default function StoreLandingView({
         <div className="max-w-4xl mx-auto text-center space-y-3.5">
           <span className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-orange-50 border border-orange-200/60 text-brand-primary text-xs font-bold uppercase tracking-wider">
             <Building2 size={13} />
-            <span>Find Nearby Locations</span>
+            <span>Discover Top Local Spots</span>
           </span>
 
           <h1 className="text-2xl sm:text-4xl font-black tracking-tight text-neutral-900 leading-tight">
-            Order Fresh & Hot Meals From <span className="text-brand-primary">Pizza Hut</span> Near You
+            Order Fresh Meals From <span className="text-brand-primary">Top Restaurants & Cafes</span>
           </h1>
 
           <p className="text-xs sm:text-sm text-neutral-500 max-w-xl mx-auto leading-relaxed">
-            Choose a location below to view branch-exclusive categories, daily specials, and place your delivery or pickup order.
+            Choose a cafe or family restaurant below to explore authentic Indian dishes, columnar combos, and lightning-fast ordering.
           </p>
 
           {/* Search & Filter Bar */}
@@ -105,7 +123,7 @@ export default function StoreLandingView({
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search store name, address, or branch code..."
+                placeholder="Search restaurant name, cuisine, or address..."
                 className="w-full bg-neutral-50 border border-neutral-200 focus:border-brand-primary focus:bg-white rounded-xl py-2.5 pl-10 pr-4 text-xs sm:text-sm text-neutral-800 placeholder-neutral-400 outline-none transition-all"
               />
             </div>
@@ -120,7 +138,7 @@ export default function StoreLandingView({
                     : "text-neutral-600 hover:text-neutral-900"
                 }`}
               >
-                All Stores ({branches.length})
+                All Outlets ({branches.length})
               </button>
               <button
                 type="button"
@@ -143,10 +161,10 @@ export default function StoreLandingView({
         <div className="flex items-center justify-between pb-4 border-b border-neutral-200/80 mb-6">
           <div>
             <h2 className="text-sm sm:text-base font-black text-neutral-900 leading-snug">
-              Available Restaurant Branches
+              Available Restaurants & Outlets
             </h2>
             <p className="text-[11px] text-neutral-500 mt-0.5 font-medium">
-              Showing {filteredBranches.length} stores ready for delivery & pickup
+              Showing {filteredBranches.length} outlets ready for delivery & dining
             </p>
           </div>
         </div>
@@ -176,6 +194,8 @@ export default function StoreLandingView({
               const statusInfo = isBranchCurrentlyOpen(branch);
               const isEmergencyClosed = !!branch.settings?.mainSettings?.isEmergencyClosed;
               const isDisabled = isEmergencyClosed;
+              const typeLabel = RESTAURANT_TYPE_LABELS[branch.restaurantType || "cafe"] || "Restaurant";
+              const accentColor = branch.themeColor || "#F97316";
 
               return (
                 <div
@@ -200,23 +220,39 @@ export default function StoreLandingView({
                       {statusInfo.reason}
                     </span>
 
-                    {/* Branch Code Badge */}
-                    {/* <span className="bg-neutral-100 border border-neutral-200 text-neutral-700 text-[9.5px] font-mono font-bold px-2.5 py-1 rounded-lg">
-                      CODE: {branch.code || "STORE"}
-                    </span> */}
+                    {/* Restaurant Type Badge */}
+                    <span className="bg-orange-50 border border-orange-200/70 text-orange-800 text-[10px] font-bold px-2.5 py-1 rounded-lg">
+                      {typeLabel}
+                    </span>
                   </div>
 
                   {/* Body Info */}
                   <div className="flex-1 flex flex-col justify-between space-y-4">
                     <div>
-                      <h3 className="text-sm sm:text-base font-black text-neutral-800 group-hover:text-brand-primary transition-colors leading-snug">
-                        {branch.name}
-                      </h3>
+                      <div className="flex items-center gap-2">
+                        {branch.logo ? (
+                          <img
+                            src={branch.logo}
+                            alt={branch.name}
+                            className="w-8 h-8 rounded-lg object-contain bg-neutral-50 border border-neutral-200 shrink-0"
+                          />
+                        ) : (
+                          <span
+                            className="w-8 h-8 rounded-lg text-white font-900 text-xs flex items-center justify-center shrink-0"
+                            style={{ backgroundColor: accentColor }}
+                          >
+                            {branch.name.charAt(0)}
+                          </span>
+                        )}
+                        <h3 className="text-sm sm:text-base font-black text-neutral-800 group-hover:text-brand-primary transition-colors leading-snug">
+                          {branch.name}
+                        </h3>
+                      </div>
 
                       <div className="mt-2.5 space-y-2 text-[11px] text-neutral-600 font-medium">
                         <p className="flex items-start gap-1.5 leading-relaxed">
                           <MapPin size={14} className="text-brand-primary shrink-0 mt-0.5" />
-                          <span>{branch.address || "Main City Center, AB"}</span>
+                          <span>{branch.address || "Main Market, Commercial Center"}</span>
                         </p>
 
                         {branch.phone && (
@@ -244,8 +280,8 @@ export default function StoreLandingView({
                           : "bg-brand-primary hover:bg-brand-primary-hover text-white shadow-md shadow-brand-primary/10 active:scale-[0.98] cursor-pointer"
                       }`}
                     >
-                      <span>{isDisabled ? "CLOSED TODAY" : "ORDER ONLINE"}</span>
-                      {!isDisabled && <ArrowRight size={13} strokeWidth={2.5} />}
+                      <span>{isDisabled ? "Temporarily Closed" : "View Menu & Order"}</span>
+                      {!isDisabled && <ArrowRight size={13} />}
                     </button>
                   </div>
                 </div>
@@ -253,23 +289,15 @@ export default function StoreLandingView({
             })}
           </div>
         ) : (
-          /* Empty Search View */
-          <div className="flex flex-col items-center justify-center p-12 bg-white border border-dashed border-neutral-300/80 rounded-2xl text-center space-y-2">
-            <AlertCircle size={28} className="text-neutral-400" />
-            <h4 className="text-xs font-bold text-neutral-700">
-              No restaurant branches found
-            </h4>
-            <p className="text-[11px] text-neutral-400 max-w-sm">
-              We couldn&apos;t find any stores matching &ldquo;{searchQuery}&rdquo;. Try adjusting your search query.
+          <div className="bg-white border border-dashed border-neutral-300 rounded-2xl p-12 text-center max-w-md mx-auto my-8 space-y-2">
+            <span className="text-3xl block">🔍</span>
+            <h3 className="text-sm font-bold text-neutral-800">No restaurants found</h3>
+            <p className="text-xs text-neutral-500 leading-relaxed">
+              We couldn&apos;t find any restaurant matching &ldquo;{searchQuery}&rdquo;. Try another name or clear your filters.
             </p>
           </div>
         )}
       </main>
-
-      {/* ── FOOTER ── */}
-      <footer className="border-t border-neutral-200/80 bg-white py-5 text-center text-xs text-neutral-500 font-medium">
-        <p>© 2026 Pizza Hut. All rights reserved. Powered by RMS Platform.</p>
-      </footer>
     </div>
   );
 }
