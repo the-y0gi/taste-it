@@ -661,7 +661,7 @@ export default function KitchenDetailModal({
       );
       if (res.data.success) {
         toast.success(
-          `Order ${localOrder.orderNumber} payment difference of $${unpaidBalance.toFixed(2)} marked as PAID!`,
+          `Order ${localOrder.orderNumber} payment difference of ₹${unpaidBalance.toFixed(2)} marked as PAID!`,
         );
 
         setLocalOrder({
@@ -1152,23 +1152,7 @@ export default function KitchenDetailModal({
       );
     }
 
-    if (currentStationStatus === "preparing") {
-      // Show "In the Oven" ONLY IF the station handles pizza AND the order actually contains Pizza items
-      if (stationHandlesPizza && orderHasPizza) {
-        return (
-          <div className="flex items-center gap-2">
-            {undoBtn}
-            <button
-              onClick={() => handleTransition("in_oven")}
-              disabled={updating}
-              className="flex items-center gap-1.5 bg-orange-600 text-white text-[12px] font-800 px-4 py-2 rounded-full hover:bg-orange-700 shadow-sm transition-all cursor-pointer disabled:opacity-50"
-              title="Advance status to In Oven (Press 'B')"
-            >
-              <span>In the Oven</span>
-            </button>
-          </div>
-        );
-      }
+    if (currentStationStatus === "preparing" || currentStationStatus === "in_oven") {
       return (
         <div className="flex items-center gap-2">
           {undoBtn}
@@ -1579,7 +1563,7 @@ export default function KitchenDetailModal({
 
                               <div className="w-24 text-right flex items-center justify-end font-700 text-[13px] text-neutral-800">
                                 <span>
-                                  ${(item.quantity * item.basePrice).toFixed(2)}
+                                  ₹{(item.quantity * item.basePrice).toFixed(2)}
                                 </span>
                                 <button
                                   type="button"
@@ -1693,7 +1677,7 @@ export default function KitchenDetailModal({
                               </div>
 
                               <div className="w-24 text-right font-700 text-[12.5px] text-neutral-800 font-mono">
-                                $
+                                ₹
                                 {(
                                   (item.totalPrice as number | undefined) ??
                                   item.basePrice * item.quantity
@@ -1718,7 +1702,7 @@ export default function KitchenDetailModal({
                   <div className="flex justify-between">
                     <span>Item Total:</span>
                     <span className="text-neutral-800 font-mono">
-                      $
+                      ₹
                       {(isEditing
                         ? editItems.reduce(
                             (sum, item) => sum + item.quantity * item.basePrice,
@@ -1734,7 +1718,7 @@ export default function KitchenDetailModal({
                       {localOrder.promoCode ? ` (${localOrder.promoCode})` : ""}:
                     </span>
                     <span className="text-[#DC2626] font-mono">
-                      -$
+                      -₹
                       {(
                         (localOrder.discount as number | undefined) ?? 0
                       ).toFixed(2)}
@@ -1743,7 +1727,7 @@ export default function KitchenDetailModal({
                   <div className="flex justify-between border-t border-dashed border-neutral-200 pt-2 text-neutral-800">
                     <span>Sub Total:</span>
                     <span className="font-mono">
-                      $
+                      ₹
                       {(isEditing
                         ? getEditTotals().subtotal
                         : ((localOrder.subtotal as number | undefined) ?? 0)
@@ -1753,7 +1737,7 @@ export default function KitchenDetailModal({
                   <div className="flex justify-between">
                     <span>GST:</span>
                     <span className="text-neutral-800 font-mono">
-                      $
+                      ₹
                       {(isEditing
                         ? getEditTotals().tax
                         : ((localOrder.tax as number | undefined) ?? 0)
@@ -1763,7 +1747,7 @@ export default function KitchenDetailModal({
                   <div className="flex justify-between">
                     <span>Total Tax:</span>
                     <span className="text-neutral-800 font-mono">
-                      $
+                      ₹
                       {(isEditing
                         ? getEditTotals().tax
                         : ((localOrder.tax as number | undefined) ?? 0)
@@ -1775,7 +1759,7 @@ export default function KitchenDetailModal({
                     <div className="flex justify-between">
                       <span>Delivery Fee:</span>
                       <span className="text-neutral-800 font-mono">
-                        ${(localOrder.deliveryFee as number).toFixed(2)}
+                        ₹{(localOrder.deliveryFee as number).toFixed(2)}
                       </span>
                     </div>
                   )}
@@ -1783,14 +1767,14 @@ export default function KitchenDetailModal({
                     <div className="flex justify-between text-brand-primary font-bold">
                       <span>Driver Tip:</span>
                       <span className="font-mono">
-                        +${(localOrder.tip as number).toFixed(2)}
+                        +₹{(localOrder.tip as number).toFixed(2)}
                       </span>
                     </div>
                   )}
                   <div className="flex justify-between text-[13.5px] font-750 text-neutral-900 border-t border-neutral-200 pt-2.5">
                     <span>Grand Total:</span>
                     <span className="font-mono text-[14.5px] text-brand-primary font-800">
-                      $
+                      ₹
                       {(isEditing
                         ? getEditTotals().total
                         : ((localOrder.total as number | undefined) ?? 0)
@@ -1800,7 +1784,7 @@ export default function KitchenDetailModal({
                   <div className="flex justify-between text-[12.5px] font-700 text-red-650 pt-1 items-center">
                     <span>Total Unpaid:</span>
                     <span className="font-mono bg-red-50 text-red-600 px-2.5 py-0.5 rounded border border-red-150 font-900 text-[13px]">
-                      $
+                      ₹
                       {Math.max(
                         0,
                         (isEditing
@@ -1922,7 +1906,7 @@ export default function KitchenDetailModal({
                           Discount Amount:
                         </span>
                         <span className="text-[#DC2626] font-750">
-                          -$
+                          -₹
                           {(
                             (localOrder.discount as number | undefined) ?? 0
                           ).toFixed(2)}
@@ -1972,7 +1956,7 @@ export default function KitchenDetailModal({
                             {p.method === "card" ? "Visa/Mastercard" : "-"}
                           </td>
                           <td className="py-2 px-2 text-right font-700 text-neutral-850">
-                            ${p.amount.toFixed(2)}
+                            ₹{p.amount.toFixed(2)}
                           </td>
                           <td className="py-2 px-2 text-right text-neutral-600">
                             ${(p.cashGiven || 0).toFixed(2)}

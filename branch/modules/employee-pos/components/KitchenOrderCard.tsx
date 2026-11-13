@@ -8,7 +8,7 @@ import { Order } from "../types";
 interface KitchenOrderCardProps {
   order: Order;
   onClick: () => void;
-  stationFilter?: "cut_station" | "make_table" | "wings_station";
+  stationFilter?: string;
   isFocused?: boolean;
 }
 
@@ -369,34 +369,11 @@ export default function KitchenOrderCard({
             <span className="px-2 py-0.5 rounded-full border border-amber-250 bg-amber-50 text-amber-700 text-[9px] font-700 uppercase tracking-wide">
               POS Drafting
             </span>
-          ) : stationFilter === "wings_station" ? (
-            order.wingsStatus === "completed" ||
-            order.wingsStatus === "ready" ||
-            (order.status === "ready" && !order.makeTableStatus) ? (
-              <span className="px-2 py-0.5 rounded-full border border-emerald-250 bg-emerald-50 text-emerald-700 text-[9px] font-700 uppercase tracking-wide">
-                {order.orderType === "delivery" ? "Ready Delv" : "Ready Pick"}
-              </span>
-            ) : order.wingsStatus === "preparing" ||
-              order.status === "preparing" ? (
-              <span className="px-2 py-0.5 rounded-full border border-blue-200 bg-blue-50 text-blue-600 text-[9px] font-700 uppercase tracking-wide">
-                Preparing
-              </span>
-            ) : (
-              <span className="px-2 py-0.5 rounded-full border border-orange-200 bg-orange-50 text-brand-primary text-[9px] font-700 uppercase tracking-wide animate-pulse">
-                Confirmed
-              </span>
-            )
-          ) : order.makeTableStatus === "in_oven" ||
-            order.status === "in_oven" ? (
-            <span className="px-2 py-0.5 rounded-full border border-orange-300 bg-orange-100 text-orange-700 text-[9px] font-800 uppercase tracking-wide">
-              In Oven
-            </span>
-          ) : order.makeTableStatus === "ready" || order.status === "ready" ? (
+          ) : order.status === "ready" || order.makeTableStatus === "ready" || order.wingsStatus === "ready" ? (
             <span className="px-2 py-0.5 rounded-full border border-emerald-250 bg-emerald-50 text-emerald-700 text-[9px] font-700 uppercase tracking-wide">
               {order.orderType === "delivery" ? "Ready Delv" : "Ready Pick"}
             </span>
-          ) : order.makeTableStatus === "preparing" ||
-            order.status === "preparing" ? (
+          ) : order.status === "preparing" || order.status === "in_oven" || order.makeTableStatus === "preparing" ? (
             <span className="px-2 py-0.5 rounded-full border border-blue-200 bg-blue-50 text-blue-600 text-[9px] font-700 uppercase tracking-wide">
               Preparing
             </span>
@@ -406,7 +383,7 @@ export default function KitchenOrderCard({
             </span>
           )}
           <span className="font-800 text-neutral-800 text-[13px]">
-            ${order.total.toFixed(2)}
+            ₹{order.total.toFixed(2)}
           </span>
         </div>
 

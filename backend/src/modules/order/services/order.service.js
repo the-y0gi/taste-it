@@ -291,8 +291,9 @@ exports.createOrder = async (orderData) => {
       return isItemWings || hasWingsMod;
     });
 
-    const makeTableStatus = hasPizza ? "pending" : "completed";
-    const wingsStatus = hasWings ? "pending" : "completed";
+    const hasItems = (orderData.items || []).length > 0;
+    const makeTableStatus = hasPizza ? "pending" : (hasItems ? "pending" : "completed");
+    const wingsStatus = hasWings ? "pending" : (hasItems ? "pending" : "completed");
     const resolvedPaymentMethod =
       orderData.paymentMethod ||
       (payments.length > 0 ? payments[payments.length - 1].method : "cash");

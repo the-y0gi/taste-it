@@ -701,7 +701,7 @@ export default function OrderDetailModal({
                     </div>
                     {/* Price (safe fallback included) */}
                     <div className="col-span-2 text-right font-800 text-neutral-900 self-start pt-0.5 font-mono">
-                      $
+                      ₹
                       {(
                         (item.totalPrice as number | undefined) ??
                         item.basePrice * item.quantity
@@ -721,21 +721,21 @@ export default function OrderDetailModal({
                 <div className="flex justify-between font-600">
                   <span>Item Total :</span>
                   <span className="text-neutral-850 font-700 font-mono">
-                    ${(order.subtotal ?? 0).toFixed(2)}
+                    ₹{(order.subtotal ?? 0).toFixed(2)}
                   </span>
                 </div>
                 {(order.discount ?? 0) > 0 && (
                   <div className="flex justify-between text-green-600 font-700">
                     <span>Discount :</span>
                     <span className="font-mono">
-                      -${(order.discount ?? 0).toFixed(2)} ({order.promoCode ? `promo: ${order.promoCode}` : order.discountType || "discount"})
+                      -₹{(order.discount ?? 0).toFixed(2)} ({order.promoCode ? `promo: ${order.promoCode}` : order.discountType || "discount"})
                     </span>
                   </div>
                 )}
                 <div className="flex justify-between font-600">
                   <span>Sub Total :</span>
                   <span className="text-neutral-850 font-700 font-mono">
-                    $
+                    ₹
                     {((order.subtotal ?? 0) - (order.discount ?? 0)).toFixed(2)}
                   </span>
                 </div>
@@ -744,20 +744,20 @@ export default function OrderDetailModal({
                     GST ({((order.taxRate ?? 0) * 100).toFixed(0)}%) :
                   </span>
                   <span className="text-neutral-850 font-700 font-mono">
-                    ${(order.tax ?? 0).toFixed(2)}
+                    ₹{(order.tax ?? 0).toFixed(2)}
                   </span>
                 </div>
                 <div className="flex justify-between font-600">
                   <span>Total Tax :</span>
                   <span className="text-neutral-850 font-700 font-mono">
-                    ${(order.tax ?? 0).toFixed(2)}
+                    ₹{(order.tax ?? 0).toFixed(2)}
                   </span>
                 </div>
                 {(order.deliveryFee ?? 0) > 0 && (
                   <div className="flex justify-between font-600">
                     <span>Delivery Fee :</span>
                     <span className="text-neutral-850 font-700 font-mono">
-                      ${(order.deliveryFee ?? 0).toFixed(2)}
+                      ₹{(order.deliveryFee ?? 0).toFixed(2)}
                     </span>
                   </div>
                 )}
@@ -765,7 +765,7 @@ export default function OrderDetailModal({
                   <div className="flex justify-between font-700 text-brand-primary">
                     <span>Driver Tip :</span>
                     <span className="font-mono">
-                      ${(order.tip ?? 0).toFixed(2)}
+                      ₹{(order.tip ?? 0).toFixed(2)}
                     </span>
                   </div>
                 )}
@@ -773,13 +773,13 @@ export default function OrderDetailModal({
                 <div className="flex justify-between text-[14px] font-900 text-neutral-900 pt-1">
                   <span>Grand Total :</span>
                   <span className="font-mono text-brand-primary">
-                    ${(order.total ?? 0).toFixed(2)}
+                    ₹{(order.total ?? 0).toFixed(2)}
                   </span>
                 </div>
                 <div className="flex justify-between text-[14px] font-900 text-green-600">
                   <span>Total Paid :</span>
                   <span className="font-mono">
-                    $
+                    ₹
                     {order.paymentStatus === "paid"
                       ? (order.total ?? 0).toFixed(2)
                       : "0.00"}
@@ -822,7 +822,7 @@ export default function OrderDetailModal({
                     {showPayForm && (
                       <div className="bg-neutral-50 border border-neutral-200 rounded-xl p-3.5 space-y-2.5 text-[11px] animate-scale-up">
                         <p className="font-800 text-neutral-750">
-                          Record Payment Amount: $
+                          Record Payment Amount: ₹
                           {(order.total ?? 0).toFixed(2)}
                         </p>
                         <div className="flex items-center gap-2">
@@ -857,7 +857,7 @@ export default function OrderDetailModal({
                             <div className="space-y-2 bg-neutral-100/70 border border-neutral-200 p-2.5 rounded-lg">
                               <div className="flex items-center justify-between">
                                 <label className="text-[10px] text-neutral-600 font-700 uppercase tracking-wider">
-                                  Cash Given ($)
+                                  Cash Given (₹)
                                 </label>
                                 {cashGivenInput && (
                                   <button
@@ -876,7 +876,7 @@ export default function OrderDetailModal({
                                 onChange={(e) =>
                                   setCashGivenInput(e.target.value)
                                 }
-                                placeholder={`$${orderTotal.toFixed(2)}`}
+                                placeholder={`₹${orderTotal.toFixed(2)}`}
                                 className="w-full bg-white border border-neutral-300 rounded-lg px-2.5 py-1.5 text-[12px] font-700 text-neutral-800 focus:outline-none focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/10 shadow-xs"
                               />
 
@@ -897,8 +897,8 @@ export default function OrderDetailModal({
                                     </span>
                                     <span className="text-[9.5px] opacity-80 block">
                                       {isUnderpaid
-                                        ? `Short by $${(orderTotal - parsedCash).toFixed(2)}`
-                                        : `Customer Paid: $${parsedCash.toFixed(2)}`}
+                                        ? `Short by ₹${(orderTotal - parsedCash).toFixed(2)}`
+                                        : `Customer Paid: ₹${parsedCash.toFixed(2)}`}
                                     </span>
                                   </div>
                                   <span
@@ -908,7 +908,7 @@ export default function OrderDetailModal({
                                         : "text-emerald-600"
                                     }`}
                                   >
-                                    $
+                                    ₹
                                     {isUnderpaid
                                       ? (orderTotal - parsedCash).toFixed(2)
                                       : changeToReturn.toFixed(2)}
@@ -1050,7 +1050,7 @@ export default function OrderDetailModal({
                   <div className="flex justify-between py-1">
                     <span>Discount:</span>
                     <span className="text-green-600 font-800 font-mono">
-                      -${(order.discount ?? 0).toFixed(2)}
+                      -₹{(order.discount ?? 0).toFixed(2)}
                     </span>
                   </div>
                 </div>
@@ -1078,7 +1078,7 @@ export default function OrderDetailModal({
                           {p.cardBrand ? `Stripe (${p.cardBrand})` : p.method}
                         </span>
                         <span className="font-mono text-neutral-800">
-                          ${(p.amount ?? 0).toFixed(2)}
+                          ₹{(p.amount ?? 0).toFixed(2)}
                         </span>
                       </div>
                       {p.cashGiven !== undefined && p.cashGiven > 0 && (

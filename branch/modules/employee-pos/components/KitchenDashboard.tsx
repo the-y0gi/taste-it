@@ -39,7 +39,15 @@ export default function KitchenDashboard() {
       const raw = localStorage.getItem('rms_branch_settings');
       if (raw) {
         const parsed = JSON.parse(raw);
-        if (parsed?.kitchenSettings?.stations?.length > 0) return parsed.kitchenSettings;
+        if (parsed?.kitchenSettings?.stations?.length > 0) {
+          // If stored settings are legacy pizza-only stations, migrate to Indian Restaurant stations
+          const hasIndianStation = parsed.kitchenSettings.stations.some((s: any) =>
+            ['all', 'fast_food', 'tandoor', 'chinese', 'main_kitchen', 'beverages', 'general'].includes(s.id)
+          );
+          if (hasIndianStation) {
+            return parsed.kitchenSettings;
+          }
+        }
       }
     } catch (e) {}
     return DEFAULT_KITCHEN_SETTINGS;
@@ -101,19 +109,20 @@ export default function KitchenDashboard() {
   const [draftCart, setDraftCart] = useState<Order | null>(null);
   const [loading, setLoading] = useState(true);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'confirmed' | 'preparing' | 'in_oven' | 'ready'>('all');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'confirmed' | 'preparing' | 'ready'>('all');
   const [typeFilter, setTypeFilter] = useState<'all' | 'takeout' | 'drive-through' | 'dine-in' | 'delivery' | 'online'>('all');
-  const [stationFilter, setStationFilter] = useState<'cut_station' | 'make_table' | 'wings_station'>(() => {
+  const [stationFilter, setStationFilter] = useState<string>(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('kitchen_station_filter');
       // Validate saved station is still enabled in config
       const cfg = getKitchenSettings();
       const enabledIds = cfg.stations.filter((s) => s.isEnabled).map((s) => s.id);
-      if (saved && enabledIds.includes(saved as any)) return saved as any;
+      if (saved && enabledIds.includes(saved as any)) return saved;
+      if (enabledIds.includes('all')) return 'all';
       // Fall back to first enabled station
-      if (enabledIds.length > 0) return enabledIds[0] as any;
+      if (enabledIds.length > 0) return enabledIds[0];
     }
-    return 'make_table';
+    return 'all';
   });
 
   useEffect(() => {
@@ -125,7 +134,7 @@ export default function KitchenDashboard() {
   // Ensure selected stationFilter is always an enabled station
   useEffect(() => {
     const enabledIds = enabledStations.map((s) => s.id);
-    if (enabledIds.length > 0 && !enabledIds.includes(stationFilter)) {
+    if (enabledIds.length > 0 && !enabledIds.includes(stationFilter as any)) {
       setStationFilter(enabledIds[0]);
     }
   }, [enabledStations, stationFilter]);
@@ -203,10 +212,9 @@ export default function KitchenDashboard() {
           if (!isActive) return false;
           if (o.kitchenCleared) return false;
 
-          // If both stations are "completed", kitchen work is fully done for this order
-          // (e.g., delivery orders stuck in "ready" status waiting for driver pickup)
-          // These should not appear in the kitchen view at all
-          if (o.makeTableStatus === 'completed' && o.wingsStatus === 'completed') {
+          // Only exclude if the order has ALREADY been marked ready/completed AND kitchen work is done
+          // Active orders with status pending or preparing must always show in the kitchen!
+          if ((o.status === 'ready' || o.status === 'completed') && o.makeTableStatus === 'completed' && o.wingsStatus === 'completed') {
             return false;
           }
 
@@ -359,18 +367,13 @@ const playKitchenNotificationSound = () => {
       console.log('Real-time order received via Pusher:', data);
       fetchOrders();
 
-      const currentStation = stationFilterRef.current;
-      // Audio beep ONLY on new order creation AND only for Make Table or Wings Station (never Cut Station)
-      if (currentStation === 'make_table' || currentStation === 'wings_station') {
-        if (isOrderRelevantToStation(data, currentStation)) {
-          playKitchenNotificationSound();
-          toast.success(`New Order Received: ${data.orderNumber ? '#' + data.orderNumber : ''}`, {
-            duration: 4000,
-            position: 'top-right',
-            icon: '🍳'
-          });
-        }
-      }
+      // Audio notification chime on new order creation
+      playKitchenNotificationSound();
+      toast.success(`New Order Received: ${data.orderNumber ? '#' + data.orderNumber : ''}`, {
+        duration: 4000,
+        position: 'top-right',
+        icon: '🍳'
+      });
     });
 
     // Bind to the 'order-updated' event (Status changes -> NO audio beep)
@@ -458,8 +461,7 @@ const playKitchenNotificationSound = () => {
   const getMappedStatus = (order: Order) => {
     if (order.orderNumber === '#DRAFT') return 'pending';
     if (order.status === 'pending') return 'confirmed';
-    if (order.status === 'preparing') return 'preparing';
-    if (order.status === 'in_oven') return 'in_oven';
+    if (order.status === 'preparing' || order.status === 'in_oven') return 'preparing';
     if (order.status === 'ready') return 'ready';
     return order.status;
   };
@@ -470,12 +472,11 @@ const playKitchenNotificationSound = () => {
   // Totals for Statuses
   const countPending = activeDraftCount;
   const countConfirmed = orders.filter((o) => o.status === 'pending').length;
-  const countPreparing = orders.filter((o) => o.status === 'preparing').length;
-  const countInOven = orders.filter((o) => o.status === 'in_oven').length;
+  const countPreparing = orders.filter((o) => o.status === 'preparing' || o.status === 'in_oven').length;
   const countReady = orders.filter((o) => o.status === 'ready').length;
   
-  // countAll should only include placed orders (confirmed, preparing, in_oven, ready). Exclude pending draftCart.
-  const countAll = countConfirmed + countPreparing + countInOven + countReady;
+  // countAll includes placed orders (confirmed, preparing, ready). Exclude pending draftCart.
+  const countAll = countConfirmed + countPreparing + countReady;
 
   // Totals for Order Types (Only count active DB orders, exclude pending draftCart)
   const countTakeout = orders.filter((o) => o.orderType === 'takeout' && o.orderSource === 'pos').length;
@@ -531,136 +532,121 @@ const playKitchenNotificationSound = () => {
       }
     });
 
-    const getItemKitchenLabel = (item: any): 'make_table' | 'wings_station' => {
-      if (item.kitchenLabel === 'wings_station' || item.kitchenLabel === 'chicken') return 'wings_station';
-      if (item.kitchenLabel === 'make_table' || item.kitchenLabel === 'pizza') return 'make_table';
+    const getItemKitchenLabel = (item: any): string => {
+      // If item has a specific station assigned (other than general)
+      if (item.kitchenLabel && item.kitchenLabel !== 'general') {
+        if (item.kitchenLabel === 'pizza' || item.kitchenLabel === 'make_table') return 'fast_food';
+        if (item.kitchenLabel === 'chicken' || item.kitchenLabel === 'wings_station') return 'fast_food';
+        return item.kitchenLabel;
+      }
       
+      const matchingBranchItem = branchMenuItems.find(
+        (p) => p._id === item.productId || p.name?.toLowerCase() === item.name?.toLowerCase()
+      );
+      if (matchingBranchItem?.kitchenLabel && matchingBranchItem.kitchenLabel !== 'general') {
+        return matchingBranchItem.kitchenLabel;
+      }
+
       const lowerName = (item.name || '').toLowerCase();
       if (
-        lowerName.includes('chicken') ||
-        lowerName.includes('wings') ||
-        lowerName.includes('strip') ||
-        lowerName.includes('side') ||
+        lowerName.includes('burger') ||
+        lowerName.includes('sandwich') ||
         lowerName.includes('fries') ||
-        lowerName.includes('drink') ||
-        lowerName.includes('beverage')
+        lowerName.includes('maggi') ||
+        lowerName.includes('wrap') ||
+        lowerName.includes('nacho') ||
+        lowerName.includes('garlic bread') ||
+        lowerName.includes('pasta') ||
+        lowerName.includes('pizza') ||
+        lowerName.includes('snack') ||
+        lowerName.includes('nugget')
       ) {
-        return 'wings_station';
+        return 'fast_food';
       }
-      return 'make_table';
+      if (
+        lowerName.includes('roti') ||
+        lowerName.includes('naan') ||
+        lowerName.includes('paratha') ||
+        lowerName.includes('tikka') ||
+        lowerName.includes('tandoor') ||
+        lowerName.includes('kulcha') ||
+        lowerName.includes('chaap')
+      ) {
+        return 'tandoor';
+      }
+      if (
+        lowerName.includes('noodle') ||
+        lowerName.includes('manchurian') ||
+        lowerName.includes('fried rice') ||
+        lowerName.includes('chilly') ||
+        lowerName.includes('chilli') ||
+        lowerName.includes('chinese') ||
+        lowerName.includes('spring roll') ||
+        lowerName.includes('momos') ||
+        lowerName.includes('soup')
+      ) {
+        return 'chinese';
+      }
+      if (
+        lowerName.includes('shake') ||
+        lowerName.includes('coffee') ||
+        lowerName.includes('tea') ||
+        lowerName.includes('chai') ||
+        lowerName.includes('drink') ||
+        lowerName.includes('beverage') ||
+        lowerName.includes('mojito') ||
+        lowerName.includes('soda') ||
+        lowerName.includes('water') ||
+        lowerName.includes('cooler') ||
+        lowerName.includes('smoothie') ||
+        lowerName.includes('juice')
+      ) {
+        return 'beverages';
+      }
+      if (
+        lowerName.includes('paneer') ||
+        lowerName.includes('dal') ||
+        lowerName.includes('curry') ||
+        lowerName.includes('thali') ||
+        lowerName.includes('sabzi') ||
+        lowerName.includes('rice') ||
+        lowerName.includes('biryani') ||
+        lowerName.includes('kofta') ||
+        lowerName.includes('makhani') ||
+        lowerName.includes('masala')
+      ) {
+        return 'main_kitchen';
+      }
+
+      return 'general';
     };
 
-    const getModStation = (mod: any): 'make_table' | 'wings_station' | null => {
-      if (!mod.kitchenLabel) return null;
-      if (mod.kitchenLabel === 'wings_station' || mod.kitchenLabel === 'chicken') return 'wings_station';
-      if (mod.kitchenLabel === 'make_table' || mod.kitchenLabel === 'pizza') return 'make_table';
-      return null;
-    };
-
-    const filterItemForStation = (item: any, targetStation: 'make_table' | 'wings_station'): any | null => {
-      const baseLabel = getItemKitchenLabel(item);
-      const mods = item.selectedModifiers || [];
-      const hasExplicitModLabels = mods.some((m: any) => getModStation(m) !== null);
-
-      if (!hasExplicitModLabels) {
-        return baseLabel === targetStation ? item : null;
-      }
-
-      let currentRootStation: 'make_table' | 'wings_station' = baseLabel;
-      const matchingMods = mods.filter((m: any) => {
-        let s = getModStation(m);
-        const isRootVal =
-          m.isRoot !== undefined
-            ? m.isRoot
-            : !(
-                m.groupName?.toLowerCase().includes("mix") ||
-                m.groupName?.toLowerCase().includes("white & dark")
-              );
-
-        if (isRootVal) {
-          if (s) {
-            currentRootStation = s;
-          } else {
-            currentRootStation = baseLabel;
-          }
-        } else {
-          if (!s) {
-            s = currentRootStation;
-          }
-        }
-
-        const finalStation = s || currentRootStation;
-        return finalStation === targetStation;
-      });
-
-      const isBaseStationMatch = baseLabel === targetStation;
-      const hasMatchingMods = matchingMods.length > 0;
-
-      if (isBaseStationMatch || hasMatchingMods) {
-        return {
-          ...item,
-          selectedModifiers: matchingMods,
-        };
-      }
-
-      return null;
-    };
-
-    // ── Config-driven station filtering logic ──────────────────
+    // ── Station filtering logic ──────────────────
     const stationFiltered: Order[] = [];
-    const currentStationCfg: StationConfig | undefined = kitchenSettings.stations.find((s) => s.id === stationFilter);
-    const makeTableCfg: StationConfig | undefined = kitchenSettings.stations.find((s) => s.id === 'make_table');
-    const cutStationEnabled = kitchenSettings.stations.find((s) => s.id === 'cut_station')?.isEnabled ?? true;
-    const makeTableNextStation = makeTableCfg ? makeTableCfg.nextStation : 'cut_station'; // null = no cut station, 'cut_station' = 3-station flow
 
     candidates.forEach((o) => {
       const items = o.items || [];
-      const makeTableItems = items
-        .map((item: any) => filterItemForStation(item, 'make_table'))
-        .filter(Boolean);
-      const wingsStationItems = items
-        .map((item: any) => filterItemForStation(item, 'wings_station'))
-        .filter(Boolean);
-
-      const hasPizza = makeTableItems.length > 0;
-      const hasWings = wingsStationItems.length > 0;
-
-      const mtStatus = o.makeTableStatus || (o.status === 'in_oven' ? 'in_oven' : o.status === 'completed' ? 'completed' : o.status === 'preparing' ? 'preparing' : 'pending');
-      const wStatus = o.wingsStatus || (o.status === 'completed' ? 'completed' : o.status === 'ready' ? 'ready' : o.status === 'preparing' ? 'preparing' : 'pending');
-
-      const handlesTypes = currentStationCfg?.handlesItemTypes || (stationFilter === 'wings_station' ? ['wings'] : ['pizza']);
-      const handlesPizza = handlesTypes.includes('pizza');
-      const handlesWings = handlesTypes.includes('wings');
-
-      let isPizzaActiveForStation = false;
-      if (handlesPizza && hasPizza) {
-        if (stationFilter === 'cut_station') {
-          isPizzaActiveForStation = mtStatus === 'in_oven' || (statusFilter === 'ready' && mtStatus === 'completed');
-        } else if (stationFilter === 'make_table' && makeTableNextStation === 'cut_station') {
-          isPizzaActiveForStation = mtStatus === 'pending' || mtStatus === 'preparing';
-        } else {
-          // No cut station transfer for pizza
-          isPizzaActiveForStation = mtStatus !== 'completed';
-        }
+      if (!stationFilter || stationFilter === 'all') {
+        stationFiltered.push(o);
+        return;
       }
 
-      let isWingsActiveForStation = false;
-      if (handlesWings && hasWings) {
-        isWingsActiveForStation = wStatus !== 'completed';
-      }
-
-      const isStationActive = isPizzaActiveForStation || isWingsActiveForStation;
-
-      if (isStationActive) {
-        let cardItems = items;
-        if (handlesWings && !handlesPizza) {
-          // Wings-only station (e.g. Wings Station): show only wings/sides items
-          cardItems = wingsStationItems.length > 0 ? wingsStationItems : items;
-        } else {
-          // Pizza handling station (e.g. Make Station / Cut Station): show full order items (Pizza + Sides)
-          cardItems = items;
+      const matchingItems = items.filter((item: any) => {
+        const itemStation = getItemKitchenLabel(item);
+        if (stationFilter === 'make_table') {
+          return itemStation === 'fast_food' || itemStation === 'make_table' || itemStation === 'pizza';
         }
-        stationFiltered.push({ ...o, items: cardItems });
+        if (stationFilter === 'wings_station') {
+          return itemStation === 'fast_food' || itemStation === 'wings_station' || itemStation === 'chicken';
+        }
+        return itemStation === stationFilter;
+      });
+
+      if (matchingItems.length > 0) {
+        stationFiltered.push({
+          ...o,
+          items: matchingItems,
+        });
       }
     });
 
@@ -721,7 +707,7 @@ const playKitchenNotificationSound = () => {
         const enabledIds = kitchenSettings.stations.filter((s) => s.isEnabled).map((s) => s.id);
         if (enabledIds.length <= 1) return;
         setStationFilter((prev) => {
-          const idx = enabledIds.indexOf(prev);
+          const idx = enabledIds.indexOf(prev as any);
           return (enabledIds[(idx + 1) % enabledIds.length]) as any;
         });
       }
@@ -740,14 +726,13 @@ const playKitchenNotificationSound = () => {
 
       {/* ── Filter Controls Section (1 Line on Large Screens >= 1280px, 2 Clean Lines on Laptops/Tablets < 1280px) ── */}
       <div className="bg-white border-b border-neutral-200 px-3 md:px-5 py-2 md:py-2.5 flex flex-col xl:flex-row xl:items-center justify-between gap-2.5 shadow-xs flex-shrink-0 select-none">
-        {/* Status Pills (Left on Large Screens, Line 1 on Medium Screens) */}
+        {/* Status Pills */}
         <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar flex-shrink-0">
           {[
             { id: "all", label: "All", count: countAll },
             { id: "pending", label: "Pending", count: countPending },
             { id: "confirmed", label: "Confirmed", count: countConfirmed },
             { id: "preparing", label: "Preparing", count: countPreparing },
-            { id: "in_oven", label: "In Oven", count: countInOven },
             { id: "ready", label: "Ready", count: countReady },
           ].map((statusTab) => {
             const active = statusFilter === statusTab.id;

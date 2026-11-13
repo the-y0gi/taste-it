@@ -15,7 +15,7 @@ export default function PosNavbar({ onToggleSidebar }: PosNavbarProps) {
   const pathname = usePathname();
   const router = useRouter();
   const { search, setSearch, orders } = usePosStore();
-  const [branchInfo, setBranchInfo] = React.useState<{ name: string; code: string; _id?: string } | null>(null);
+  const [branchInfo, setBranchInfo] = React.useState<{ name: string; code: string; _id?: string; logo?: string } | null>(null);
   const [loadingBranchInfo, setLoadingBranchInfo] = React.useState(true);
   const [activeEmployee, setActiveEmployee] = React.useState<any>(null);
   const [isLocationPending, setIsLocationPending] = React.useState(false);
@@ -206,7 +206,23 @@ export default function PosNavbar({ onToggleSidebar }: PosNavbarProps) {
         <div className="flex items-center gap-4">
           {/* Logo */}
           <Link href="/employee/pos" className="flex items-center gap-2.5">
-            <img src="/pizza-hut-logo.webp" alt="Pizza Hut" className="h-12 w-[86px] object-contain rounded-sm" />
+            {branchInfo?.logo ? (
+              <img src={branchInfo.logo} alt={branchInfo.name || "Taste-It"} className="h-9 max-w-[120px] object-contain rounded" />
+            ) : (
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-orange-600 to-amber-500 flex items-center justify-center text-white shadow-sm font-black text-sm">
+                  ⚡
+                </div>
+                <div className="flex flex-col">
+                  <span className="text-[14px] font-900 text-neutral-900 tracking-tight leading-none">
+                    Taste-It
+                  </span>
+                  <span className="text-[9px] font-800 text-brand-primary uppercase tracking-wider leading-tight">
+                    RMS POS
+                  </span>
+                </div>
+              </div>
+            )}
           </Link>
 
           {/* Divider */}

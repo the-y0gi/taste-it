@@ -39,9 +39,19 @@ export default function KitchenNavbar({ activePendingCount, activeConfirmedCount
       {/* ── Left: Logo + Branch + Link ── */}
       <div className="flex items-center gap-5">
         {/* Logo */}
-        <div className="flex items-center gap-2.5">
-          <img src="/pizza-hut-logo.webp" alt="Pizza Hut" className="h-12 w-[86px] object-contain rounded-sm" />
-        </div>
+        <a href="/employee/pos" className="flex items-center gap-2">
+          <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-orange-600 to-amber-500 flex items-center justify-center text-white shadow-sm font-black text-sm">
+            ⚡
+          </div>
+          <div className="flex flex-col">
+            <span className="text-[14px] font-900 text-neutral-900 tracking-tight leading-none">
+              Taste-It
+            </span>
+            <span className="text-[9px] font-800 text-brand-primary uppercase tracking-wider leading-tight">
+              KITCHEN RMS
+            </span>
+          </div>
+        </a>
 
         {/* Divider */}
         <div className="h-7 w-px bg-neutral-200" />

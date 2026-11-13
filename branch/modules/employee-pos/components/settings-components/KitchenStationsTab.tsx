@@ -27,6 +27,23 @@ interface KitchenStationsTabProps {
 }
 
 // ── Preset Configs ──────────────────────────────────────────────
+const PRESET_INDIAN_MULTI: StationConfig[] = [
+  { id: 'all',          label: 'All Stations',  isEnabled: true,  handlesItemTypes: ['all'],         nextStation: null, autoPrint: { pizza: true, wings: true } },
+  { id: 'fast_food',    label: 'Fast Food',     isEnabled: true,  handlesItemTypes: ['fast_food'],   nextStation: null, autoPrint: { pizza: true, wings: true } },
+  { id: 'main_kitchen', label: 'Main Kitchen',  isEnabled: true,  handlesItemTypes: ['main_kitchen'], nextStation: null, autoPrint: { pizza: true, wings: true } },
+  { id: 'tandoor',      label: 'Tandoor',       isEnabled: true,  handlesItemTypes: ['tandoor'],     nextStation: null, autoPrint: { pizza: true, wings: true } },
+  { id: 'chinese',      label: 'Chinese / Wok', isEnabled: true,  handlesItemTypes: ['chinese'],     nextStation: null, autoPrint: { pizza: true, wings: true } },
+  { id: 'beverages',    label: 'Beverages',     isEnabled: true,  handlesItemTypes: ['beverages'],   nextStation: null, autoPrint: { pizza: true, wings: true } },
+  { id: 'general',      label: 'General',       isEnabled: true,  handlesItemTypes: ['general'],     nextStation: null, autoPrint: { pizza: true, wings: true } },
+];
+
+const PRESET_INDIAN_CAFE: StationConfig[] = [
+  { id: 'all',          label: 'All Stations',  isEnabled: true,  handlesItemTypes: ['all'],         nextStation: null, autoPrint: { pizza: true, wings: true } },
+  { id: 'fast_food',    label: 'Fast Food',     isEnabled: true,  handlesItemTypes: ['fast_food'],   nextStation: null, autoPrint: { pizza: true, wings: true } },
+  { id: 'beverages',    label: 'Cafe & Drinks', isEnabled: true,  handlesItemTypes: ['beverages'],   nextStation: null, autoPrint: { pizza: true, wings: true } },
+  { id: 'general',      label: 'General',       isEnabled: true,  handlesItemTypes: ['general'],     nextStation: null, autoPrint: { pizza: true, wings: true } },
+];
+
 const PRESET_3_STATION: StationConfig[] = [
   {
     id: "make_table",
@@ -110,6 +127,20 @@ const PRESET_1_STATION: StationConfig[] = [
 
 const PRESETS = [
   {
+    id: "indian_multi_station" as const,
+    title: "Indian Restaurant",
+    subtitle: "Multi-Station (Full Menu)",
+    desc: "Fast Food, Main Kitchen (Curries), Tandoor, Chinese Wok, Beverages & General",
+    stations: PRESET_INDIAN_MULTI,
+  },
+  {
+    id: "indian_cafe" as const,
+    title: "Cafe & Fast Food",
+    subtitle: "Snacks & Shakes",
+    desc: "Fast Food, Beverages / Cafe & General Stations",
+    stations: PRESET_INDIAN_CAFE,
+  },
+  {
     id: "3_station" as const,
     title: "3 Stations",
     subtitle: "Standard Setup",
@@ -137,6 +168,48 @@ const STATION_COLORS: Record<
   StationId,
   { bg: string; border: string; dot: string; tag: string }
 > = {
+  all: {
+    bg: "bg-neutral-50/70",
+    border: "border-neutral-200/90",
+    dot: "bg-neutral-500",
+    tag: "bg-neutral-100/80 text-neutral-800 border-neutral-200",
+  },
+  fast_food: {
+    bg: "bg-amber-50/70",
+    border: "border-amber-200/90",
+    dot: "bg-amber-500",
+    tag: "bg-amber-100/80 text-amber-800 border-amber-200",
+  },
+  tandoor: {
+    bg: "bg-red-50/70",
+    border: "border-red-200/90",
+    dot: "bg-red-500",
+    tag: "bg-red-100/80 text-red-800 border-red-200",
+  },
+  chinese: {
+    bg: "bg-orange-50/70",
+    border: "border-orange-200/90",
+    dot: "bg-orange-500",
+    tag: "bg-orange-100/80 text-orange-800 border-orange-200",
+  },
+  main_kitchen: {
+    bg: "bg-emerald-50/70",
+    border: "border-emerald-200/90",
+    dot: "bg-emerald-500",
+    tag: "bg-emerald-100/80 text-emerald-800 border-emerald-200",
+  },
+  beverages: {
+    bg: "bg-cyan-50/70",
+    border: "border-cyan-200/90",
+    dot: "bg-cyan-500",
+    tag: "bg-cyan-100/80 text-cyan-800 border-cyan-200",
+  },
+  general: {
+    bg: "bg-purple-50/70",
+    border: "border-purple-200/90",
+    dot: "bg-purple-500",
+    tag: "bg-purple-100/80 text-purple-800 border-purple-200",
+  },
   make_table: {
     bg: "bg-orange-50/70",
     border: "border-orange-200/90",
@@ -188,7 +261,7 @@ export default function KitchenStationsTab({
   };
 
   // ── Apply a preset ──
-  const applyPreset = (presetId: "3_station" | "2_station" | "1_station") => {
+  const applyPreset = (presetId: any) => {
     if (!isEditing) return;
     const preset = PRESETS.find((p) => p.id === presetId);
     if (!preset) return;

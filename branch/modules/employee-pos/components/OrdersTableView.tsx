@@ -298,13 +298,13 @@ export default function OrdersTableView({
 
                     {/* Sub Total */}
                     <td className="px-5 py-4 text-right font-700 text-neutral-450 text-[11.5px] lg:text-[13px]">
-                      ${subTotalDisplay.toFixed(2)}
+                      ₹{subTotalDisplay.toFixed(2)}
                     </td>
 
                     {/* Grand Total */}
                     <td className="px-5 py-4 text-right">
                       <span className="font-900 text-[12.5px] lg:text-[14px] text-neutral-900">
-                        ${grandTotalDisplay.toFixed(2)}
+                        ₹{grandTotalDisplay.toFixed(2)}
                       </span>
                       {order.promoCode ? (
                         <div className="text-[10px] font-750 text-emerald-600 uppercase tracking-wider">
