@@ -42,10 +42,17 @@ export interface ModifierGroup {
 }
 
 export interface ProductVariant {
-  sizeCode: string;
-  sizeName: string;
+  name?: string;
+  sizeCode?: string;
+  sizeName?: string;
   price: number;
   isDefault?: boolean;
+  isEnabled?: boolean;
+}
+
+export interface ProductAddon {
+  name: string;
+  price: number;
   isEnabled?: boolean;
 }
 
@@ -64,6 +71,7 @@ export interface Product {
   hasVariants?: boolean;
   isHalfAndHalf?: boolean;
   variants?: ProductVariant[];
+  addons?: ProductAddon[];
   includedToppings?: { groupId: string; optionId: string }[];
   categoryId: string | any;
   modifierGroups: string[] | any[];

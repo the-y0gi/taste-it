@@ -113,6 +113,8 @@ export default function MenuPage() {
           className={`grid grid-cols-1 gap-6 ${
             activeTab === "modifiers"
               ? "lg:grid-cols-[minmax(420px,1.15fr)_minmax(0,1.85fr)]"
+              : activeTab === "products"
+              ? "lg:grid-cols-[minmax(450px,1.15fr)_minmax(0,1.85fr)]"
               : "lg:grid-cols-3"
           }`}
         >

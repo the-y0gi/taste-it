@@ -100,9 +100,9 @@ export default function DealsOfTheDayTab({
 
       // Build default deal sizes array from product variants, modifier options, or base price
       if (prod.hasVariants && prod.variants && prod.variants.length > 0) {
-        const initialSizes: DealSizeConfig[] = prod.variants.map((v) => ({
-          sizeCode: v.sizeCode,
-          sizeName: v.sizeName,
+        const initialSizes: DealSizeConfig[] = prod.variants.map((v, idx) => ({
+          sizeCode: v.sizeCode || v.name || `variant_${idx}`,
+          sizeName: v.sizeName || v.name || `Variant ${idx + 1}`,
           originalPrice: v.price,
           dealPrice: v.price,
           isEnabled: false,
@@ -384,7 +384,7 @@ export default function DealsOfTheDayTab({
                           {p.name}
                         </p>
                         <p className="text-[10px] text-neutral-400">
-                          Base Price: ${p.price.toFixed(2)}
+                          Base Price: ₹{p.price.toFixed(2)}
                         </p>
                       </div>
                     </div>
@@ -476,14 +476,14 @@ export default function DealsOfTheDayTab({
                         <span>{sz.sizeName || sz.sizeCode}</span>
                       </label>
                       <span className="text-[10px] text-neutral-400 line-through font-semibold">
-                        ${sz.originalPrice.toFixed(2)}
+                        ₹{sz.originalPrice.toFixed(2)}
                       </span>
                     </div>
 
                     {sz.isEnabled && (
                       <div className="flex items-center gap-2">
                         <span className="text-xs font-bold text-neutral-500">
-                          Deal Price: $
+                          Deal Price: ₹
                         </span>
                         <input
                           type="number"
@@ -654,10 +654,10 @@ export default function DealsOfTheDayTab({
                             {sz.sizeName || sz.sizeCode}:
                           </span>
                           <span className="text-neutral-400 line-through text-[9.5px]">
-                            ${sz.originalPrice.toFixed(2)}
+                            ₹{sz.originalPrice.toFixed(2)}
                           </span>
                           <span className="font-extrabold text-brand-primary">
-                            ${sz.dealPrice.toFixed(2)}
+                            ₹{sz.dealPrice.toFixed(2)}
                           </span>
                         </div>
                       ))}

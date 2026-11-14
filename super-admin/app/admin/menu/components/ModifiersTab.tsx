@@ -1246,7 +1246,7 @@ export default function ModifiersTab({
                             <span>{opt.name}</span>
                             {opt.price > 0 && (
                               <span className="font-700 text-[8px] opacity-75">
-                                (+${opt.price.toFixed(2)})
+                                (+₹{opt.price.toFixed(2)})
                               </span>
                             )}
                           </span>
@@ -1470,7 +1470,7 @@ export default function ModifiersTab({
                             ) : (
                               <>
                                 <span className="text-[8.5px] font-600 text-neutral-400">
-                                  ${p.price ? p.price.toFixed(2) : "0.00"}
+                                  ₹{p.price ? p.price.toFixed(2) : "0.00"}
                                 </span>
                                 {p.includedToppings &&
                                   p.includedToppings.length > 0 && (

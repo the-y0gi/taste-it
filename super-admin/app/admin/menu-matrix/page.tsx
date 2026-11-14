@@ -41,12 +41,27 @@ interface Product {
   name: string;
   price: number;
   image?: string;
+  foodType?: "veg" | "non_veg" | "egg";
+  shortcode?: string;
   categoryId: any;
   kitchenLabel?: string;
   disabledBranches?: string[];
   productId?: string;
   isActive?: boolean;
 }
+
+const KITCHEN_STATION_LABELS: Record<string, string> = {
+  fast_food: "🍔 Fast Food",
+  main_kitchen: "🍛 Main Kitchen",
+  tandoor: "🔥 Tandoor",
+  chinese: "🥡 Chinese",
+  beverages: "🥤 Beverages",
+  general: "🍽️ General",
+  make_table: "🍛 Main Kitchen",
+  wings_station: "🍔 Fast Food",
+  pizza: "🍕 Pizza",
+  chicken: "🍗 Kitchen",
+};
 
 export default function MenuMatrixPage() {
   const [branches, setBranches] = useState<Branch[]>([]);
@@ -415,20 +430,33 @@ export default function MenuMatrixPage() {
                                   </div>
                                   <div className="min-w-0">
                                     <div className="flex items-center gap-1.5">
+                                      {prod.foodType === "veg" ? (
+                                        <span className="w-3.5 h-3.5 rounded border border-emerald-600 flex items-center justify-center p-0.5 bg-emerald-50 shrink-0" title="Pure Veg">
+                                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" />
+                                        </span>
+                                      ) : prod.foodType === "non_veg" ? (
+                                        <span className="w-3.5 h-3.5 rounded border border-red-600 flex items-center justify-center p-0.5 bg-red-50 shrink-0" title="Non-Veg">
+                                          <span className="w-0 h-0 border-l-[2.5px] border-l-transparent border-r-[2.5px] border-r-transparent border-b-[4.5px] border-b-red-600" />
+                                        </span>
+                                      ) : prod.foodType === "egg" ? (
+                                        <span className="w-3.5 h-3.5 rounded border border-amber-600 flex items-center justify-center p-0.5 bg-amber-50 shrink-0" title="Egg">
+                                          <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+                                        </span>
+                                      ) : null}
                                       <span className="font-700 text-neutral-900 text-xs truncate max-w-[180px]">
                                         {prod.name}
                                       </span>
-                                      {prod.productId && (
+                                      {(prod.shortcode || prod.productId) && (
                                         <span className="text-[8px] bg-neutral-200 text-neutral-700 px-1 py-0.2 rounded font-mono font-700">
-                                          {prod.productId}
+                                          {prod.shortcode || prod.productId}
                                         </span>
                                       )}
                                     </div>
                                     <div className="flex items-center gap-2 text-[10px] text-neutral-400 mt-0.5">
-                                      <span className="font-800 text-brand-primary">${prod.price.toFixed(2)}</span>
+                                      <span className="font-800 text-brand-primary">₹{prod.price.toFixed(2)}</span>
                                       <span>•</span>
                                       <span className="font-600">
-                                        {prod.kitchenLabel === "make_table" || prod.kitchenLabel === "pizza" ? "🍕 Make Table" : "🍗 Wings Station"}
+                                        {KITCHEN_STATION_LABELS[prod.kitchenLabel || ""] || "🍽️ General"}
                                       </span>
                                     </div>
                                   </div>

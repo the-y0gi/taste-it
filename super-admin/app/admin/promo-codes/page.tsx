@@ -470,12 +470,12 @@ export default function PromoCodesPage() {
                             {promo.discountType === "percentage" ? (
                               <span>{promo.discountValue}% OFF</span>
                             ) : (
-                              <span>${promo.discountValue.toFixed(2)} OFF</span>
+                              <span>₹{promo.discountValue.toFixed(2)} OFF</span>
                             )}
                           </span>
                           {promo.maxDiscount && (
                             <span className="text-[9px] text-neutral-400 font-600">
-                              (Cap ${promo.maxDiscount})
+                              (Cap ₹{promo.maxDiscount})
                             </span>
                           )}
                         </div>
@@ -534,7 +534,7 @@ export default function PromoCodesPage() {
 
                       {/* Min Purchase */}
                       <td className="px-3.5 py-3 font-mono font-700 text-neutral-800 whitespace-nowrap">
-                        {promo.minOrderAmount > 0 ? `$${promo.minOrderAmount.toFixed(2)}` : "No Min"}
+                        {promo.minOrderAmount > 0 ? `₹${promo.minOrderAmount.toFixed(2)}` : "No Min"}
                       </td>
 
                       {/* Validity Period */}
@@ -669,7 +669,7 @@ export default function PromoCodesPage() {
                           : "bg-neutral-50 text-neutral-600 border-neutral-200"
                       }`}
                     >
-                      Flat Dollar ($)
+                      Flat Discount (₹)
                     </button>
                   </div>
                 </div>
@@ -679,7 +679,7 @@ export default function PromoCodesPage() {
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div className="space-y-1">
                   <label className="text-[11px] font-700 text-neutral-700">
-                    Discount Value {formData.discountType === "percentage" ? "(%)" : "($)"} *
+                    Discount Value {formData.discountType === "percentage" ? "(%)" : "(₹)"} *
                   </label>
                   <input
                     type="number"
@@ -688,28 +688,28 @@ export default function PromoCodesPage() {
                     required
                     value={formData.discountValue}
                     onChange={(e) => setFormData({ ...formData, discountValue: Number(e.target.value) })}
-                    placeholder={formData.discountType === "percentage" ? "10" : "5.00"}
+                    placeholder={formData.discountType === "percentage" ? "10" : "50"}
                     className="w-full bg-neutral-50 border border-neutral-200 rounded-xl px-3 py-2 text-xs font-bold text-neutral-900 focus:outline-none focus:border-brand-primary"
                   />
                 </div>
 
                 {formData.discountType === "percentage" && (
                   <div className="space-y-1">
-                    <label className="text-[11px] font-700 text-neutral-700">Max Capped ($)</label>
+                    <label className="text-[11px] font-700 text-neutral-700">Max Capped (₹)</label>
                     <input
                       type="number"
                       step="0.01"
                       min="0"
                       value={formData.maxDiscount}
                       onChange={(e) => setFormData({ ...formData, maxDiscount: e.target.value })}
-                      placeholder="e.g. 15.00 (Optional)"
+                      placeholder="e.g. 150 (Optional)"
                       className="w-full bg-neutral-50 border border-neutral-200 rounded-xl px-3 py-2 text-xs text-neutral-800 focus:outline-none focus:border-brand-primary"
                     />
                   </div>
                 )}
 
                 <div className="space-y-1">
-                  <label className="text-[11px] font-700 text-neutral-700">Min Cart Subtotal ($)</label>
+                  <label className="text-[11px] font-700 text-neutral-700">Min Cart Subtotal (₹)</label>
                   <input
                     type="number"
                     step="0.01"
