@@ -25,6 +25,7 @@ export default function POSSidebarDrawer({ isOpen, onClose, activeTab, onSelectT
   const [isStoreQrOpen, setIsStoreQrOpen] = useState(false);
   const [isLoginCodeOpen, setIsLoginCodeOpen] = useState(false);
   const [activeEmployee, setActiveEmployee] = useState<any>(null);
+  const [branchFeatureToggles, setBranchFeatureToggles] = useState<Record<string, boolean>>({});
 
   const syncActiveEmployee = useCallback(() => {
     if (typeof window === 'undefined') return;
@@ -40,16 +41,44 @@ export default function POSSidebarDrawer({ isOpen, onClose, activeTab, onSelectT
     }
   }, []);
 
+  const syncBranchToggles = useCallback(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      const rawBranch = localStorage.getItem('rms_branch');
+      if (rawBranch) {
+        const parsed = JSON.parse(rawBranch);
+        setBranchFeatureToggles(parsed.featureToggles || {});
+      } else {
+        setBranchFeatureToggles({});
+      }
+    } catch {
+      setBranchFeatureToggles({});
+    }
+  }, []);
+
   useEffect(() => {
     syncActiveEmployee();
-    const handleStorageChange = () => syncActiveEmployee();
+    syncBranchToggles();
+    const handleStorageChange = () => {
+      syncActiveEmployee();
+      syncBranchToggles();
+    };
     window.addEventListener('rms_active_employee_changed', handleStorageChange);
+    window.addEventListener('rms_branch_updated', syncBranchToggles);
     window.addEventListener('storage', handleStorageChange);
     return () => {
       window.removeEventListener('rms_active_employee_changed', handleStorageChange);
+      window.removeEventListener('rms_branch_updated', syncBranchToggles);
       window.removeEventListener('storage', handleStorageChange);
     };
-  }, [syncActiveEmployee]);
+  }, [syncActiveEmployee, syncBranchToggles]);
+
+  useEffect(() => {
+    if (isOpen) {
+      syncActiveEmployee();
+      syncBranchToggles();
+    }
+  }, [isOpen, syncActiveEmployee, syncBranchToggles]);
 
   const handleSwitchToManager = () => {
     const isImp = typeof window !== 'undefined' && localStorage.getItem('rms_superadmin_impersonation') === 'true';
@@ -117,35 +146,65 @@ export default function POSSidebarDrawer({ isOpen, onClose, activeTab, onSelectT
   const isSuperAdminImp = typeof window !== 'undefined' && localStorage.getItem('rms_superadmin_impersonation') === 'true';
   const isManagerMode = !activeEmployee || activeEmployee.role === 'manager' || isSuperAdminImp;
 
-  let branchFeatureToggles: Record<string, boolean> = {};
-  if (typeof window !== 'undefined') {
-    try {
-      const rawBranch = localStorage.getItem('rms_branch');
-      if (rawBranch) {
-        const parsed = JSON.parse(rawBranch);
-        if (parsed.featureToggles) branchFeatureToggles = parsed.featureToggles;
-      }
-    } catch (e) {}
-  }
-
   const menuItems = rawMenuItems.filter(item => {
-    // Branch modular feature toggles check
-    if (item.key === 'kitchen' && branchFeatureToggles.kds === false) return false;
-    if (item.key === 'reception_view' && branchFeatureToggles.reception === false) return false;
-    if (item.key === 'delivery' && branchFeatureToggles.delivery === false) return false;
-    if (item.key === 'account_closing' && branchFeatureToggles.accountClosing === false) return false;
-    if (item.key === 'reports' && branchFeatureToggles.reports === false) return false;
-    if (item.key === 'pos' && branchFeatureToggles.pos === false) return false;
+    // ── 1. Kitchen KOT check ──
+    if (item.key === 'kitchen') {
+      const isKdsEnabled = branchFeatureToggles.kds !== undefined ? branchFeatureToggles.kds : branchFeatureToggles.kotKitchen;
+      if (isKdsEnabled === false) return false;
+    }
+
+    // ── 2. Reception Queue View check ──
+    if (item.key === 'reception_view') {
+      const isReceptionEnabled = branchFeatureToggles.reception ?? branchFeatureToggles.receptionView ?? false;
+      if (!isReceptionEnabled) return false;
+    }
+
+    // ── 3. Delivery Fleet items (delivery, driver_drop, vehicles, store_qr driver pairing) ──
+    if (['delivery', 'driver_drop', 'vehicles', 'store_qr'].includes(item.key)) {
+      const isDeliveryEnabled = branchFeatureToggles.delivery ?? branchFeatureToggles.deliveryFleet ?? false;
+      if (!isDeliveryEnabled) return false;
+    }
+
+    // ── 4. Day-End EOD Account Closing ──
+    if (item.key === 'account_closing' && branchFeatureToggles.accountClosing === false) {
+      return false;
+    }
+
+    // ── 5. Petty Cash & Expenses ──
+    if (item.key === 'expense_payout' && branchFeatureToggles.expenses === false) {
+      return false;
+    }
+
+    // ── 6. Staff Attendance & Scheduling HR ──
+    if (['check_in_out', 'attendance_report', 'employee_schedule'].includes(item.key)) {
+      const isAttendanceEnabled = branchFeatureToggles.attendance ?? branchFeatureToggles.employeeAttendance ?? true;
+      if (isAttendanceEnabled === false) return false;
+    }
+
+    // ── 7. Sales Reports & Analytics ──
+    if (['reports', 'dashboard'].includes(item.key) && branchFeatureToggles.reports === false) {
+      return false;
+    }
+
+    // ── 8. Customer CRM Directory ──
+    if (item.key === 'customers' && branchFeatureToggles.customers === false) {
+      return false;
+    }
+
+    // ── 9. POS Billing Terminal ──
+    if (item.key === 'pos' && branchFeatureToggles.pos === false) {
+      return false;
+    }
 
     // Master Logout: only for manager/admin (no active employee OR active employee is manager)
     if (item.key === 'master_logout') {
       return isManagerMode;
     }
     // Always visible system utilities
-    if (['login_code', 'check_in_out', 'store_qr', 'pos'].includes(item.key)) {
+    if (['login_code', 'pos'].includes(item.key)) {
       return true;
     }
-    // Manager or no staff logged in sees all tabs
+    // Manager or no staff logged in sees all remaining enabled tabs
     if (isManagerMode) {
       return true;
     }

@@ -25,6 +25,11 @@ const branchSchema = new mongoose.Schema(
       default: "",
       trim: true,
     },
+    gstNumber: {
+      type: String,
+      default: "",
+      trim: true,
+    },
     phone: {
       type: String,
       default: "",
@@ -80,13 +85,19 @@ const branchSchema = new mongoose.Schema(
     },
     featureToggles: {
       pos: { type: Boolean, default: true },
-      kotKitchen: { type: Boolean, default: true },
-      receptionView: { type: Boolean, default: false },
-      deliveryFleet: { type: Boolean, default: false },
-      tableManagement: { type: Boolean, default: true },
+      kds: { type: Boolean, default: true },
+      kotKitchen: { type: Boolean, default: true }, // backward-compatibility alias
+      reception: { type: Boolean, default: false },
+      receptionView: { type: Boolean, default: false }, // backward-compatibility alias
+      delivery: { type: Boolean, default: false },
+      deliveryFleet: { type: Boolean, default: false }, // backward-compatibility alias
+      tableManagement: { type: Boolean, default: false },
       accountClosing: { type: Boolean, default: true },
-      employeeAttendance: { type: Boolean, default: false },
-      expenses: { type: Boolean, default: false },
+      expenses: { type: Boolean, default: true },
+      attendance: { type: Boolean, default: true },
+      employeeAttendance: { type: Boolean, default: true }, // backward-compatibility alias
+      reports: { type: Boolean, default: true },
+      customers: { type: Boolean, default: true },
     },
     qrCodePayload: {
       type: String,
@@ -94,18 +105,18 @@ const branchSchema = new mongoose.Schema(
     },
     settings: {
       mainSettings: {
-        timezone: { type: String, default: 'Mountain Standard Time (MST) - America/Edmonton' },
+        timezone: { type: String, default: 'Indian Standard Time (IST) - Asia/Kolkata' },
         defaultTimeMinutes: { type: Number, default: 15 },
         reportingStartTime: { type: String, default: '12:00 AM' },
         reportingEndTime: { type: String, default: '12:00 AM' },
         latitude: { type: Number, default: null },
         longitude: { type: Number, default: null },
         commission: { type: Number, default: 0 },
-        gstNumber: { type: String, default: '123456789' },
+        gstNumber: { type: String, default: '' },
         isEmergencyClosed: { type: Boolean, default: false },
       },
       taxFeesSettings: {
-        deliveryFee: { type: Number, default: 4.99 },
+        deliveryFee: { type: Number, default: 40 },
         gstTaxRate: { type: Number, default: 5 },
         pstTaxRate: { type: Number, default: 0 },
         hstTaxRate: { type: Number, default: 0 },
@@ -188,8 +199,23 @@ const branchSchema = new mongoose.Schema(
 branchSchema.index({ isActive: 1, isLive: 1 });
 branchSchema.index({ lat: 1, lng: 1 });
 
-// Hash password, compute location flag, and ensure QR payload before saving
+// Hash password, compute location flag, synchronize toggle aliases, and ensure QR payload before saving
 branchSchema.pre("save", async function () {
+  // Synchronize feature toggle aliases
+  if (this.featureToggles) {
+    if (this.featureToggles.kds !== undefined) this.featureToggles.kotKitchen = this.featureToggles.kds;
+    else if (this.featureToggles.kotKitchen !== undefined) this.featureToggles.kds = this.featureToggles.kotKitchen;
+
+    if (this.featureToggles.reception !== undefined) this.featureToggles.receptionView = this.featureToggles.reception;
+    else if (this.featureToggles.receptionView !== undefined) this.featureToggles.reception = this.featureToggles.receptionView;
+
+    if (this.featureToggles.delivery !== undefined) this.featureToggles.deliveryFleet = this.featureToggles.delivery;
+    else if (this.featureToggles.deliveryFleet !== undefined) this.featureToggles.delivery = this.featureToggles.deliveryFleet;
+
+    if (this.featureToggles.attendance !== undefined) this.featureToggles.employeeAttendance = this.featureToggles.attendance;
+    else if (this.featureToggles.employeeAttendance !== undefined) this.featureToggles.attendance = this.featureToggles.employeeAttendance;
+  }
+
   if (
     this.lat !== null &&
     this.lng !== null &&

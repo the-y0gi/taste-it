@@ -119,23 +119,45 @@ export default function OrdersDashboard() {
   const [empPerms, setEmpPerms] = useState<Record<string, boolean>>({});
   const [managerMode, setManagerMode] = useState(false);
 
-  // Helper: is this sub-tab accessible? Maps URL tab key → permission key
+  let branchFeatureToggles: Record<string, boolean> = {};
+  if (typeof window !== "undefined") {
+    try {
+      const rawBranch = localStorage.getItem("rms_branch");
+      if (rawBranch) {
+        const parsed = JSON.parse(rawBranch);
+        if (parsed.featureToggles) branchFeatureToggles = parsed.featureToggles;
+      }
+    } catch (e) {}
+  }
+
+  // Helper: is this sub-tab accessible? Maps URL tab key → permission key & branch operational module
   const canAccessTab = (tabKey: string): boolean => {
+    if (tabKey === "expense_payout" && branchFeatureToggles.expenses === false) return false;
+    if (
+      ["dashboard", "sales_summary", "reports", "item_sales", "hourly_sales", "monthly_sales_summary"].includes(tabKey) &&
+      branchFeatureToggles.reports === false
+    ) {
+      return false;
+    }
     if (managerMode) return true;
     const permKey = TAB_TO_PERM_KEY[tabKey] ?? tabKey;
     if (ORDERS_SUBTAB_KEYS.includes(permKey)) return empPerms[permKey] === true;
     return true;
   };
 
-  const ALL_MORE_TABS = [
-    { key: "item_sales", label: "Item Sales" },
-    { key: "hourly_sales", label: "Hourly Sales Report" },
-    { key: "cash_out_report", label: "Cash Out Report" },
-    // { key: "cash_out_summary", label: "Cash Out Summary" },
-    { key: "monthly_sales_summary", label: "Monthly Sales Summary" },
-    { key: "failed_transaction", label: "Failed Transaction" },
-    { key: "refund_orders", label: "Refund Orders" },
+  const RAW_MORE_TABS = [
+    { key: "item_sales", label: "Item Sales", isReport: true },
+    { key: "hourly_sales", label: "Hourly Sales Report", isReport: true },
+    { key: "cash_out_report", label: "Cash Out Report", isReport: false },
+    { key: "monthly_sales_summary", label: "Monthly Sales Summary", isReport: true },
+    { key: "failed_transaction", label: "Failed Transaction", isReport: false },
+    { key: "refund_orders", label: "Refund Orders", isReport: false },
   ];
+
+  const ALL_MORE_TABS = RAW_MORE_TABS.filter((t) => {
+    if (t.isReport && branchFeatureToggles.reports === false) return false;
+    return true;
+  });
 
   // Only show tabs this employee can access
   const MORE_TABS = managerMode
@@ -338,10 +360,15 @@ export default function OrdersDashboard() {
         "refund_orders",
       ];
 
-      let resolvedTab = tab && VALID_TABS.includes(tab) ? tab : "dashboard";
+      let defaultFallback = branchFeatureToggles.reports === false ? "orders" : "dashboard";
+      let resolvedTab = tab && VALID_TABS.includes(tab) ? tab : defaultFallback;
 
-      // If not manager, validate the resolved tab against permissions
-      if (!mgr) {
+      if (!canAccessTab(resolvedTab)) {
+        resolvedTab = canAccessTab("orders") ? "orders" : (canAccessTab("dashboard") ? "dashboard" : "orders");
+        const url = new URL(window.location.href);
+        url.searchParams.set("tab", resolvedTab);
+        window.history.replaceState({}, "", url.pathname + url.search);
+      } else if (!mgr) {
         // Map URL tab → permission key
         const permKey = TAB_TO_PERM_KEY[resolvedTab] ?? resolvedTab;
         if (ORDERS_SUBTAB_KEYS.includes(permKey) && perms[permKey] !== true) {
@@ -351,7 +378,7 @@ export default function OrdersDashboard() {
           if (firstAllowedPermKey) {
             resolvedTab = PERM_TO_TAB[firstAllowedPermKey] ?? firstAllowedPermKey;
           } else {
-            resolvedTab = "dashboard";
+            resolvedTab = "orders";
           }
           // Rewrite the URL silently
           const url = new URL(window.location.href);

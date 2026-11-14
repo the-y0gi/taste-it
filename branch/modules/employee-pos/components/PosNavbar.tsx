@@ -19,6 +19,7 @@ export default function PosNavbar({ onToggleSidebar }: PosNavbarProps) {
   const [loadingBranchInfo, setLoadingBranchInfo] = React.useState(true);
   const [activeEmployee, setActiveEmployee] = React.useState<any>(null);
   const [isLocationPending, setIsLocationPending] = React.useState(false);
+  const [branchFeatureToggles, setBranchFeatureToggles] = React.useState<Record<string, boolean>>({});
 
   React.useEffect(() => {
     const syncActiveEmployee = () => {
@@ -31,12 +32,29 @@ export default function PosNavbar({ onToggleSidebar }: PosNavbarProps) {
       }
     };
 
+    const readToggles = () => {
+      if (typeof window === 'undefined') return;
+      try {
+        const raw = localStorage.getItem('rms_branch');
+        if (raw) {
+          const b = JSON.parse(raw);
+          setBranchFeatureToggles(b.featureToggles || {});
+        }
+      } catch {}
+    };
+
     syncActiveEmployee();
+    readToggles();
+
     window.addEventListener('rms_active_employee_changed', syncActiveEmployee);
+    window.addEventListener('rms_branch_updated', readToggles);
     window.addEventListener('storage', syncActiveEmployee);
+    window.addEventListener('storage', readToggles);
     return () => {
       window.removeEventListener('rms_active_employee_changed', syncActiveEmployee);
+      window.removeEventListener('rms_branch_updated', readToggles);
       window.removeEventListener('storage', syncActiveEmployee);
+      window.removeEventListener('storage', readToggles);
     };
   }, []);
 
@@ -57,6 +75,7 @@ export default function PosNavbar({ onToggleSidebar }: PosNavbarProps) {
             setBranchInfo({ name: b.name, code: b.code, _id: b._id });
             const hasLoc = b.isLocationConfigured || (b.lat !== null && b.lng !== null && b.lat !== undefined && b.lng !== undefined && !(b.lat === 0 && b.lng === 0));
             setIsLocationPending(!hasLoc);
+            if (b.featureToggles) setBranchFeatureToggles(b.featureToggles);
           }
         } catch (e) {}
       }
@@ -77,12 +96,16 @@ export default function PosNavbar({ onToggleSidebar }: PosNavbarProps) {
             setBranchInfo({ name: freshData.name, code: freshData.code, _id: freshData._id });
             const hasLoc = freshData.isLocationConfigured || (freshData.lat !== null && freshData.lng !== null && freshData.lat !== undefined && freshData.lng !== undefined && !(freshData.lat === 0 && freshData.lng === 0));
             setIsLocationPending(!hasLoc);
+            if (freshData.featureToggles) {
+              setBranchFeatureToggles(freshData.featureToggles);
+            }
           }
           // Sync localStorage
           if (raw) {
             try {
               const existing = JSON.parse(raw);
               localStorage.setItem('rms_branch', JSON.stringify({ ...existing, ...freshData }));
+              window.dispatchEvent(new Event('rms_branch_updated'));
             } catch (e) {}
           }
         }
@@ -160,6 +183,18 @@ export default function PosNavbar({ onToggleSidebar }: PosNavbarProps) {
   ];
 
   const navLinks = rawNavLinks.filter((link) => {
+    // ── 1. Branch Operational Module check ──
+    if (link.key === 'kitchen') {
+      const isKdsEnabled = branchFeatureToggles.kds !== undefined ? branchFeatureToggles.kds : branchFeatureToggles.kotKitchen;
+      if (isKdsEnabled === false) return false;
+    }
+    if (link.key === 'reception_view') {
+      const isReceptionEnabled = branchFeatureToggles.reception ?? branchFeatureToggles.receptionView ?? false;
+      if (!isReceptionEnabled) return false;
+    }
+    if (link.key === 'pos' && branchFeatureToggles.pos === false) return false;
+
+    // ── 2. Staff Role & Permission check ──
     if (!activeEmployee || activeEmployee.role === 'manager') return true;
     if (link.key === 'pos') return true;
     const perms = activeEmployee.permissions || {};

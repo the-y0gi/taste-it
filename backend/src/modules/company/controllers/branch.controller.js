@@ -394,6 +394,10 @@ exports.getMe = async (req, res) => {
         isActive: branch.isActive,
         isLive: branch.isLive,
         isLocationConfigured: branch.isLocationConfigured,
+        featureToggles: branch.featureToggles || {},
+        restaurantType: branch.restaurantType || "general",
+        logo: branch.logo || "",
+        themeColor: branch.themeColor || "#F97316",
       },
     });
   } catch (error) {

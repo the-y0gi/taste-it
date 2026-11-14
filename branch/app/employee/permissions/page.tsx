@@ -1,11 +1,12 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import axios from "axios";
 import toast from "react-hot-toast";
 import PosNavbar from "@/modules/employee-pos/components/PosNavbar";
 import POSSidebarDrawer from "@/modules/employee-pos/components/POSSidebarDrawer";
 import EmployeePermissionGuard from "@/modules/employee-pos/components/EmployeePermissionGuard";
+import { isPermAllowedForBranch } from "@/modules/employee-pos/utils/branchPermissions";
 import {
   ShieldCheck,
   Users,
@@ -235,16 +236,19 @@ interface Employee {
   permissions?: EmployeePermissions;
 }
 
-const buildDefaultPermissions = (): EmployeePermissions => {
+const buildDefaultPermissions = (defs: PermissionDef[] = PERMISSION_DEFS): EmployeePermissions => {
   const map: EmployeePermissions = {};
-  PERMISSION_DEFS.forEach((p) => {
+  defs.forEach((p) => {
     map[p.key] = p.alwaysOn ? true : false;
   });
   return map;
 };
 
-const mergePermissions = (saved?: EmployeePermissions): EmployeePermissions => {
-  const base = buildDefaultPermissions();
+const mergePermissions = (
+  saved?: EmployeePermissions,
+  defs: PermissionDef[] = PERMISSION_DEFS
+): EmployeePermissions => {
+  const base = buildDefaultPermissions(defs);
   if (!saved) return base;
   return { ...base, ...saved };
 };
@@ -294,6 +298,30 @@ export default function PermissionsPage() {
   const [localPerms, setLocalPerms] = useState<{
     [empId: string]: EmployeePermissions;
   }>({});
+  const [branchFeatureToggles, setBranchFeatureToggles] = useState<Record<string, boolean>>({});
+
+  useEffect(() => {
+    const readBranch = () => {
+      try {
+        const raw = localStorage.getItem("rms_branch");
+        if (raw) {
+          const b = JSON.parse(raw);
+          if (b.featureToggles) setBranchFeatureToggles(b.featureToggles);
+        }
+      } catch (e) {}
+    };
+    readBranch();
+    window.addEventListener("rms_branch_updated", readBranch);
+    window.addEventListener("storage", readBranch);
+    return () => {
+      window.removeEventListener("rms_branch_updated", readBranch);
+      window.removeEventListener("storage", readBranch);
+    };
+  }, []);
+
+  const availablePermissionDefs = useMemo(() => {
+    return PERMISSION_DEFS.filter((p) => isPermAllowedForBranch(p.key, branchFeatureToggles));
+  }, [branchFeatureToggles]);
 
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api";
 
@@ -322,6 +350,7 @@ export default function PermissionsPage() {
         emps.forEach((emp) => {
           permsMap[emp._id] = mergePermissions(
             emp.permissions as EmployeePermissions | undefined,
+            availablePermissionDefs
           );
         });
         setLocalPerms(permsMap);
@@ -331,7 +360,7 @@ export default function PermissionsPage() {
     } finally {
       setLoading(false);
     }
-  }, [apiUrl]);
+  }, [apiUrl, availablePermissionDefs]);
 
   useEffect(() => {
     fetchEmployees();
@@ -391,7 +420,7 @@ export default function PermissionsPage() {
 
   const handleSelectAll = (empId: string, select: boolean) => {
     const newPerms: EmployeePermissions = {};
-    PERMISSION_DEFS.forEach((p) => {
+    availablePermissionDefs.forEach((p) => {
       newPerms[p.key] = p.alwaysOn ? true : select;
     });
     setLocalPerms((prev) => ({ ...prev, [empId]: newPerms }));
@@ -405,7 +434,7 @@ export default function PermissionsPage() {
     }
     setSavingId(emp._id);
     try {
-      const payload = localPerms[emp._id] || buildDefaultPermissions();
+      const payload = localPerms[emp._id] || buildDefaultPermissions(availablePermissionDefs);
       const res = await axios.patch(
         `${apiUrl}/employees/${emp._id}/permissions?branchId=${branchId}`,
         { permissions: payload, branchId },
@@ -536,24 +565,28 @@ export default function PermissionsPage() {
                     >
                       Always On
                     </th>
-                    <th
-                      className="px-3 py-2 text-center bg-amber-50/80 text-amber-800 border-r border-neutral-200/80"
-                      colSpan={
-                        PERMISSION_DEFS.filter((p) => p.group === "POS Routes")
-                          .length
-                      }
-                    >
-                      POS Main Routes
-                    </th>
-                    <th
-                      className="px-3 py-2 text-center bg-blue-50/80 text-blue-800 border-r border-neutral-200/80"
-                      colSpan={
-                        PERMISSION_DEFS.filter((p) => p.group === "Orders Page")
-                          .length
-                      }
-                    >
-                      Orders Page Sub-Tabs
-                    </th>
+                    {availablePermissionDefs.filter((p) => p.group === "POS Routes").length > 0 && (
+                      <th
+                        className="px-3 py-2 text-center bg-amber-50/80 text-amber-800 border-r border-neutral-200/80"
+                        colSpan={
+                          availablePermissionDefs.filter((p) => p.group === "POS Routes")
+                            .length
+                        }
+                      >
+                        POS Main Routes
+                      </th>
+                    )}
+                    {availablePermissionDefs.filter((p) => p.group === "Orders Page").length > 0 && (
+                      <th
+                        className="px-3 py-2 text-center bg-blue-50/80 text-blue-800 border-r border-neutral-200/80"
+                        colSpan={
+                          availablePermissionDefs.filter((p) => p.group === "Orders Page")
+                            .length
+                        }
+                      >
+                        Orders Page Sub-Tabs
+                      </th>
+                    )}
                     <th className="px-4 py-2 text-right sticky right-0 top-0 z-40 bg-neutral-100 border-l border-neutral-200/80 shadow-[-2px_0_5px_-2px_rgba(0,0,0,0.06)] min-w-[130px]">
                       Actions
                     </th>
@@ -564,7 +597,7 @@ export default function PermissionsPage() {
                     <th className="px-4 py-2 sticky left-0 z-40 bg-neutral-50 border-r border-neutral-200/80 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.06)]">
                       Employee Name & Role
                     </th>
-                    {PERMISSION_DEFS.map((perm) => (
+                    {availablePermissionDefs.map((perm) => (
                       <th
                         key={perm.key}
                         className="px-2 py-2 text-center border-r border-neutral-200/60 font-750 hover:bg-neutral-100 transition-colors"
@@ -584,13 +617,13 @@ export default function PermissionsPage() {
                 <tbody className="divide-y divide-neutral-100 text-xs">
                   {filtered.map((emp) => {
                     const perms =
-                      localPerms[emp._id] || buildDefaultPermissions();
+                      localPerms[emp._id] || buildDefaultPermissions(availablePermissionDefs);
                     const badge = getRoleBadge(emp.role);
                     const BadgeIcon = badge.Icon;
                     const isManager = emp.role === "manager";
                     const isSaving = savingId === emp._id;
                     const isEditing = editingId === emp._id;
-                    const allSelected = PERMISSION_DEFS.every(
+                    const allSelected = availablePermissionDefs.length > 0 && availablePermissionDefs.every(
                       (p) => perms[p.key],
                     );
 
@@ -639,7 +672,7 @@ export default function PermissionsPage() {
                         </td>
 
                         {/* Permission Checkbox Cells */}
-                        {PERMISSION_DEFS.map((perm) => {
+                        {availablePermissionDefs.map((perm) => {
                           const isChecked = isManager
                             ? true
                             : !!perms[perm.key];

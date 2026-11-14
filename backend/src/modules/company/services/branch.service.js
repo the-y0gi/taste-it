@@ -150,6 +150,10 @@ exports.consumeImpersonationToken = async (ticket) => {
       isSuperAdminSession: true,
       superAdminEmail: decoded.superAdminEmail,
       token: sessionToken,
+      featureToggles: branch.featureToggles || {},
+      restaurantType: branch.restaurantType || "general",
+      logo: branch.logo || "",
+      themeColor: branch.themeColor || "#F97316",
     },
     token: sessionToken,
   };
@@ -377,6 +381,10 @@ exports.loginBranch = async (email, password) => {
         (resolvedLat !== null &&
           resolvedLng !== null &&
           !(resolvedLat === 0 && resolvedLng === 0)),
+      featureToggles: branch.featureToggles || {},
+      restaurantType: branch.restaurantType || "general",
+      logo: branch.logo || "",
+      themeColor: branch.themeColor || "#F97316",
     },
     token,
   };
@@ -418,13 +426,19 @@ exports.getBranchSettings = async (branchId) => {
     restaurantType: branch.restaurantType || "general",
     featureToggles: branch.featureToggles || {
       pos: true,
+      kds: true,
       kotKitchen: true,
+      reception: false,
       receptionView: false,
+      delivery: false,
       deliveryFleet: false,
-      tableManagement: true,
+      tableManagement: false,
       accountClosing: true,
-      employeeAttendance: false,
-      expenses: false,
+      expenses: true,
+      attendance: true,
+      employeeAttendance: true,
+      reports: true,
+      customers: true,
     },
   };
 };

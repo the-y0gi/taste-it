@@ -1,10 +1,11 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import {
   X, User, Phone, Mail, MapPin, KeyRound, Briefcase, ChevronDown, Eye, EyeOff,
   ShieldCheck, CheckSquare, Square, Check
 } from "lucide-react";
 import axios from "axios";
 import toast from "react-hot-toast";
+import { isPermAllowedForBranch } from "../utils/branchPermissions";
 
 interface EmployeeData {
   _id?: string;
@@ -70,6 +71,32 @@ export default function CreateEmployeeModal({
   const [submitting, setSubmitting] = useState(false);
   const [permissions, setPermissions] = useState<Record<string, boolean>>({ pos: true });
 
+  const [branchToggles, setBranchToggles] = useState<Record<string, boolean>>({});
+
+  useEffect(() => {
+    const readToggles = () => {
+      try {
+        const raw = localStorage.getItem("rms_branch");
+        if (raw) {
+          const b = JSON.parse(raw);
+          if (b.featureToggles) setBranchToggles(b.featureToggles);
+        }
+      } catch (e) {}
+    };
+
+    readToggles();
+    window.addEventListener("rms_branch_updated", readToggles);
+    window.addEventListener("storage", readToggles);
+    return () => {
+      window.removeEventListener("rms_branch_updated", readToggles);
+      window.removeEventListener("storage", readToggles);
+    };
+  }, []);
+
+  const availablePermissionOptions = useMemo(() => {
+    return PERMISSION_OPTIONS.filter((p) => isPermAllowedForBranch(p.key, branchToggles));
+  }, [branchToggles]);
+
   useEffect(() => {
     if (employeeToEdit) {
       setName(employeeToEdit.name || "");
@@ -107,10 +134,10 @@ export default function CreateEmployeeModal({
 
   const handleSelectAllPerms = (select: boolean) => {
     const updated: Record<string, boolean> = { pos: true };
-    PERMISSION_OPTIONS.forEach(p => {
+    availablePermissionOptions.forEach(p => {
       updated[p.key] = select;
     });
-    setPermissions(updated);
+    setPermissions(prev => ({ ...prev, ...updated }));
   };
 
   // ── Orders cascade logic (same as permissions/page.tsx) ──
@@ -249,7 +276,7 @@ export default function CreateEmployeeModal({
     }
   };
 
-  const allSelected = PERMISSION_OPTIONS.every(p => permissions[p.key]);
+  const allSelected = availablePermissionOptions.length > 0 && availablePermissionOptions.every(p => permissions[p.key]);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-neutral-900/60 backdrop-blur-xs animate-in fade-in duration-200">
@@ -327,8 +354,12 @@ export default function CreateEmployeeModal({
                     <option value="manager">Manager (Full Access)</option>
                     <option value="supervisor">Supervisor</option>
                     <option value="cashier">Cashier</option>
-                    <option value="chef">Chef</option>
-                    <option value="driver">Driver</option>
+                    {isPermAllowedForBranch("kitchen", branchToggles) && (
+                      <option value="chef">Chef</option>
+                    )}
+                    {isPermAllowedForBranch("delivery", branchToggles) && (
+                      <option value="driver">Driver</option>
+                    )}
                     <option value="crew-member">Crew Member</option>
                   </select>
                   <Briefcase size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400 pointer-events-none" />
@@ -451,73 +482,77 @@ export default function CreateEmployeeModal({
                 ) : (
                   <div className="flex-1 space-y-4 overflow-y-auto pr-1 max-h-[340px]">
                     {/* POS Main Routes */}
-                    <div>
-                      <span className="text-[10px] font-900 text-amber-800 uppercase tracking-wider block mb-2">
-                        POS Main Routes
-                      </span>
-                      <div className="grid grid-cols-2 gap-2">
-                        {PERMISSION_OPTIONS.filter(p => p.group === 'POS Main Routes').map(perm => {
-                          const isAlwaysOn = (perm as any).alwaysOn === true;
-                          const isChecked = isAlwaysOn ? true : !!permissions[perm.key];
-                          return (
-                            <label
-                              key={perm.key}
-                              className={`flex items-center gap-2 p-2 rounded-xl border text-[11px] font-700 select-none transition-all ${
-                                isAlwaysOn
-                                  ? "bg-emerald-50/70 border-emerald-200 text-emerald-800 opacity-90 cursor-not-allowed"
-                                  : isChecked
-                                  ? "bg-brand-primary/5 border-brand-primary/40 text-brand-primary cursor-pointer"
-                                  : "bg-neutral-50 border-neutral-200 text-neutral-700 hover:bg-neutral-100 cursor-pointer"
-                              }`}
-                            >
-                              <input
-                                type="checkbox"
-                                checked={isChecked}
-                                disabled={isAlwaysOn}
-                                onChange={(e) => !isAlwaysOn && handlePermissionToggle(perm.key, e.target.checked)}
-                                className="w-3.5 h-3.5 accent-brand-primary rounded cursor-pointer disabled:cursor-not-allowed"
-                              />
-                              <span className="truncate flex-1">{perm.label}</span>
-                              {isAlwaysOn && (
-                                <span className="text-[9px] font-800 text-emerald-700 bg-emerald-100 px-1 py-0.2 rounded shrink-0">
-                                  Default
-                                </span>
-                              )}
-                            </label>
-                          );
-                        })}
+                    {availablePermissionOptions.some(p => p.group === 'POS Main Routes') && (
+                      <div>
+                        <span className="text-[10px] font-900 text-amber-800 uppercase tracking-wider block mb-2">
+                          POS Main Routes
+                        </span>
+                        <div className="grid grid-cols-2 gap-2">
+                          {availablePermissionOptions.filter(p => p.group === 'POS Main Routes').map(perm => {
+                            const isAlwaysOn = (perm as any).alwaysOn === true;
+                            const isChecked = isAlwaysOn ? true : !!permissions[perm.key];
+                            return (
+                              <label
+                                key={perm.key}
+                                className={`flex items-center gap-2 p-2 rounded-xl border text-[11px] font-700 select-none transition-all ${
+                                  isAlwaysOn
+                                    ? "bg-emerald-50/70 border-emerald-200 text-emerald-800 opacity-90 cursor-not-allowed"
+                                    : isChecked
+                                    ? "bg-brand-primary/5 border-brand-primary/40 text-brand-primary cursor-pointer"
+                                    : "bg-neutral-50 border-neutral-200 text-neutral-700 hover:bg-neutral-100 cursor-pointer"
+                                }`}
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={isChecked}
+                                  disabled={isAlwaysOn}
+                                  onChange={(e) => !isAlwaysOn && handlePermissionToggle(perm.key, e.target.checked)}
+                                  className="w-3.5 h-3.5 accent-brand-primary rounded cursor-pointer disabled:cursor-not-allowed"
+                                />
+                                <span className="truncate flex-1">{perm.label}</span>
+                                {isAlwaysOn && (
+                                  <span className="text-[9px] font-800 text-emerald-700 bg-emerald-100 px-1 py-0.2 rounded shrink-0">
+                                    Default
+                                  </span>
+                                )}
+                              </label>
+                            );
+                          })}
+                        </div>
                       </div>
-                    </div>
+                    )}
 
                     {/* Orders Page Sub-Tabs */}
-                    <div>
-                      <span className="text-[10px] font-900 text-blue-800 uppercase tracking-wider block mb-2">
-                        Orders Page Sub-Tabs
-                      </span>
-                      <div className="grid grid-cols-2 gap-2">
-                        {PERMISSION_OPTIONS.filter(p => p.group === 'Orders Page Tabs').map(perm => {
-                          const isChecked = !!permissions[perm.key];
-                          return (
-                            <label
-                              key={perm.key}
-                              className={`flex items-center gap-2 p-2 rounded-xl border text-[11px] font-700 cursor-pointer transition-all select-none ${
-                                isChecked
-                                  ? "bg-brand-primary/5 border-brand-primary/40 text-brand-primary"
-                                  : "bg-neutral-50 border-neutral-200 text-neutral-700 hover:bg-neutral-100"
-                              }`}
-                            >
-                              <input
-                                type="checkbox"
-                                checked={isChecked}
-                                onChange={(e) => handlePermissionToggle(perm.key, e.target.checked)}
-                                className="w-3.5 h-3.5 accent-brand-primary rounded"
-                              />
-                              <span className="truncate">{perm.label}</span>
-                            </label>
-                          );
-                        })}
+                    {availablePermissionOptions.some(p => p.group === 'Orders Page Tabs') && (
+                      <div>
+                        <span className="text-[10px] font-900 text-blue-800 uppercase tracking-wider block mb-2">
+                          Orders Page Sub-Tabs
+                        </span>
+                        <div className="grid grid-cols-2 gap-2">
+                          {availablePermissionOptions.filter(p => p.group === 'Orders Page Tabs').map(perm => {
+                            const isChecked = !!permissions[perm.key];
+                            return (
+                              <label
+                                key={perm.key}
+                                className={`flex items-center gap-2 p-2 rounded-xl border text-[11px] font-700 cursor-pointer transition-all select-none ${
+                                  isChecked
+                                    ? "bg-brand-primary/5 border-brand-primary/40 text-brand-primary"
+                                    : "bg-neutral-50 border-neutral-200 text-neutral-700 hover:bg-neutral-100"
+                                }`}
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={isChecked}
+                                  onChange={(e) => handlePermissionToggle(perm.key, e.target.checked)}
+                                  className="w-3.5 h-3.5 accent-brand-primary rounded"
+                                />
+                                <span className="truncate">{perm.label}</span>
+                              </label>
+                            );
+                          })}
+                        </div>
                       </div>
-                    </div>
+                    )}
                   </div>
                 )}
               </div>

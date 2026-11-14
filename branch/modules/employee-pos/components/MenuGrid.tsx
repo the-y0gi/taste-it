@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { UserPlus } from "lucide-react";
 import { MenuItem } from "../types";
 import { usePosStore } from "../store/pos.store";
@@ -35,6 +35,42 @@ export default function MenuGrid({ onOpenModifiers }: MenuGridProps) {
   } = usePosStore();
 
   const [showCustomer, setShowCustomer] = useState(false);
+  const [branchToggles, setBranchToggles] = useState<Record<string, boolean>>({});
+
+  useEffect(() => {
+    const readToggles = () => {
+      try {
+        const raw = localStorage.getItem("rms_branch");
+        if (raw) {
+          const b = JSON.parse(raw);
+          setBranchToggles(b.featureToggles || {});
+        }
+      } catch {}
+    };
+    readToggles();
+    window.addEventListener("rms_branch_updated", readToggles);
+    window.addEventListener("storage", readToggles);
+    return () => {
+      window.removeEventListener("rms_branch_updated", readToggles);
+      window.removeEventListener("storage", readToggles);
+    };
+  }, []);
+
+  const availableOrderTypes = useMemo(() => {
+    const isDelivery = branchToggles.delivery ?? branchToggles.deliveryFleet ?? false;
+    const isDineIn = branchToggles.tableManagement ?? false;
+    return ORDER_TYPES.filter((t) => {
+      if (t.id === "delivery" && !isDelivery) return false;
+      if (t.id === "dine-in" && !isDineIn) return false;
+      return true;
+    });
+  }, [branchToggles]);
+
+  useEffect(() => {
+    if (availableOrderTypes.length > 0 && !availableOrderTypes.some((t) => t.id === orderType)) {
+      setOrderType(availableOrderTypes[0].id as any);
+    }
+  }, [availableOrderTypes, orderType, setOrderType]);
 
   const catName = useMemo(() => {
     return (
@@ -107,7 +143,7 @@ export default function MenuGrid({ onOpenModifiers }: MenuGridProps) {
         <div className="flex items-center gap-1.5 flex-wrap">
           {/* Order Types */}
           <div className="flex items-center gap-0.5 bg-neutral-100 p-0.5 rounded-xl border border-neutral-200 flex-shrink-0">
-            {ORDER_TYPES.map(({ id, label }) => {
+            {availableOrderTypes.map(({ id, label }) => {
               const active = orderType === id;
               return (
                 <button
@@ -127,19 +163,21 @@ export default function MenuGrid({ onOpenModifiers }: MenuGridProps) {
               );
             })}
 
-            <button
-              onClick={() => setShowCustomer(true)}
-              className={`ml-0.5 px-2 py-1 rounded-lg border text-[10px] md:text-[11px] font-bold flex items-center gap-1 transition-all cursor-pointer ${
-                selectedCustomer
-                  ? "bg-orange-50 border-orange-500 text-orange-600"
-                  : "bg-white border-neutral-200 text-neutral-800 hover:bg-neutral-50"
-              }`}
-            >
-              <UserPlus size={11} />
-              <span className="truncate max-w-[80px]">
-                {selectedCustomer ? selectedCustomer.name : "+ Customer"}
-              </span>
-            </button>
+            {branchToggles.customers !== false && (
+              <button
+                onClick={() => setShowCustomer(true)}
+                className={`ml-0.5 px-2 py-1 rounded-lg border text-[10px] md:text-[11px] font-bold flex items-center gap-1 transition-all cursor-pointer ${
+                  selectedCustomer
+                    ? "bg-orange-50 border-orange-500 text-orange-600"
+                    : "bg-white border-neutral-200 text-neutral-800 hover:bg-neutral-50"
+                }`}
+              >
+                <UserPlus size={11} />
+                <span className="truncate max-w-[80px]">
+                  {selectedCustomer ? selectedCustomer.name : "+ Customer"}
+                </span>
+              </button>
+            )}
           </div>
 
           {/* Indian Food Type Toggle (Veg / Non-Veg / Egg / All) */}

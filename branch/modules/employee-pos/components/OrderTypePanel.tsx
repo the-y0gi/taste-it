@@ -175,6 +175,42 @@ type OT = typeof ORDER_TYPES[number]['id'];
 export default function OrderTypePanel() {
   const { orderType, setOrderType, selectedCustomer, cartItems } = usePosStore();
   const [showCustomer, setShowCustomer] = useState(false);
+  const [branchToggles, setBranchToggles] = React.useState<Record<string, boolean>>({});
+
+  React.useEffect(() => {
+    const readToggles = () => {
+      try {
+        const raw = localStorage.getItem("rms_branch");
+        if (raw) {
+          const b = JSON.parse(raw);
+          setBranchToggles(b.featureToggles || {});
+        }
+      } catch {}
+    };
+    readToggles();
+    window.addEventListener("rms_branch_updated", readToggles);
+    window.addEventListener("storage", readToggles);
+    return () => {
+      window.removeEventListener("rms_branch_updated", readToggles);
+      window.removeEventListener("storage", readToggles);
+    };
+  }, []);
+
+  const availableOrderTypes = React.useMemo(() => {
+    const isDelivery = branchToggles.delivery ?? branchToggles.deliveryFleet ?? false;
+    const isDineIn = branchToggles.tableManagement ?? false;
+    return ORDER_TYPES.filter((t) => {
+      if (t.id === "delivery" && !isDelivery) return false;
+      if (t.id === "dine-in" && !isDineIn) return false;
+      return true;
+    });
+  }, [branchToggles]);
+
+  React.useEffect(() => {
+    if (availableOrderTypes.length > 0 && !availableOrderTypes.some((t) => t.id === orderType)) {
+      setOrderType(availableOrderTypes[0].id as any);
+    }
+  }, [availableOrderTypes, orderType, setOrderType]);
 
   const handleTypeChange = (t: OT) => {
     setOrderType(t);
@@ -203,8 +239,8 @@ export default function OrderTypePanel() {
       </div>
 
       {/* ── Order Type Grid ── */}
-      <div className="grid grid-cols-3 gap-1.5">
-        {ORDER_TYPES.map(({ id, label }) => {
+      <div className={`grid gap-1.5 ${availableOrderTypes.length === 1 ? 'grid-cols-1' : availableOrderTypes.length === 2 ? 'grid-cols-2' : 'grid-cols-3'}`}>
+        {availableOrderTypes.map(({ id, label }) => {
           const active = orderType === id;
           return (
             <button

@@ -31,6 +31,7 @@ export default function EmployeePermissionGuard({
 }: EmployeePermissionGuardProps) {
   const [isAllowed, setIsAllowed] = useState<boolean | null>(null);
   const [employeeName, setEmployeeName] = useState<string>("");
+  const [moduleDisabledMessage, setModuleDisabledMessage] = useState<string>("");
 
   useEffect(() => {
     const checkPermission = (emp?: any) => {
@@ -56,7 +57,65 @@ export default function EmployeePermissionGuard({
           return;
         }
 
-        // ── 2. If no active employee is logged in ──
+        // ── 2. Check Branch Operational Module Feature Toggles ──
+        let branchToggles: Record<string, boolean> = {};
+        try {
+          const rawB = localStorage.getItem("rms_branch");
+          if (rawB) {
+            const b = JSON.parse(rawB);
+            if (b.featureToggles) branchToggles = b.featureToggles;
+          }
+        } catch {}
+
+        if (permissionKey === "kitchen") {
+          const isKds = branchToggles.kds !== undefined ? branchToggles.kds : branchToggles.kotKitchen;
+          if (isKds === false) {
+            setIsAllowed(false);
+            setModuleDisabledMessage("Kitchen Display (KOT) module is not activated for this branch. Please contact Super Admin.");
+            return;
+          }
+        }
+
+        if (permissionKey === "reception_view") {
+          const isRec = branchToggles.reception ?? branchToggles.receptionView ?? false;
+          if (!isRec) {
+            setIsAllowed(false);
+            setModuleDisabledMessage("Reception View / Token Queue module is not activated for this branch.");
+            return;
+          }
+        }
+
+        if (["delivery", "driver_drop", "vehicles"].includes(permissionKey)) {
+          const isDel = branchToggles.delivery ?? branchToggles.deliveryFleet ?? false;
+          if (!isDel) {
+            setIsAllowed(false);
+            setModuleDisabledMessage("Delivery Fleet & Driver logistics module is not activated for this branch.");
+            return;
+          }
+        }
+
+        if (permissionKey === "account_closing" && branchToggles.accountClosing === false) {
+          setIsAllowed(false);
+          setModuleDisabledMessage("Day-End EOD Account Closing module is not activated for this branch.");
+          return;
+        }
+
+        if (["attendance_report", "employee_schedule"].includes(permissionKey)) {
+          const isAtt = branchToggles.attendance ?? branchToggles.employeeAttendance ?? true;
+          if (isAtt === false) {
+            setIsAllowed(false);
+            setModuleDisabledMessage("Staff Attendance & HR Scheduling module is not activated for this branch.");
+            return;
+          }
+        }
+
+        if (permissionKey === "customers" && branchToggles.customers === false) {
+          setIsAllowed(false);
+          setModuleDisabledMessage("Customer CRM Directory module is not activated for this branch.");
+          return;
+        }
+
+        // ── 3. If no active employee is logged in ──
         if (!raw) {
           // If terminal has never been unlocked or is locked, go to /login
           if (terminalLocked !== "false") {
@@ -69,7 +128,7 @@ export default function EmployeePermissionGuard({
           return;
         }
 
-        // ── 3. Staff is logged in ──
+        // ── 4. Staff is logged in ──
         const activeEmp = typeof emp === "object" && emp !== null ? emp : JSON.parse(raw);
 
         // Drivers are never allowed to view POS pages
@@ -212,19 +271,29 @@ export default function EmployeePermissionGuard({
           </div>
 
           <div className="space-y-1.5">
-            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-800 bg-red-50 text-red-600 border border-red-200 uppercase tracking-widest">
-              403 Forbidden
+            <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-800 uppercase tracking-widest border ${
+              moduleDisabledMessage
+                ? "bg-amber-50 text-amber-700 border-amber-200"
+                : "bg-red-50 text-red-600 border-red-200"
+            }`}>
+              {moduleDisabledMessage ? "Module Inactive" : "403 Forbidden"}
             </span>
             <h2 className="text-xl font-900 text-neutral-900 tracking-tight pt-1">
-              Access Restricted
+              {moduleDisabledMessage ? "Feature Not Enabled" : "Access Restricted"}
             </h2>
             <p className="text-xs text-neutral-500 font-500 leading-relaxed max-w-xs mx-auto">
-              Hi <strong className="text-neutral-800">{employeeName}</strong>,
-              your account does not have permission to access the{" "}
-              <strong className="text-brand-primary capitalize">
-                {permissionKey.replace(/_/g, " ")}
-              </strong>{" "}
-              section.
+              {moduleDisabledMessage ? (
+                <span>{moduleDisabledMessage}</span>
+              ) : (
+                <>
+                  Hi <strong className="text-neutral-800">{employeeName}</strong>,
+                  your account does not have permission to access the{" "}
+                  <strong className="text-brand-primary capitalize">
+                    {permissionKey.replace(/_/g, " ")}
+                  </strong>{" "}
+                  section.
+                </>
+              )}
             </p>
           </div>
 

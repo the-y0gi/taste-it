@@ -31,6 +31,17 @@ export default function OrdersNavbar({ onToggleSidebar }: OrdersNavbarProps) {
     };
   }, []);
 
+  let branchFeatureToggles: Record<string, boolean> = {};
+  if (typeof window !== 'undefined') {
+    try {
+      const rawBranch = localStorage.getItem('rms_branch');
+      if (rawBranch) {
+        const parsed = JSON.parse(rawBranch);
+        if (parsed.featureToggles) branchFeatureToggles = parsed.featureToggles;
+      }
+    } catch (e) {}
+  }
+
   return (
     <header className="h-[64px] bg-white border-b border-neutral-200 px-5 flex items-center justify-between sticky top-0 z-40 shadow-sm font-sans">
 
@@ -83,7 +94,7 @@ export default function OrdersNavbar({ onToggleSidebar }: OrdersNavbarProps) {
         )}
 
         {/* Kitchen View Link */}
-        {(!activeEmployee || activeEmployee.role === 'manager' || activeEmployee.permissions?.kitchen === true) && (
+        {(branchFeatureToggles.kds !== false && branchFeatureToggles.kotKitchen !== false) && (!activeEmployee || activeEmployee.role === 'manager' || activeEmployee.permissions?.kitchen === true) && (
           <a
             href="/employee/kitchen"
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-neutral-200 bg-neutral-50 text-[12px] lg:text-[13.5px] font-600 text-neutral-700 hover:border-brand-primary/30 hover:bg-brand-primary-light hover:text-brand-primary transition-all cursor-pointer"
@@ -105,7 +116,7 @@ export default function OrdersNavbar({ onToggleSidebar }: OrdersNavbarProps) {
         )}
 
         {/* Reception View Link */}
-        {(!activeEmployee || activeEmployee.role === 'manager' || activeEmployee.permissions?.reception_view === true) && (
+        {(branchFeatureToggles.reception === true || branchFeatureToggles.receptionView === true) && (!activeEmployee || activeEmployee.role === 'manager' || activeEmployee.permissions?.reception_view === true) && (
           <a
             href="/employee/reception"
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-neutral-200 bg-neutral-50 text-[12px] lg:text-[13.5px] font-600 text-neutral-700 hover:border-brand-primary/30 hover:bg-brand-primary-light hover:text-brand-primary transition-all cursor-pointer"
