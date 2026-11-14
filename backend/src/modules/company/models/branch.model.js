@@ -166,6 +166,12 @@ const branchSchema = new mongoose.Schema(
             }
           ],
           default: [
+            { id: 'fast_food',    label: 'Fast Food',     isEnabled: true,  handlesItemTypes: ['fast_food'],    nextStation: null, autoPrint: { pizza: false, wings: false } },
+            { id: 'main_kitchen', label: 'Main Kitchen',  isEnabled: true,  handlesItemTypes: ['main_kitchen'], nextStation: null, autoPrint: { pizza: false, wings: false } },
+            { id: 'tandoor',      label: 'Tandoor',       isEnabled: true,  handlesItemTypes: ['tandoor'],      nextStation: null, autoPrint: { pizza: false, wings: false } },
+            { id: 'chinese',      label: 'Chinese / Wok', isEnabled: true,  handlesItemTypes: ['chinese'],      nextStation: null, autoPrint: { pizza: false, wings: false } },
+            { id: 'beverages',    label: 'Beverages',     isEnabled: true,  handlesItemTypes: ['beverages'],    nextStation: null, autoPrint: { pizza: false, wings: false } },
+            { id: 'general',      label: 'General',       isEnabled: true,  handlesItemTypes: ['general'],      nextStation: null, autoPrint: { pizza: false, wings: false } },
             { id: 'make_table',   label: 'Make Station',  isEnabled: true,  handlesItemTypes: ['pizza'],        nextStation: 'cut_station', autoPrint: { pizza: false, wings: false } },
             { id: 'cut_station',  label: 'Cut Station',   isEnabled: true,  handlesItemTypes: ['pizza'],        nextStation: null,          autoPrint: { pizza: true,  wings: false } },
             { id: 'wings_station',label: 'Wings Station', isEnabled: true,  handlesItemTypes: ['wings'],        nextStation: null,          autoPrint: { pizza: false, wings: true  } },
