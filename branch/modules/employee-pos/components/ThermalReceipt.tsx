@@ -51,6 +51,16 @@ export default function ThermalReceipt({ order }: ThermalReceiptProps) {
 
   const formattedDateStr = formatDateFormatted(order.createdAt);
   const restaurantName = (order as any).branchName || "Taste-It Restaurant & Cafe";
+  let branchLogo = (order as any).branchLogo || "";
+  if (!branchLogo && typeof window !== "undefined") {
+    try {
+      const raw = localStorage.getItem("rms_branch");
+      if (raw) {
+        const b = JSON.parse(raw);
+        branchLogo = b.logo || "";
+      }
+    } catch {}
+  }
 
   return (
     <div className="thermal-receipt-container font-mono text-black text-[13px] font-bold leading-tight select-none">
@@ -58,13 +68,21 @@ export default function ThermalReceipt({ order }: ThermalReceiptProps) {
       <div className="w-[80mm] max-w-full bg-white p-4 mx-auto border border-dashed border-neutral-300 shadow-sm print:shadow-none print:border-none">
         {/* Top Branding Logo */}
         <div className="flex flex-col items-center justify-center text-center mb-2">
-          <div className="flex items-center gap-1.5 justify-center mb-1">
-            <ChefHat size={22} className="text-black stroke-[2.5]" />
-            <div className="leading-tight text-center font-sans">
-              <span className="text-base font-900 tracking-tight block uppercase">
-                {restaurantName}
-              </span>
+          {branchLogo ? (
+            <img
+              src={branchLogo}
+              alt={restaurantName}
+              className="max-h-12 max-w-[140px] object-contain mb-1.5 filter grayscale contrast-125"
+            />
+          ) : (
+            <div className="flex items-center gap-1.5 justify-center mb-1">
+              <ChefHat size={22} className="text-black stroke-[2.5]" />
             </div>
+          )}
+          <div className="leading-tight text-center font-sans">
+            <span className="text-base font-900 tracking-tight block uppercase">
+              {restaurantName}
+            </span>
           </div>
         </div>
 

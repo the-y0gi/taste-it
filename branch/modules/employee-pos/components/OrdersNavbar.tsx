@@ -32,12 +32,16 @@ export default function OrdersNavbar({ onToggleSidebar }: OrdersNavbarProps) {
   }, []);
 
   let branchFeatureToggles: Record<string, boolean> = {};
+  let branchLogo = '';
+  let branchName = 'Taste-It';
   if (typeof window !== 'undefined') {
     try {
       const rawBranch = localStorage.getItem('rms_branch');
       if (rawBranch) {
         const parsed = JSON.parse(rawBranch);
         if (parsed.featureToggles) branchFeatureToggles = parsed.featureToggles;
+        if (parsed.logo) branchLogo = parsed.logo;
+        if (parsed.name) branchName = parsed.name;
       }
     } catch (e) {}
   }
@@ -49,17 +53,33 @@ export default function OrdersNavbar({ onToggleSidebar }: OrdersNavbarProps) {
       <div className="flex items-center gap-5">
         {/* Logo */}
         <a href="/employee/pos" className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-orange-600 to-amber-500 flex items-center justify-center text-white shadow-sm font-black text-sm">
-            ⚡
-          </div>
-          <div className="flex flex-col">
-            <span className="text-[14px] font-900 text-neutral-900 tracking-tight leading-none">
-              Taste-It
-            </span>
-            <span className="text-[9px] font-800 text-brand-primary uppercase tracking-wider leading-tight">
-              ORDERS RMS
-            </span>
-          </div>
+          {branchLogo ? (
+            <div className="flex items-center gap-2">
+              <img src={branchLogo} alt={branchName} className="h-8 max-h-8 max-w-[120px] object-contain rounded-lg shadow-2xs" />
+              <div className="flex flex-col">
+                <span className="text-[13px] font-900 text-neutral-900 tracking-tight leading-none truncate max-w-[130px]">
+                  {branchName}
+                </span>
+                <span className="text-[9px] font-800 text-brand-primary uppercase tracking-wider leading-tight">
+                  ORDERS RMS
+                </span>
+              </div>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-orange-600 to-amber-500 flex items-center justify-center text-white shadow-sm font-black text-sm">
+                ⚡
+              </div>
+              <div className="flex flex-col">
+                <span className="text-[14px] font-900 text-neutral-900 tracking-tight leading-none">
+                  {branchName}
+                </span>
+                <span className="text-[9px] font-800 text-brand-primary uppercase tracking-wider leading-tight">
+                  ORDERS RMS
+                </span>
+              </div>
+            </div>
+          )}
         </a>
 
         {/* Divider */}

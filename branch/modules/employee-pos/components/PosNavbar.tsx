@@ -39,6 +39,9 @@ export default function PosNavbar({ onToggleSidebar }: PosNavbarProps) {
         if (raw) {
           const b = JSON.parse(raw);
           setBranchFeatureToggles(b.featureToggles || {});
+          if (b.name && b.code) {
+            setBranchInfo({ name: b.name, code: b.code, _id: b._id, logo: b.logo || '' });
+          }
         }
       } catch {}
     };
@@ -72,7 +75,7 @@ export default function PosNavbar({ onToggleSidebar }: PosNavbarProps) {
           const b = JSON.parse(raw);
           token = b.token || '';
           if (isMounted && b.name && b.code) {
-            setBranchInfo({ name: b.name, code: b.code, _id: b._id });
+            setBranchInfo({ name: b.name, code: b.code, _id: b._id, logo: b.logo || '' });
             const hasLoc = b.isLocationConfigured || (b.lat !== null && b.lng !== null && b.lat !== undefined && b.lng !== undefined && !(b.lat === 0 && b.lng === 0));
             setIsLocationPending(!hasLoc);
             if (b.featureToggles) setBranchFeatureToggles(b.featureToggles);
@@ -93,7 +96,7 @@ export default function PosNavbar({ onToggleSidebar }: PosNavbarProps) {
         if (res.data.success && res.data.data) {
           const freshData = res.data.data;
           if (isMounted) {
-            setBranchInfo({ name: freshData.name, code: freshData.code, _id: freshData._id });
+            setBranchInfo({ name: freshData.name, code: freshData.code, _id: freshData._id, logo: freshData.logo || '' });
             const hasLoc = freshData.isLocationConfigured || (freshData.lat !== null && freshData.lng !== null && freshData.lat !== undefined && freshData.lng !== undefined && !(freshData.lat === 0 && freshData.lng === 0));
             setIsLocationPending(!hasLoc);
             if (freshData.featureToggles) {
@@ -242,7 +245,21 @@ export default function PosNavbar({ onToggleSidebar }: PosNavbarProps) {
           {/* Logo */}
           <Link href="/employee/pos" className="flex items-center gap-2.5">
             {branchInfo?.logo ? (
-              <img src={branchInfo.logo} alt={branchInfo.name || "Taste-It"} className="h-9 max-w-[120px] object-contain rounded" />
+              <div className="flex items-center gap-2.5">
+                <img
+                  src={branchInfo.logo}
+                  alt={branchInfo.name || "Brand Logo"}
+                  className="h-9 max-h-9 max-w-[120px] object-contain rounded-lg shadow-2xs"
+                />
+                <div className="flex flex-col">
+                  <span className="text-[13px] font-900 text-neutral-900 tracking-tight leading-none truncate max-w-[140px]">
+                    {branchInfo.name}
+                  </span>
+                  <span className="text-[9px] font-800 text-brand-primary uppercase tracking-wider leading-tight">
+                    RMS POS
+                  </span>
+                </div>
+              </div>
             ) : (
               <div className="flex items-center gap-2">
                 <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-orange-600 to-amber-500 flex items-center justify-center text-white shadow-sm font-black text-sm">
@@ -250,7 +267,7 @@ export default function PosNavbar({ onToggleSidebar }: PosNavbarProps) {
                 </div>
                 <div className="flex flex-col">
                   <span className="text-[14px] font-900 text-neutral-900 tracking-tight leading-none">
-                    Taste-It
+                    {branchInfo?.name || "Taste-It"}
                   </span>
                   <span className="text-[9px] font-800 text-brand-primary uppercase tracking-wider leading-tight">
                     RMS POS

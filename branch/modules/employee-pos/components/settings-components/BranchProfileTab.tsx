@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import toast from 'react-hot-toast';
-import { Store, Phone, MapPin, Building, Mail, Shield, Save, Loader2 } from 'lucide-react';
+import { Store, Phone, MapPin, Building, Mail, Shield, Save, Loader2, Image as ImageIcon, UploadCloud, X } from 'lucide-react';
 
 export default function BranchProfileTab() {
   const [name, setName] = useState('');
@@ -12,8 +12,10 @@ export default function BranchProfileTab() {
   const [phone, setPhone] = useState('');
   const [address, setAddress] = useState('');
   const [city, setCity] = useState('');
+  const [logo, setLogo] = useState('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [uploadingLogo, setUploadingLogo] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -34,6 +36,7 @@ export default function BranchProfileTab() {
             setPhone(b.phone || '');
             setAddress(b.address || '');
             setCity(b.city || '');
+            setLogo(b.logo || '');
           }
         } catch (e) {}
       }
@@ -55,6 +58,7 @@ export default function BranchProfileTab() {
           setPhone(b.phone || '');
           setAddress(b.address || '');
           setCity(b.city || '');
+          setLogo(b.logo || '');
           try {
             localStorage.setItem('rms_branch', JSON.stringify({ ...JSON.parse(raw || '{}'), ...b }));
           } catch (e) {}
@@ -71,6 +75,42 @@ export default function BranchProfileTab() {
       isMounted = false;
     };
   }, []);
+
+  const handleLogoUpload = async (file: File | undefined) => {
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('Logo file size exceeds 5MB limit.');
+      return;
+    }
+    setUploadingLogo(true);
+    try {
+      const formDataUpload = new FormData();
+      formDataUpload.append('image', file);
+      const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+      const raw = localStorage.getItem('rms_branch');
+      const branchData = raw ? JSON.parse(raw) : null;
+      const token = branchData?.token || '';
+
+      const res = await axios.post(`${API_URL}/menu/upload`, formDataUpload, {
+        headers: {
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          'Content-Type': 'multipart/form-data',
+        },
+        withCredentials: true,
+      });
+
+      if (res.data?.success && res.data?.url) {
+        setLogo(res.data.url);
+        toast.success('Brand logo uploaded successfully!');
+      } else {
+        toast.error('Failed to upload logo image');
+      }
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'Logo upload failed');
+    } finally {
+      setUploadingLogo(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -92,6 +132,7 @@ export default function BranchProfileTab() {
         phone: phone.trim(),
         address: address.trim(),
         city: city.trim(),
+        logo: logo.trim(),
       });
 
       if (res.data.success && res.data.data) {
@@ -100,6 +141,7 @@ export default function BranchProfileTab() {
         setPhone(updated.phone || '');
         setAddress(updated.address || '');
         setCity(updated.city || '');
+        if (updated.logo !== undefined) setLogo(updated.logo || '');
 
         if (raw) {
           try {
@@ -140,6 +182,87 @@ export default function BranchProfileTab() {
         <span className="text-[10px] font-800 text-brand-primary bg-brand-primary/10 px-2 py-0.5 rounded-md">
           Branch Code: {code}
         </span>
+      </div>
+
+      {/* Brand Logo Upload / Preview */}
+      <div className="p-3 bg-neutral-50/80 border border-neutral-200/80 rounded-xl flex flex-col sm:flex-row items-center gap-4">
+        <div className="relative w-18 h-18 sm:w-20 sm:h-20 rounded-xl border-2 border-dashed border-neutral-300 bg-white flex items-center justify-center overflow-hidden shrink-0 group">
+          {logo ? (
+            <>
+              <img src={logo} alt="Branch Brand Logo" className="w-full h-full object-contain p-1.5" />
+              <button
+                type="button"
+                onClick={() => setLogo('')}
+                className="absolute inset-0 bg-black/60 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+                title="Remove logo"
+              >
+                <X size={16} />
+              </button>
+            </>
+          ) : (
+            <label className="w-full h-full flex flex-col items-center justify-center text-neutral-400 hover:text-brand-primary cursor-pointer transition-colors p-1 text-center">
+              <input
+                type="file"
+                accept="image/png,image/jpeg,image/jpg,image/webp,image/svg+xml"
+                className="hidden"
+                disabled={uploadingLogo}
+                onChange={(e) => handleLogoUpload(e.target.files?.[0])}
+              />
+              {uploadingLogo ? (
+                <Loader2 size={18} className="animate-spin text-brand-primary" />
+              ) : (
+                <>
+                  <ImageIcon size={20} className="mb-0.5 text-neutral-400 group-hover:text-brand-primary" />
+                  <span className="text-[9px] font-bold">Add Logo</span>
+                </>
+              )}
+            </label>
+          )}
+        </div>
+
+        <div className="flex-1 w-full space-y-1.5">
+          <div className="flex items-center justify-between">
+            <span className="text-[10.5px] font-800 text-neutral-700 uppercase tracking-wider flex items-center gap-1.5">
+              <ImageIcon size={13} className="text-brand-primary" />
+              Outlet Brand Logo
+            </span>
+            <span className="text-[9px] font-bold text-neutral-400">
+              Shown in POS Navbars, KOT, and Receipts
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <input
+              type="url"
+              placeholder="Or paste direct logo image URL (https://...)"
+              value={logo}
+              onChange={(e) => setLogo(e.target.value)}
+              className="flex-1 bg-white border border-neutral-200 rounded-lg px-2.5 py-1.5 text-xs font-500 text-neutral-700 placeholder:text-neutral-400 focus:outline-none focus:border-brand-primary transition-all"
+            />
+            <label className="px-3 py-1.5 bg-neutral-900 hover:bg-neutral-800 text-white rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shrink-0 shadow-2xs">
+              <input
+                type="file"
+                accept="image/png,image/jpeg,image/jpg,image/webp,image/svg+xml"
+                className="hidden"
+                disabled={uploadingLogo}
+                onChange={(e) => handleLogoUpload(e.target.files?.[0])}
+              />
+              {uploadingLogo ? (
+                <>
+                  <Loader2 size={12} className="animate-spin" />
+                  <span>Uploading...</span>
+                </>
+              ) : (
+                <>
+                  <UploadCloud size={12} />
+                  <span>Upload Logo</span>
+                </>
+              )}
+            </label>
+          </div>
+          <p className="text-[9.5px] text-neutral-400">
+            Recommended: Transparent PNG or SVG, square or horizontal aspect ratio (e.g. 200x200 or 400x120 px). Max 5MB.
+          </p>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

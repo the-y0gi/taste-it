@@ -304,7 +304,7 @@ exports.checkSession = async (req, res) => {
 exports.updateBranchProfile = async (req, res) => {
   try {
     const branchId = req.branch?._id || req.body.branchId;
-    const { name, phone, address, city } = req.body;
+    const { name, phone, address, city, logo } = req.body;
 
     if (!branchId) {
       return res.status(400).json({
@@ -319,6 +319,7 @@ exports.updateBranchProfile = async (req, res) => {
       phone,
       address,
       city,
+      logo,
     });
 
     res.status(200).json({

@@ -41,6 +41,9 @@ import {
   Users,
   TableProperties,
   RotateCcw,
+  Image as ImageIcon,
+  UploadCloud,
+  Loader2,
 } from "lucide-react";
 
 interface FeatureToggles {
@@ -158,6 +161,8 @@ interface Branch {
   city: string;
   phone: string;
   email: string;
+  logo?: string;
+  themeColor?: string;
   password?: string;
   restaurantType?: "general" | "qsr" | "cafe" | "cloud_kitchen" | "fine_dine";
   gstNumber?: string;
@@ -203,6 +208,7 @@ export default function BranchesPage() {
     email: string;
     password: string;
     gstNumber: string;
+    logo: string;
     featureToggles: FeatureToggles;
     isActive: boolean;
   }>({
@@ -215,12 +221,14 @@ export default function BranchesPage() {
     email: "",
     password: "",
     gstNumber: "",
+    logo: "",
     featureToggles: getPresetFeatureToggles("general"),
     isActive: true,
   });
 
   const [showPassword, setShowPassword] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [uploadingLogo, setUploadingLogo] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
   const [successMsg, setSuccessMsg] = useState("");
   const [copiedId, setCopiedId] = useState(false);
@@ -234,6 +242,36 @@ export default function BranchesPage() {
       headers: token ? { Authorization: `Bearer ${token}` } : {},
       withCredentials: true,
     };
+  };
+
+  const handleLogoUpload = async (file: File | undefined) => {
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("Logo file size exceeds 5MB limit.");
+      return;
+    }
+    setUploadingLogo(true);
+    try {
+      const formDataUpload = new FormData();
+      formDataUpload.append("image", file);
+
+      const res = await axios.post(`${API_URL}/menu/upload`, formDataUpload, {
+        ...getAuthConfig(),
+        headers: {
+          ...getAuthConfig().headers,
+          "Content-Type": "multipart/form-data",
+        },
+      });
+
+      if (res.data.success && res.data.url) {
+        setFormData((prev) => ({ ...prev, logo: res.data.url }));
+        toast.success("Branch logo uploaded successfully!");
+      }
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || "Failed to upload branch logo");
+    } finally {
+      setUploadingLogo(false);
+    }
   };
 
   const fetchBranches = async () => {
@@ -270,6 +308,7 @@ export default function BranchesPage() {
         email: branch.email,
         password: branch.password || "",
         gstNumber: branch.gstNumber || branch.settings?.mainSettings?.gstNumber || "",
+        logo: branch.logo || "",
         featureToggles: {
           pos: bT.pos ?? true,
           kds: bT.kds ?? bT.kotKitchen ?? true,
@@ -300,6 +339,7 @@ export default function BranchesPage() {
         email: "",
         password: "",
         gstNumber: "",
+        logo: "",
         featureToggles: getPresetFeatureToggles("general"),
         isActive: true,
       });
@@ -591,9 +631,25 @@ export default function BranchesPage() {
                         </span>
                       </div>
 
-                      <h2 className="text-base font-900 text-neutral-900 mt-2.5 tracking-tight">
-                        {branch.name}
-                      </h2>
+                      <div className="flex items-center gap-3 mt-2.5">
+                        {branch.logo ? (
+                          <img
+                            src={branch.logo}
+                            alt={branch.name}
+                            className="w-10 h-10 rounded-xl object-contain border border-neutral-200 bg-neutral-50 p-1 shrink-0 shadow-2xs"
+                          />
+                        ) : (
+                          <div className="w-10 h-10 rounded-xl bg-orange-50 border border-orange-200 text-brand-primary flex items-center justify-center font-black text-sm shrink-0">
+                            {branch.name.charAt(0).toUpperCase()}
+                          </div>
+                        )}
+                        <div className="min-w-0">
+                          <h2 className="text-base font-900 text-neutral-900 tracking-tight truncate">
+                            {branch.name}
+                          </h2>
+                          <p className="text-[10px] text-neutral-400 font-semibold">{branch.city || "Branch Outlet"}</p>
+                        </div>
+                      </div>
                     </div>
 
                     {/* Card Actions */}
@@ -817,6 +873,80 @@ export default function BranchesPage() {
                   </div>
                 </div>
               )}
+
+              {/* ── 0. BRANCH BRAND LOGO ── */}
+              <div className="p-3 bg-neutral-50/90 border border-neutral-200/80 rounded-xl flex flex-col sm:flex-row items-center gap-4">
+                {/* Logo Preview / Drop Area */}
+                <div className="relative w-18 h-18 sm:w-20 sm:h-20 rounded-xl border-2 border-dashed border-neutral-300 bg-white flex items-center justify-center overflow-hidden shrink-0 group">
+                  {formData.logo ? (
+                    <>
+                      <img src={formData.logo} alt="Branch Logo" className="w-full h-full object-contain p-1.5" />
+                      <button
+                        type="button"
+                        onClick={() => setFormData((prev) => ({ ...prev, logo: "" }))}
+                        className="absolute inset-0 bg-black/60 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+                        title="Remove logo"
+                      >
+                        <X size={16} />
+                      </button>
+                    </>
+                  ) : (
+                    <label className="w-full h-full flex flex-col items-center justify-center text-neutral-400 hover:text-brand-primary cursor-pointer transition-colors p-1 text-center">
+                      <input
+                        type="file"
+                        accept="image/png,image/jpeg,image/jpg,image/webp,image/svg+xml"
+                        className="hidden"
+                        onChange={(e) => handleLogoUpload(e.target.files?.[0])}
+                      />
+                      <ImageIcon size={22} />
+                      <span className="text-[9px] font-bold mt-1">Upload</span>
+                    </label>
+                  )}
+                  {uploadingLogo && (
+                    <div className="absolute inset-0 bg-white/85 flex flex-col items-center justify-center">
+                      <Loader2 size={20} className="animate-spin text-brand-primary" />
+                      <span className="text-[8px] font-bold text-neutral-600 mt-1">Uploading...</span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Logo Instructions & URL Input */}
+                <div className="flex-1 min-w-0 space-y-1.5 w-full">
+                  <div className="flex items-center justify-between">
+                    <label className="block text-[10px] font-800 text-neutral-700 uppercase tracking-wider">
+                      Branch / Company Logo (Optional)
+                    </label>
+                    {formData.logo && (
+                      <span className="text-[10px] text-emerald-600 font-bold flex items-center gap-1">
+                        <Check size={11} /> Logo Set
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-[10.5px] text-neutral-500 font-medium leading-relaxed">
+                    Custom brand logo for this outlet (e.g. RFC, Jnson). Replaces default Taste-It branding across POS terminal, navbars, and receipts.
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <label className="inline-flex items-center gap-1 px-3 py-1.5 bg-white border border-neutral-200 hover:border-brand-primary/40 hover:bg-orange-50 text-[11px] font-bold text-neutral-700 hover:text-brand-primary rounded-lg transition-all cursor-pointer shadow-2xs shrink-0">
+                      <UploadCloud size={13} />
+                      <span>{formData.logo ? "Change File" : "Upload File"}</span>
+                      <input
+                        type="file"
+                        accept="image/png,image/jpeg,image/jpg,image/webp,image/svg+xml"
+                        className="hidden"
+                        onChange={(e) => handleLogoUpload(e.target.files?.[0])}
+                      />
+                    </label>
+                    <span className="text-[10px] text-neutral-400 font-bold">OR</span>
+                    <input
+                      type="url"
+                      placeholder="Paste image URL (https://...)"
+                      value={formData.logo}
+                      onChange={(e) => setFormData((prev) => ({ ...prev, logo: e.target.value }))}
+                      className="flex-1 h-8 bg-white border border-neutral-200 rounded-lg px-2.5 text-[11px] font-medium text-neutral-800 placeholder-neutral-400 focus:outline-none focus:border-brand-primary"
+                    />
+                  </div>
+                </div>
+              </div>
 
               {/* ── 1. BRANCH NAME & CODE ── */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">

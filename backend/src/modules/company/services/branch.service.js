@@ -577,8 +577,8 @@ exports.updateSuperAdminPassword = async ({ adminId, currentPassword, newPasswor
   return { message: "Password updated successfully" };
 };
 
-// Update Branch Admin Profile (Name, Phone, Address, City)
-exports.updateBranchProfile = async ({ branchId, name, phone, address, city }) => {
+// Update Branch Admin Profile (Name, Phone, Address, City, Logo)
+exports.updateBranchProfile = async ({ branchId, name, phone, address, city, logo }) => {
   if (!branchId) {
     throw new Error("Branch ID is required");
   }
@@ -600,6 +600,9 @@ exports.updateBranchProfile = async ({ branchId, name, phone, address, city }) =
   if (city !== undefined) {
     branch.city = city.trim();
   }
+  if (logo !== undefined) {
+    branch.logo = logo.trim();
+  }
 
   await branch.save();
 
@@ -612,6 +615,7 @@ exports.updateBranchProfile = async ({ branchId, name, phone, address, city }) =
     phone: branch.phone,
     address: branch.address,
     city: branch.city,
+    logo: branch.logo || "",
     lat: branch.lat,
     lng: branch.lng,
     isLive: branch.isLive,
