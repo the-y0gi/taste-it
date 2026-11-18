@@ -231,7 +231,7 @@ export default function MenuGrid({ onOpenModifiers }: MenuGridProps) {
       {/* Grid */}
       <div className="flex-1 overflow-y-auto pt-3 min-h-0 pr-0.5">
         {loadingMenu ? (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-5 xl:grid-cols-6 gap-2 md:gap-2.5">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4 2xl:grid-cols-5 gap-2.5 md:gap-3">
             {Array.from({ length: 12 }).map((_, idx) => (
               <div
                 key={`menu-skeleton-${idx}`}
@@ -247,7 +247,7 @@ export default function MenuGrid({ onOpenModifiers }: MenuGridProps) {
             ))}
           </div>
         ) : items.length > 0 ? (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-5 xl:grid-cols-6 gap-2 md:gap-2.5">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4 2xl:grid-cols-5 gap-2.5 md:gap-3">
             {items.map((item) => (
               <MenuCard
                 key={item.id}

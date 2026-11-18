@@ -58,26 +58,19 @@ export default function PosPage() {
         {/* Navbar */}
         <PosNavbar onToggleSidebar={() => setIsSidebarOpen(true)} />
 
-        {/* ── MAIN Layout: Unified responsive (Mobile → Tablet → Desktop) ── */}
-
-        {/* Mobile (<md): CategoryCarousel pinned top, grid fills rest */}
-        <div className="flex md:hidden flex-col flex-1 overflow-hidden min-h-0">
-          {/* Category Strip - top */}
-          <div className="flex-shrink-0 px-2 pt-2">
-            <CategoryCarousel />
-          </div>
-          {/* Menu Grid */}
-          <div
-            id="menu-grid-section-mobile"
-            className="flex-1 min-h-0 flex flex-col px-2 pt-2 pb-20"
-          >
-            <MenuGrid onOpenModifiers={handleOpenModifiers} />
-          </div>
+        {/* ── Top: Full-Width Horizontal Category Carousel (Image 1 Style) ── */}
+        <div className="flex-shrink-0 px-2.5 md:px-3 pt-2 md:pt-2.5 pb-1">
+          <CategoryCarousel />
         </div>
 
-        {/* Tablet & Desktop (md+): Side-by-side layout */}
-        <div className="hidden md:flex flex-1 overflow-hidden p-2.5 md:p-3 gap-2.5 md:gap-3 min-h-0">
-          {/* Left Column - Menu Items Grid */}
+        {/* ── Mobile (<md): Menu Grid fills rest ── */}
+        <div className="flex md:hidden flex-col flex-1 overflow-hidden min-h-0 px-2 pt-1 pb-20">
+          <MenuGrid onOpenModifiers={handleOpenModifiers} />
+        </div>
+
+        {/* ── Tablet & Desktop (md+): 2-Column Layout (Menu Grid + Cart Panel) ── */}
+        <div className="hidden md:flex flex-1 overflow-hidden px-2.5 md:px-3 pb-2.5 md:pb-3 gap-2.5 md:gap-3 min-h-0">
+          {/* Left Column - Menu Items Grid (with current Toolbar: Order Type, Customer, Veg/Non-Veg, Search, Sort) */}
           <div
             id="menu-grid-section"
             className="flex-1 h-full flex flex-col min-w-0"
@@ -85,12 +78,9 @@ export default function PosPage() {
             <MenuGrid onOpenModifiers={handleOpenModifiers} />
           </div>
 
-          {/* Right Column - Category Carousel + CartPanel stacked */}
-          <div className="w-[240px] md:w-[260px] lg:w-[310px] xl:w-[340px] flex-shrink-0 h-full flex flex-col gap-2.5 md:gap-3">
-            <CategoryCarousel />
-            <div className="flex-1 min-h-0">
-              <CartPanel />
-            </div>
+          {/* Right Column - Full-Height Cart Panel */}
+          <div className="w-[320px] lg:w-[350px] xl:w-[380px] flex-shrink-0 h-full flex flex-col">
+            <CartPanel />
           </div>
         </div>
 
