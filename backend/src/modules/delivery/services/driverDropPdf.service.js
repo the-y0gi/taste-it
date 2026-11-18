@@ -3,7 +3,7 @@ const logger = require("../../../shared/utils/logger");
 const { TIMEZONE } = require("../../../shared/utils/timezone");
 const Branch = require("../../company/models/branch.model");
 
-const fmt = (val) => (typeof val === "number" && !isNaN(val) ? `$${val.toFixed(2)}` : "$0.00");
+const fmt = (val) => (typeof val === "number" && !isNaN(val) ? `Rs. ${val.toFixed(2)}` : "Rs. 0.00");
 const fmtNum = (val) => (typeof val === "number" && !isNaN(val) ? val.toFixed(2) : "0.00");
 
 exports.generateDriverDropPdf = async ({ driver, date, type = "both", settlement, orders, branchId, liveInputs }, res) => {

@@ -2,6 +2,54 @@ const PDFDocument = require("pdfkit");
 const logger = require("../../../shared/utils/logger");
 const Branch = require("../../company/models/branch.model");
 
+// ── In-Memory Logo Buffer Cache (URL -> { buffer, timestamp }) ──────────────────
+const logoBufferCache = new Map();
+const CACHE_TTL_MS = 15 * 60 * 1000; // 15 minutes cache
+
+const getLogoBuffer = async (logoUrl) => {
+  if (!logoUrl || typeof logoUrl !== "string") return null;
+  const trimmed = logoUrl.trim();
+  if (!trimmed) return null;
+
+  const now = Date.now();
+  const cached = logoBufferCache.get(trimmed);
+  if (cached && now - cached.timestamp < CACHE_TTL_MS) {
+    return cached.buffer;
+  }
+
+  try {
+    let fetchUrl = trimmed;
+    // For Cloudinary URLs, convert to PNG and constrain resolution for crisp PDF printing
+    if (fetchUrl.includes("res.cloudinary.com") && fetchUrl.includes("/upload/")) {
+      fetchUrl = fetchUrl.replace("/upload/", "/upload/f_png,w_400,c_limit/");
+    }
+
+    if (fetchUrl.startsWith("http://") || fetchUrl.startsWith("https://")) {
+      const response = await fetch(fetchUrl, {
+        signal: AbortSignal.timeout(4000), // 4 seconds timeout so printing never hangs
+      });
+      if (!response.ok) {
+        logger.warn(`Failed to fetch receipt logo image: HTTP ${response.status}`);
+        return null;
+      }
+      const arrayBuf = await response.arrayBuffer();
+      const buffer = Buffer.from(arrayBuf);
+      logoBufferCache.set(trimmed, { buffer, timestamp: now });
+      return buffer;
+    } else if (fetchUrl.startsWith("data:image/")) {
+      const base64Data = fetchUrl.split(",")[1];
+      if (base64Data) {
+        const buffer = Buffer.from(base64Data, "base64");
+        logoBufferCache.set(trimmed, { buffer, timestamp: now });
+        return buffer;
+      }
+    }
+  } catch (err) {
+    logger.warn(`Could not load logo for receipt PDF: ${err.message}`);
+  }
+  return null;
+};
+
 // ═══════════════════════════════════════════════════════════════════════════════
 // ORDER RECEIPT
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -14,10 +62,11 @@ exports.generateReceiptPdfStream = async (
   try {
     // ── Branch info ──────────────────────────────────────────────────────────
     let branchInfo = {
-      name: order.branchName || "Pizza Hut",
+      name: order.branchName || "Taste-It",
       code: order.branchCode || "DELIGHT",
       phone: "",
       gst: "",
+      logo: order.branchLogo || order.logo || "",
     };
 
     try {
@@ -30,6 +79,7 @@ exports.generateReceiptPdfStream = async (
         if (b.name) branchInfo.name = b.name;
         if (b.code) branchInfo.code = b.code;
         if (b.phone) branchInfo.phone = b.phone;
+        if (b.logo) branchInfo.logo = b.logo;
         const gstNum =
           b.settings?.mainSettings?.gstNumber || b.gstNumber || b.gst;
         if (gstNum) branchInfo.gst = gstNum;
@@ -38,6 +88,11 @@ exports.generateReceiptPdfStream = async (
       logger.warn(
         `Could not fetch branch info for receipt PDF: ${err.message}`,
       );
+    }
+
+    let logoBuffer = null;
+    if (branchInfo.logo) {
+      logoBuffer = await getLogoBuffer(branchInfo.logo);
     }
 
     // ── Page setup ───────────────────────────────────────────────────────────
@@ -186,6 +241,9 @@ exports.generateReceiptPdfStream = async (
     // ── Dynamic page height estimation (tight fit for thermal paper roll cut) ─
     const lineH = is58mm ? 12 : 14;
     let h = margin * 2;
+    if (logoBuffer) {
+      h += (is58mm ? 42 : 55) + 8;
+    }
     h += lineH * 4 + 8; // store asterisk block (4 lines)
     h += lineH * (isTimedOrder ? 6 : 5) + 8; // order info (5 lines normally, 6 lines if timed order)
     h += 8; // divider
@@ -354,6 +412,26 @@ exports.generateReceiptPdfStream = async (
     // START DRAWING — tight top margin
     // ════════════════════════════════════════════════════════════════════════
     doc.y = margin;
+
+    // ── 1. STORE BRAND LOGO (IF AVAILABLE) ───────────────────────────────────
+    if (logoBuffer) {
+      try {
+        const img = doc.openImage(logoBuffer);
+        if (img && img.width && img.height) {
+          const maxLogoW = is58mm ? 95 : 125;
+          const maxLogoH = is58mm ? 42 : 55;
+          const ratio = Math.min(maxLogoW / img.width, maxLogoH / img.height);
+          const renderW = Math.round(img.width * ratio);
+          const renderH = Math.round(img.height * ratio);
+          const posX = Math.round(startX + (printableWidth - renderW) / 2);
+
+          doc.image(img, posX, doc.y, { width: renderW, height: renderH });
+          doc.y += renderH + (is58mm ? 4 : 6);
+        }
+      } catch (imgErr) {
+        logger.warn(`Could not render store logo in receipt PDF: ${imgErr.message}`);
+      }
+    }
 
     // ── 2. ASTERISK STORE BLOCK ──────────────────────────────────────────────
     const nameFs = is58mm ? 11.5 : 13.5;
@@ -604,7 +682,7 @@ exports.generateReceiptPdfStream = async (
         : [];
       const qty = item.quantity || 1;
       const name = item.name || "Item";
-      const priceStr = `$${itemTotal.toFixed(2)}`;
+      const priceStr = `Rs. ${itemTotal.toFixed(2)}`;
 
       if (mods.length === 0) {
         // No modifiers — qty + name left, price right, same line
@@ -613,7 +691,7 @@ exports.generateReceiptPdfStream = async (
           .font("Helvetica-Bold")
           .fontSize(itemFs)
           .fillColor("#000000")
-          .text(`${qty}  ${name}`, startX, ry, { width: printableWidth - 45 });
+          .text(`${qty}  ${name}`, startX, ry, { width: printableWidth - 55 });
         const afterName = doc.y;
         doc.font("Helvetica-Bold").fontSize(itemFs).text(priceStr, startX, ry, {
           width: printableWidth,
@@ -638,7 +716,7 @@ exports.generateReceiptPdfStream = async (
               .font("Helvetica-Bold")
               .fontSize(modFs)
               .fillColor("#000000")
-              .text(modLabel, startX, ry, { width: printableWidth - 45 });
+              .text(modLabel, startX, ry, { width: printableWidth - 55 });
             const afterMod = doc.y;
             doc
               .font("Helvetica-Bold")
@@ -681,7 +759,7 @@ exports.generateReceiptPdfStream = async (
       .font("Helvetica-Bold")
       .fontSize(totFs)
       .fillColor("#000000")
-      .text(`Sub Total:  $${subtotal.toFixed(2)}`, startX, doc.y, {
+      .text(`Sub Total:  Rs. ${subtotal.toFixed(2)}`, startX, doc.y, {
         width: printableWidth,
         align: "right",
       });
@@ -691,7 +769,7 @@ exports.generateReceiptPdfStream = async (
       doc
         .font("Helvetica-Bold")
         .fontSize(totFs)
-        .text(`${discountLabel}  -$${discount.toFixed(2)}`, startX, doc.y, {
+        .text(`${discountLabel}  -Rs. ${discount.toFixed(2)}`, startX, doc.y, {
           width: printableWidth,
           align: "right",
         });
@@ -700,7 +778,7 @@ exports.generateReceiptPdfStream = async (
     doc
       .font("Helvetica-Bold")
       .fontSize(totFs)
-      .text(`Tax...:  $${(0).toFixed(2)}`, startX, doc.y, {
+      .text(`Tax...:  Rs. ${(0).toFixed(2)}`, startX, doc.y, {
         width: printableWidth,
         align: "right",
       });
@@ -720,7 +798,7 @@ exports.generateReceiptPdfStream = async (
         .font("Helvetica-Bold")
         .fontSize(totFs)
         .text(
-          `GST...:  $${tax.toFixed(2)}`,
+          `GST...:  Rs. ${tax.toFixed(2)}`,
           startX + printableWidth * 0.55,
           ry,
           { width: printableWidth * 0.45, align: "right" },
@@ -732,7 +810,7 @@ exports.generateReceiptPdfStream = async (
       doc
         .font("Helvetica-Bold")
         .fontSize(totFs)
-        .text(`Delivery Fee:  $${deliveryFee.toFixed(2)}`, startX, doc.y, {
+        .text(`Delivery Fee:  Rs. ${deliveryFee.toFixed(2)}`, startX, doc.y, {
           width: printableWidth,
           align: "right",
         });
@@ -746,7 +824,7 @@ exports.generateReceiptPdfStream = async (
       .font("Helvetica-Bold")
       .fontSize(bigFs)
       .fillColor("#000000")
-      .text(`Tot.w/coupon:  $${total.toFixed(2)}`, startX, doc.y, {
+      .text(`Tot.w/coupon:  Rs. ${total.toFixed(2)}`, startX, doc.y, {
         width: printableWidth,
       });
     doc.moveDown(0.3);
@@ -755,7 +833,7 @@ exports.generateReceiptPdfStream = async (
       doc
         .font("Helvetica-Bold")
         .fontSize(bigFs)
-        .text(`   Tip....:  $${tip.toFixed(2)}`, startX, doc.y, {
+        .text(`   Tip....:  Rs. ${tip.toFixed(2)}`, startX, doc.y, {
           width: printableWidth,
         });
     } else {
@@ -772,7 +850,7 @@ exports.generateReceiptPdfStream = async (
     doc
       .font("Helvetica-Bold")
       .fontSize(totalFs)
-      .text(`   TOTAL...:  $${(total + tip).toFixed(2)}`, startX, doc.y, {
+      .text(`   TOTAL...:  Rs. ${(total + tip).toFixed(2)}`, startX, doc.y, {
         width: printableWidth,
       });
     doc.moveDown(0.5);
@@ -803,14 +881,14 @@ exports.generateReceiptPdfStream = async (
         rowLR("TYPE:", "CASH", payFs, true, true);
         rowLR(
           "CASH GIVEN:",
-          `$${cashInfo.cashGiven.toFixed(2)}`,
+          `Rs. ${cashInfo.cashGiven.toFixed(2)}`,
           payFs,
           true,
           true,
         );
         rowLR(
           "CHANGE:",
-          `$${cashInfo.changeGiven.toFixed(2)}`,
+          `Rs. ${cashInfo.changeGiven.toFixed(2)}`,
           payFs,
           true,
           true,
@@ -866,12 +944,13 @@ exports.generateSalesSummaryReceiptPdf = async (
 ) => {
   try {
     let branchInfo = {
-      name: summary.branchName || "Pizza Hut",
+      name: summary.branchName || "Taste-It",
       code: summary.branchCode || "DELIGHT",
       address: "",
       city: "",
       phone: "",
       gst: "",
+      logo: summary.branchLogo || summary.logo || "",
     };
 
     const targetBranchId = branchId || summary.branchId;
@@ -887,6 +966,7 @@ exports.generateSalesSummaryReceiptPdf = async (
         if (b.address) branchInfo.address = b.address;
         if (b.city) branchInfo.city = b.city;
         if (b.phone) branchInfo.phone = b.phone;
+        if (b.logo) branchInfo.logo = b.logo;
         const gstNum =
           b.settings?.mainSettings?.gstNumber || b.gstNumber || b.gst;
         if (gstNum) branchInfo.gst = gstNum;
@@ -895,6 +975,11 @@ exports.generateSalesSummaryReceiptPdf = async (
       logger.warn(
         `Could not fetch branch info for sales summary receipt: ${err.message}`,
       );
+    }
+
+    let logoBuffer = null;
+    if (branchInfo.logo) {
+      logoBuffer = await getLogoBuffer(branchInfo.logo);
     }
 
     const doc = new PDFDocument({ size: [226, 1600], margin: 10 });
@@ -927,6 +1012,24 @@ exports.generateSalesSummaryReceiptPdf = async (
         return dateVal;
       }
     };
+
+    // Header Logo
+    if (logoBuffer) {
+      try {
+        const img = doc.openImage(logoBuffer);
+        if (img && img.width && img.height) {
+          const maxLogoW = 120;
+          const maxLogoH = 50;
+          const ratio = Math.min(maxLogoW / img.width, maxLogoH / img.height);
+          const renderW = Math.round(img.width * ratio);
+          const renderH = Math.round(img.height * ratio);
+          const posX = Math.round(startX + (printableWidth - renderW) / 2);
+
+          doc.image(img, posX, doc.y, { width: renderW, height: renderH });
+          doc.y += renderH + 5;
+        }
+      } catch (err) {}
+    }
 
     // Header
     doc
@@ -998,7 +1101,7 @@ exports.generateSalesSummaryReceiptPdf = async (
       doc.moveDown(0.3);
     };
 
-    const fmt = (num) => `$${(num || 0).toFixed(2)}`;
+    const fmt = (num) => `Rs. ${(num || 0).toFixed(2)}`;
 
     const drawRow = (left, right, isBold = true, indent = 0) => {
       const rowY = doc.y;
@@ -1161,12 +1264,13 @@ exports.generateDepositReceiptPdf = async (
 ) => {
   try {
     let branchInfo = {
-      name: depositData.branchName || "Pizza Hut",
+      name: depositData.branchName || "Taste-It",
       code: depositData.branchCode || "DELIGHT",
       address: "",
       city: "",
       phone: "",
       gst: "",
+      logo: depositData.branchLogo || depositData.logo || "",
     };
 
     try {
@@ -1179,16 +1283,23 @@ exports.generateDepositReceiptPdf = async (
         if (b.address) branchInfo.address = b.address;
         if (b.city) branchInfo.city = b.city;
         if (b.phone) branchInfo.phone = b.phone;
+        if (b.logo) branchInfo.logo = b.logo;
         const gstNum =
           b.settings?.mainSettings?.gstNumber || b.gstNumber || b.gst;
         if (gstNum) branchInfo.gst = gstNum;
       }
     } catch (err) {}
 
+    let logoBuffer = null;
+    if (branchInfo.logo) {
+      logoBuffer = await getLogoBuffer(branchInfo.logo);
+    }
+
     const printableWidth = 206;
     const startX = 10;
     const lineH = 16;
     let h = 24; // top/bottom margin
+    if (logoBuffer) h += 50 + 6;
     h += 24 + 16 + 10; // store name + code + space
     h += 22 + 16 + 10; // title + date + space
     h += 10; // divider
@@ -1214,7 +1325,7 @@ exports.generateDepositReceiptPdf = async (
       doc.moveDown(0.3);
     };
 
-    const fmt = (num) => `$${(num || 0).toFixed(2)}`;
+    const fmt = (num) => `Rs. ${(num || 0).toFixed(2)}`;
 
     const drawRow = (left, right, isBold = true) => {
       const rowY = doc.y;
@@ -1228,6 +1339,24 @@ exports.generateDepositReceiptPdf = async (
       if (doc.y < afterLeftY) doc.y = afterLeftY;
       doc.moveDown(0.25);
     };
+
+    // Header Logo
+    if (logoBuffer) {
+      try {
+        const img = doc.openImage(logoBuffer);
+        if (img && img.width && img.height) {
+          const maxLogoW = 120;
+          const maxLogoH = 48;
+          const ratio = Math.min(maxLogoW / img.width, maxLogoH / img.height);
+          const renderW = Math.round(img.width * ratio);
+          const renderH = Math.round(img.height * ratio);
+          const posX = Math.round(startX + (printableWidth - renderW) / 2);
+
+          doc.image(img, posX, doc.y, { width: renderW, height: renderH });
+          doc.y += renderH + 5;
+        }
+      } catch (err) {}
+    }
 
     // Header
     doc
@@ -1320,12 +1449,13 @@ exports.generateAccountClosingReceiptPdf = async (
 ) => {
   try {
     let branchInfo = {
-      name: closingData.branchName || "Pizza Hut",
+      name: closingData.branchName || "Taste-It",
       code: closingData.branchCode || "DELIGHT",
       address: "",
       city: "",
       phone: "",
       gst: "",
+      logo: closingData.branchLogo || closingData.logo || "",
     };
 
     try {
@@ -1338,11 +1468,17 @@ exports.generateAccountClosingReceiptPdf = async (
         if (b.address) branchInfo.address = b.address;
         if (b.city) branchInfo.city = b.city;
         if (b.phone) branchInfo.phone = b.phone;
+        if (b.logo) branchInfo.logo = b.logo;
         const gstNum =
           b.settings?.mainSettings?.gstNumber || b.gstNumber || b.gst;
         if (gstNum) branchInfo.gst = gstNum;
       }
     } catch (err) {}
+
+    let logoBuffer = null;
+    if (branchInfo.logo) {
+      logoBuffer = await getLogoBuffer(branchInfo.logo);
+    }
 
     const sys = closingData.systemData || {};
     const closing = closingData.existingClosing || {};
@@ -1354,6 +1490,7 @@ exports.generateAccountClosingReceiptPdf = async (
 
     // Dynamic height calculation
     let h = 30; // top/bottom padding
+    if (logoBuffer) h += 50 + 6;
     h += 24 + 16 + 10; // store header
     h += 22 + 16 + 10; // title + date
     h += 10 + 18 + 10; // Financial Summary header & divider
@@ -1389,7 +1526,7 @@ exports.generateAccountClosingReceiptPdf = async (
       doc.moveDown(0.3);
     };
 
-    const fmt = (num) => `$${(num || 0).toFixed(2)}`;
+    const fmt = (num) => `Rs. ${(num || 0).toFixed(2)}`;
 
     const drawRow = (left, right, isBold = true) => {
       const rowY = doc.y;
@@ -1403,6 +1540,24 @@ exports.generateAccountClosingReceiptPdf = async (
       if (doc.y < afterLeftY) doc.y = afterLeftY;
       doc.moveDown(0.25);
     };
+
+    // Header Logo
+    if (logoBuffer) {
+      try {
+        const img = doc.openImage(logoBuffer);
+        if (img && img.width && img.height) {
+          const maxLogoW = 120;
+          const maxLogoH = 48;
+          const ratio = Math.min(maxLogoW / img.width, maxLogoH / img.height);
+          const renderW = Math.round(img.width * ratio);
+          const renderH = Math.round(img.height * ratio);
+          const posX = Math.round(startX + (printableWidth - renderW) / 2);
+
+          doc.image(img, posX, doc.y, { width: renderW, height: renderH });
+          doc.y += renderH + 5;
+        }
+      } catch (err) {}
+    }
 
     // Header
     doc
