@@ -9,7 +9,7 @@ import POSSidebarDrawer from '../../employee-pos/components/POSSidebarDrawer';
 
 import { useDeliveryStore } from '../store/deliveryStore';
 
-// Dynamic import for Leaflet (SSR not supported )
+//Dynamic import for Leaflet (SSR not supported )
 const DeliveryMap = dynamic(() => import('./DeliveryMap'), {
   ssr: false,
   loading: () => (
