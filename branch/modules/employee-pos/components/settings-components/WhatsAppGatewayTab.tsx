@@ -143,18 +143,37 @@ export default function WhatsAppGatewayTab() {
     }
   }, [apiUrl]);
 
+  // Initial check on mount
   useEffect(() => {
     fetchStatus();
+  }, [fetchStatus]);
 
-    // Poll status when awaiting QR code scan
+  // Smart Polling: ONLY poll during QR scan / connecting state.
+  // Stops completely when connected or idle to prevent unnecessary network calls.
+  useEffect(() => {
+    const isPairingInProgress =
+      !data.connected &&
+      (data.status === "qr_ready" || data.status === "connecting");
+
+    if (!isPairingInProgress) {
+      if (pollIntervalRef.current) {
+        clearInterval(pollIntervalRef.current);
+        pollIntervalRef.current = null;
+      }
+      return;
+    }
+
     pollIntervalRef.current = setInterval(() => {
       fetchStatus();
     }, 3000);
 
     return () => {
-      if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+      if (pollIntervalRef.current) {
+        clearInterval(pollIntervalRef.current);
+        pollIntervalRef.current = null;
+      }
     };
-  }, [fetchStatus]);
+  }, [data.connected, data.status, fetchStatus]);
 
   const handleConnect = async () => {
     setActionLoading(true);
