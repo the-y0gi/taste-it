@@ -8,14 +8,21 @@ import POSSidebarDrawer from './POSSidebarDrawer';
 import MainSettingsTab, { BranchCustomization } from './settings-components/MainSettingsTab';
 import TaxFeesTab from './settings-components/TaxFeesTab';
 import TerminalSetupTab from './settings-components/TerminalSetupTab';
-import TillSetupTab from './settings-components/TillSetupTab';
 import StoreTimingsTab from './settings-components/StoreTimingsTab';
-import StoreTimingsUpdateTab from './settings-components/StoreTimingsUpdateTab';
 import HolidaysTab from './settings-components/HolidaysTab';
 import KitchenStationsTab from './settings-components/KitchenStationsTab';
 import WhatsAppGatewayTab from './settings-components/WhatsAppGatewayTab';
 
-// Shared Types
+// Shared Types & Icons
+import {
+  Sliders,
+  Receipt,
+  Monitor,
+  Clock,
+  ChefHat,
+  MessageSquare,
+  Calendar,
+} from 'lucide-react';
 import { TabType, Terminal, Till, StoreTiming, TimingUpdate, Holiday, TaxFeesSettings, KitchenSettings, DEFAULT_KITCHEN_SETTINGS } from './settings-components/settingsTypes';
 
 export default function SettingsDashboard() {
@@ -60,6 +67,8 @@ export default function SettingsDashboard() {
   const [taxFeesSettings, setTaxFeesSettings] = useState<TaxFeesSettings>({
     deliveryFee: '4.99',
     gstTaxRate: '5.00',
+    cgstRate: '2.50',
+    sgstRate: '2.50',
     pstTaxRate: '0.00',
     hstTaxRate: '0.00',
   });
@@ -139,14 +148,20 @@ export default function SettingsDashboard() {
         }
         if (s.taxFeesSettings) {
           const tf = s.taxFeesSettings;
-          setTaxFeesSettings(prev => ({
-            ...prev,
-            ...tf,
-            deliveryFee: String(tf.deliveryFee ?? prev.deliveryFee),
-            gstTaxRate: String(tf.gstTaxRate ?? prev.gstTaxRate),
-            pstTaxRate: String(tf.pstTaxRate ?? prev.pstTaxRate),
-            hstTaxRate: String(tf.hstTaxRate ?? prev.hstTaxRate),
-          }));
+          setTaxFeesSettings((prev) => {
+            const parsedGst = String(tf.gstTaxRate ?? prev.gstTaxRate ?? '5.00');
+            const half = (Number(parsedGst) / 2).toFixed(2);
+            return {
+              ...prev,
+              ...tf,
+              deliveryFee: String(tf.deliveryFee ?? prev.deliveryFee),
+              gstTaxRate: parsedGst,
+              cgstRate: String(tf.cgstRate ?? half),
+              sgstRate: String(tf.sgstRate ?? half),
+              pstTaxRate: '0.00',
+              hstTaxRate: '0.00',
+            };
+          });
         }
         if (s.storeTimings && s.storeTimings.length > 0) setStoreTimings(s.storeTimings);
         if (s.storeTimingsUpdates) setTimingsUpdates(s.storeTimingsUpdates);
@@ -319,117 +334,102 @@ export default function SettingsDashboard() {
         onToggleSidebar={() => setIsSidebarOpen(true)} 
       />
 
-      <div className="flex-1 p-3 md:p-6 space-y-4 md:space-y-6 max-w-7xl w-full mx-auto">
+      <div className="flex-1 p-3 md:p-6 space-y-4 md:space-y-6 w-full max-w-[1550px] mx-auto font-sans">
         
         {/* Horizontal Navigation Tabs Bar */}
         <div className="overflow-x-auto pb-1 no-scrollbar w-full">
-          <div className="inline-flex items-center gap-1 bg-neutral-100 p-1 rounded-xl border border-neutral-200 min-w-max">
+          <div className="inline-flex items-center gap-1.5 bg-neutral-100/90 p-1.5 rounded-2xl border border-neutral-200/80 min-w-max shadow-2xs">
             
             <button
               onClick={() => setActiveTab('main_settings')}
-              className={`px-3 md:px-4 py-1.5 rounded-lg text-[10px] md:text-[11px] lg:text-[12.5px] font-800 tracking-wide uppercase transition-all duration-150 cursor-pointer whitespace-nowrap ${
+              className={`px-3.5 py-2 rounded-xl text-[11px] lg:text-[12px] font-800 tracking-wide uppercase transition-all duration-150 cursor-pointer whitespace-nowrap flex items-center gap-1.5 ${
                 activeTab === 'main_settings'
                   ? 'bg-brand-primary text-white shadow-sm'
-                  : 'text-neutral-500 hover:text-brand-primary'
+                  : 'text-neutral-600 hover:text-brand-primary hover:bg-white/60'
               }`}
             >
-              Main Settings
+              <Sliders size={13} />
+              <span>Main Settings</span>
             </button>
 
             <button
               onClick={() => setActiveTab('tax_fees')}
-              className={`px-3 md:px-4 py-1.5 rounded-lg text-[10px] md:text-[11px] lg:text-[12.5px] font-800 tracking-wide uppercase transition-all duration-150 cursor-pointer whitespace-nowrap ${
+              className={`px-3.5 py-2 rounded-xl text-[11px] lg:text-[12px] font-800 tracking-wide uppercase transition-all duration-150 cursor-pointer whitespace-nowrap flex items-center gap-1.5 ${
                 activeTab === 'tax_fees'
                   ? 'bg-brand-primary text-white shadow-sm'
-                  : 'text-neutral-500 hover:text-brand-primary'
+                  : 'text-neutral-600 hover:text-brand-primary hover:bg-white/60'
               }`}
             >
-              Tax & Fees
+              <Receipt size={13} />
+              <span>Tax & Fees</span>
             </button>
 
             <button
               onClick={() => setActiveTab('terminal_setup')}
-              className={`px-3 md:px-4 py-1.5 rounded-lg text-[10px] md:text-[11px] lg:text-[12.5px] font-800 tracking-wide uppercase transition-all duration-150 cursor-pointer whitespace-nowrap ${
+              className={`px-3.5 py-2 rounded-xl text-[11px] lg:text-[12px] font-800 tracking-wide uppercase transition-all duration-150 cursor-pointer whitespace-nowrap flex items-center gap-1.5 ${
                 activeTab === 'terminal_setup'
                   ? 'bg-brand-primary text-white shadow-sm'
-                  : 'text-neutral-500 hover:text-brand-primary'
+                  : 'text-neutral-600 hover:text-brand-primary hover:bg-white/60'
               }`}
             >
-              Terminal Setup
-            </button>
-
-            <button
-              onClick={() => setActiveTab('till_setup')}
-              className={`px-3 md:px-4 py-1.5 rounded-lg text-[10px] md:text-[11px] lg:text-[12.5px] font-800 tracking-wide uppercase transition-all duration-150 cursor-pointer whitespace-nowrap ${
-                activeTab === 'till_setup'
-                  ? 'bg-brand-primary text-white shadow-sm'
-                  : 'text-neutral-500 hover:text-brand-primary'
-              }`}
-            >
-              Cash Register (Till)
+              <Monitor size={13} />
+              <span>Terminal Setup</span>
             </button>
 
             <button
               onClick={() => setActiveTab('store_timings')}
-              className={`px-3 md:px-4 py-1.5 rounded-lg text-[10px] md:text-[11px] lg:text-[12.5px] font-800 tracking-wide uppercase transition-all duration-150 cursor-pointer whitespace-nowrap ${
+              className={`px-3.5 py-2 rounded-xl text-[11px] lg:text-[12px] font-800 tracking-wide uppercase transition-all duration-150 cursor-pointer whitespace-nowrap flex items-center gap-1.5 ${
                 activeTab === 'store_timings'
                   ? 'bg-brand-primary text-white shadow-sm'
-                  : 'text-neutral-500 hover:text-brand-primary'
+                  : 'text-neutral-600 hover:text-brand-primary hover:bg-white/60'
               }`}
             >
-              Store Timings
-            </button>
-
-            <button
-              onClick={() => setActiveTab('store_timings_update')}
-              className={`px-3 md:px-4 py-1.5 rounded-lg text-[10px] md:text-[11px] lg:text-[12.5px] font-800 tracking-wide uppercase transition-all duration-150 cursor-pointer whitespace-nowrap ${
-                activeTab === 'store_timings_update'
-                  ? 'bg-brand-primary text-white shadow-sm'
-                  : 'text-neutral-500 hover:text-brand-primary'
-              }`}
-            >
-              Timings Update
+              <Clock size={13} />
+              <span>Store Timings</span>
             </button>
 
             <button
               onClick={() => setActiveTab('kitchen_stations')}
-              className={`px-3 md:px-4 py-1.5 rounded-lg text-[10px] md:text-[11px] lg:text-[12.5px] font-800 tracking-wide uppercase transition-all duration-150 cursor-pointer whitespace-nowrap ${
+              className={`px-3.5 py-2 rounded-xl text-[11px] lg:text-[12px] font-800 tracking-wide uppercase transition-all duration-150 cursor-pointer whitespace-nowrap flex items-center gap-1.5 ${
                 activeTab === 'kitchen_stations'
                   ? 'bg-brand-primary text-white shadow-sm'
-                  : 'text-neutral-500 hover:text-brand-primary'
+                  : 'text-neutral-600 hover:text-brand-primary hover:bg-white/60'
               }`}
             >
-              Kitchen Stations
+              <ChefHat size={13} />
+              <span>Kitchen Stations</span>
             </button>
 
             <button
               onClick={() => setActiveTab('whatsapp_gateway')}
-              className={`px-3 md:px-4 py-1.5 rounded-lg text-[10px] md:text-[11px] lg:text-[12.5px] font-800 tracking-wide uppercase transition-all duration-150 cursor-pointer whitespace-nowrap flex items-center gap-1.5 ${
+              className={`px-3.5 py-2 rounded-xl text-[11px] lg:text-[12px] font-800 tracking-wide uppercase transition-all duration-150 cursor-pointer whitespace-nowrap flex items-center gap-1.5 ${
                 activeTab === 'whatsapp_gateway'
                   ? 'bg-emerald-600 text-white shadow-sm'
-                  : 'text-neutral-500 hover:text-emerald-700'
+                  : 'text-neutral-600 hover:text-emerald-700 hover:bg-white/60'
               }`}
             >
+              <MessageSquare size={13} />
               <span>WhatsApp Bill</span>
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
             </button>
 
             <button
               onClick={() => setActiveTab('holidays')}
-              className={`px-3 md:px-4 py-1.5 rounded-lg text-[10px] md:text-[11px] lg:text-[12.5px] font-800 tracking-wide uppercase transition-all duration-150 cursor-pointer whitespace-nowrap ${
+              className={`px-3.5 py-2 rounded-xl text-[11px] lg:text-[12px] font-800 tracking-wide uppercase transition-all duration-150 cursor-pointer whitespace-nowrap flex items-center gap-1.5 ${
                 activeTab === 'holidays'
                   ? 'bg-brand-primary text-white shadow-sm'
-                  : 'text-neutral-500 hover:text-brand-primary'
+                  : 'text-neutral-600 hover:text-brand-primary hover:bg-white/60'
               }`}
             >
-              Holidays
+              <Calendar size={13} />
+              <span>Holidays</span>
             </button>
 
           </div>
         </div>
 
         {/* Tab Panel View Container */}
-        <div className="bg-white border border-[#E7E5E4] rounded-2xl shadow-xs p-4 md:p-6">
+        <div className="bg-white border border-[#E7E5E4] rounded-2xl shadow-xs p-5 md:p-7 w-full">
           
           {loading ? (
             <div className="flex flex-col items-center justify-center py-20 gap-3 text-neutral-500 font-sans">
@@ -467,13 +467,6 @@ export default function SettingsDashboard() {
                 />
               )}
 
-              {activeTab === 'till_setup' && (
-                <TillSetupTab
-                  tills={tills}
-                  setTills={handleUpdateTills}
-                />
-              )}
-
               {activeTab === 'store_timings' && (
                 <StoreTimingsTab
                   storeTimings={storeTimings}
@@ -481,13 +474,6 @@ export default function SettingsDashboard() {
                   isEmergencyClosed={isEmergencyClosed}
                   setIsEmergencyClosed={setIsEmergencyClosed}
                   onSubmit={handleStoreTimingsSubmit}
-                />
-              )}
-
-              {activeTab === 'store_timings_update' && (
-                <StoreTimingsUpdateTab
-                  timingsUpdates={timingsUpdates}
-                  setTimingsUpdates={handleUpdateTimingsUpdates}
                 />
               )}
 

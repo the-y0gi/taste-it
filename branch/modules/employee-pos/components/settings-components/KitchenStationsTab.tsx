@@ -337,27 +337,24 @@ export default function KitchenStationsTab({
       className="space-y-6 select-none animate-fade-in"
     >
       {/* ── Header ── */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-neutral-200 pb-5">
-        <div>
-          <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl bg-orange-100 text-brand-primary flex items-center justify-center shadow-xs flex-shrink-0">
-              <ChefHat size={20} />
-            </div>
-            <div>
-              <h2 className="text-base sm:text-lg font-900 text-neutral-900 tracking-tight flex flex-wrap items-center gap-2">
-                Kitchen Station &amp; Printing Setup
-              </h2>
-              <p className="text-[11.5px] text-neutral-500 font-500 mt-0.5">
-                Configure station routing, item assignments, and auto-print
-                triggers per branch.
-              </p>
-            </div>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-neutral-100 pb-5">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-brand-primary text-white flex items-center justify-center font-bold shadow-xs flex-shrink-0">
+            <ChefHat size={20} />
+          </div>
+          <div>
+            <h2 className="text-[17px] font-900 text-neutral-900 tracking-tight flex items-center gap-2">
+              Kitchen Station &amp; Printing Setup
+            </h2>
+            <p className="text-[12px] text-neutral-500 mt-0.5">
+              Configure station routing, item assignments, and auto-print triggers per branch.
+            </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-2.5 flex-wrap sm:flex-nowrap">
+        <div className="flex items-center gap-2 self-start sm:self-center flex-wrap">
           {kitchenSettings.presetMode === "custom" && (
-            <span className="text-[10.5px] px-3 py-1 rounded-full bg-purple-50 border border-purple-200 text-purple-700 font-800 uppercase tracking-wider whitespace-nowrap shrink-0">
+            <span className="text-[10px] px-2.5 py-1 rounded-full bg-purple-50 border border-purple-200 text-purple-700 font-extrabold uppercase tracking-wider whitespace-nowrap">
               Custom Overrides
             </span>
           )}
@@ -366,16 +363,38 @@ export default function KitchenStationsTab({
             <button
               type="button"
               onClick={handleStartEdit}
-              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-brand-primary text-white hover:bg-brand-primary-hover font-800 text-[12px] shadow-sm transition-all cursor-pointer active:scale-95 whitespace-nowrap"
+              className="px-4 py-2 rounded-xl bg-neutral-900 hover:bg-neutral-800 text-white text-[11px] font-800 uppercase tracking-wide transition-all cursor-pointer shadow-xs flex items-center gap-1.5 active:scale-95 whitespace-nowrap"
             >
-              <Edit2 size={14} />
-              <span>Edit Settings</span>
+              <Edit2 size={13} />
+              <span>Edit Stations</span>
             </button>
           ) : (
-            <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-50 border border-amber-300 text-amber-800 text-[11.5px] font-800 animate-pulse whitespace-nowrap">
-              <Unlock size={13} className="text-amber-600" />
-              <span>Editing Unlocked</span>
-            </span>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={handleCancelEdit}
+                disabled={saving}
+                className="px-3.5 py-2 rounded-xl border border-neutral-200 bg-white hover:bg-neutral-50 text-neutral-700 text-[11px] font-700 uppercase tracking-wide transition-all cursor-pointer flex items-center gap-1.5 shadow-2xs"
+              >
+                <X size={13} /> Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={saving}
+                className="px-5 py-2 rounded-xl bg-brand-primary hover:bg-orange-600 text-white text-[11px] font-900 uppercase tracking-wide transition-all cursor-pointer shadow-xs flex items-center gap-1.5 active:scale-95 disabled:opacity-50"
+              >
+                {saving ? (
+                  <>
+                    <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    <span>Saving...</span>
+                  </>
+                ) : (
+                  <>
+                    <Check size={14} /> Save Stations
+                  </>
+                )}
+              </button>
+            </div>
           )}
         </div>
       </div>

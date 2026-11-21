@@ -42,11 +42,20 @@ export interface Holiday {
 export interface TaxFeesSettings {
   deliveryFee: string | number;
   gstTaxRate: string | number;
-  pstTaxRate: string | number;
-  hstTaxRate: string | number;
+  cgstRate?: string | number;
+  sgstRate?: string | number;
+  pstTaxRate?: string | number;
+  hstTaxRate?: string | number;
 }
 
-export type TabType = 'main_settings' | 'tax_fees' | 'terminal_setup' | 'till_setup' | 'store_timings' | 'store_timings_update' | 'holidays' | 'kitchen_stations' | 'whatsapp_gateway';
+export type TabType =
+  | 'main_settings'
+  | 'tax_fees'
+  | 'terminal_setup'
+  | 'store_timings'
+  | 'holidays'
+  | 'kitchen_stations'
+  | 'whatsapp_gateway';
 
 // ── Kitchen Station Configuration Types ─────────────────────────
 export type StationId =
