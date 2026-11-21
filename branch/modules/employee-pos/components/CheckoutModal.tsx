@@ -174,6 +174,21 @@ export default function CheckoutModal() {
     }
   }, []);
 
+  // Sync WhatsApp auto-dispatch default from preferences
+  useEffect(() => {
+    if (checkoutOpen && typeof window !== "undefined") {
+      try {
+        const raw = localStorage.getItem("rms_whatsapp_preferences");
+        if (raw) {
+          const p = JSON.parse(raw);
+          if (typeof p.autoDispatch === "boolean") {
+            setWhatsappReceipt(p.autoDispatch);
+          }
+        }
+      } catch (e) {}
+    }
+  }, [checkoutOpen, setWhatsappReceipt]);
+
   // Prepopulate item notes if empty
   useEffect(() => {
     if (checkoutOpen) {

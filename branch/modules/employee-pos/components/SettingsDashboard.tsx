@@ -13,6 +13,7 @@ import StoreTimingsTab from './settings-components/StoreTimingsTab';
 import StoreTimingsUpdateTab from './settings-components/StoreTimingsUpdateTab';
 import HolidaysTab from './settings-components/HolidaysTab';
 import KitchenStationsTab from './settings-components/KitchenStationsTab';
+import WhatsAppGatewayTab from './settings-components/WhatsAppGatewayTab';
 
 // Shared Types
 import { TabType, Terminal, Till, StoreTiming, TimingUpdate, Holiday, TaxFeesSettings, KitchenSettings, DEFAULT_KITCHEN_SETTINGS } from './settings-components/settingsTypes';
@@ -402,6 +403,18 @@ export default function SettingsDashboard() {
             </button>
 
             <button
+              onClick={() => setActiveTab('whatsapp_gateway')}
+              className={`px-3 md:px-4 py-1.5 rounded-lg text-[10px] md:text-[11px] lg:text-[12.5px] font-800 tracking-wide uppercase transition-all duration-150 cursor-pointer whitespace-nowrap flex items-center gap-1.5 ${
+                activeTab === 'whatsapp_gateway'
+                  ? 'bg-emerald-600 text-white shadow-sm'
+                  : 'text-neutral-500 hover:text-emerald-700'
+              }`}
+            >
+              <span>WhatsApp Bill</span>
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+            </button>
+
+            <button
               onClick={() => setActiveTab('holidays')}
               className={`px-3 md:px-4 py-1.5 rounded-lg text-[10px] md:text-[11px] lg:text-[12.5px] font-800 tracking-wide uppercase transition-all duration-150 cursor-pointer whitespace-nowrap ${
                 activeTab === 'holidays'
@@ -492,6 +505,10 @@ export default function SettingsDashboard() {
                   holidays={holidays}
                   setHolidays={handleUpdateHolidays}
                 />
+              )}
+
+              {activeTab === 'whatsapp_gateway' && (
+                <WhatsAppGatewayTab />
               )}
             </>
           )}

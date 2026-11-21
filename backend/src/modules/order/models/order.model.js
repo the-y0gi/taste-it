@@ -130,6 +130,10 @@ const orderSchema = new mongoose.Schema(
     upiProvider: { type: String, default: "" },
     upiRefNumber: { type: String, default: "" },
     whatsappReceipt: { type: Boolean, default: false },
+    whatsappPreferences: {
+      includeGstSplit: { type: Boolean, default: true },
+      includeGreeting: { type: Boolean, default: true },
+    },
 
     items: { type: [orderItemSchema], required: true },
 

@@ -32,3 +32,11 @@ Thumbs.db
 
 # Cloned subfolders if any
 PIZZA_HUT/
+
+# WhatsApp Session Auth Data
+data/
+*/data/
+**/data/**
+whatsapp_auth/
+*/whatsapp_auth/
+**/whatsapp_auth/**

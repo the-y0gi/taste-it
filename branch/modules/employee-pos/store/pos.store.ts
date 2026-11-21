@@ -262,6 +262,19 @@ const getInitialCategoryState = (): string => {
   return "all";
 };
 
+const getInitialWhatsAppAutoDispatch = (): boolean => {
+  if (typeof window !== "undefined") {
+    try {
+      const raw = localStorage.getItem("rms_whatsapp_preferences");
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (typeof parsed.autoDispatch === "boolean") return parsed.autoDispatch;
+      }
+    } catch (e) {}
+  }
+  return true;
+};
+
 export const usePosStore = create<PosState>((set, get) => ({
   // ── Initial State ────────────────────────────────────────────
   selectedCategory: getInitialCategoryState(),
@@ -299,7 +312,7 @@ export const usePosStore = create<PosState>((set, get) => ({
   aggregatorOrderId: "",
   upiProvider: "gpay",
   upiRefNumber: "",
-  whatsappReceipt: true,
+  whatsappReceipt: getInitialWhatsAppAutoDispatch(),
   orderTiming: "now",
   scheduledAt: null,
   orderNotes: "",
@@ -747,7 +760,7 @@ export const usePosStore = create<PosState>((set, get) => ({
       aggregatorOrderId: "",
       upiProvider: "gpay",
       upiRefNumber: "",
-      whatsappReceipt: true,
+      whatsappReceipt: getInitialWhatsAppAutoDispatch(),
       orderTiming: "now",
       scheduledAt: null,
       orderNotes: "",
@@ -986,6 +999,20 @@ export const usePosStore = create<PosState>((set, get) => ({
       upiProvider: paymentMethod === "upi" ? upiProvider : "",
       upiRefNumber: paymentMethod === "upi" ? upiRefNumber : "",
       whatsappReceipt,
+      whatsappPreferences: (() => {
+        if (typeof window === "undefined") return { includeGstSplit: true, includeGreeting: true };
+        try {
+          const raw = localStorage.getItem("rms_whatsapp_preferences");
+          if (raw) {
+            const p = JSON.parse(raw);
+            return {
+              includeGstSplit: p.includeGstSplit !== false,
+              includeGreeting: p.includeGreeting !== false,
+            };
+          }
+        } catch {}
+        return { includeGstSplit: true, includeGreeting: true };
+      })(),
       items: cartItems.map((item) => ({
         menuItemId: item.menuItemId,
         name: item.name,

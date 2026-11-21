@@ -101,6 +101,7 @@ const { initExpenseModule } = require("./modules/expense");
 const { initPaymentModule } = require("./modules/payment");
 const { initDeliveryModule } = require("./modules/delivery");
 const { initEmployeeModule } = require("./modules/employee");
+const { initWhatsAppModule } = require("./modules/whatsapp");
 
 initCompanyModule(app);
 initMenuModule(app);
@@ -110,6 +111,7 @@ initExpenseModule(app);
 initPaymentModule(app);
 initDeliveryModule(app);
 initEmployeeModule(app);
+initWhatsAppModule(app);
 
 
 app.get("/api/health", (req, res) => {

@@ -341,6 +341,18 @@ exports.createOrder = async (orderData) => {
       logger.error(`Error triggering real-time Pusher event: ${err.message}`);
     });
 
+    // Send background WhatsApp digital bill if requested & customer phone exists
+    if (order.whatsappReceipt && order.customer?.phone) {
+      try {
+        const whatsappService = require("../../whatsapp/services/whatsapp.service");
+        whatsappService.sendBillReceipt(order).catch((err) => {
+          logger.error(`Background WhatsApp Bill Error: ${err.message}`);
+        });
+      } catch (err) {
+        logger.error(`Failed to invoke WhatsApp service: ${err.message}`);
+      }
+    }
+
     // Save Payment audit document in database
     if (paymentIntent) {
       const charge = paymentIntent.charges?.data[0] || {};

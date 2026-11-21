@@ -46,7 +46,7 @@ export interface TaxFeesSettings {
   hstTaxRate: string | number;
 }
 
-export type TabType = 'main_settings' | 'tax_fees' | 'terminal_setup' | 'till_setup' | 'store_timings' | 'store_timings_update' | 'holidays' | 'kitchen_stations';
+export type TabType = 'main_settings' | 'tax_fees' | 'terminal_setup' | 'till_setup' | 'store_timings' | 'store_timings_update' | 'holidays' | 'kitchen_stations' | 'whatsapp_gateway';
 
 // ── Kitchen Station Configuration Types ─────────────────────────
 export type StationId =
