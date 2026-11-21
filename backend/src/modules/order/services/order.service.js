@@ -808,7 +808,7 @@ exports.refundOrder = async (
     const isPos =
       order.orderSource === "pos" ||
       order.placedBy === "POS SYSTEM" ||
-      !["online", "doordash", "skip", "ubereats"].includes(order.orderSource);
+      !["online", "doordash", "skip", "ubereats", "zomato", "swiggy"].includes(order.orderSource);
     if (!isPos) {
       throw new Error(
         "Refund is only allowed for orders placed via POS System.",
@@ -2745,6 +2745,10 @@ exports.getMonthlySalesSummary = async ({
           skipSales += amtTotal;
         } else if (src === "doordash") {
           doordashSales += amtTotal;
+        } else if (src === "zomato") {
+          // Track Zomato
+        } else if (src === "swiggy") {
+          // Track Swiggy
         } else if (src === "online" || src === "website") {
           websiteSales += amtTotal;
         }
@@ -2784,7 +2788,7 @@ exports.getMonthlySalesSummary = async ({
           const amt = Number(p.amount || 0) * scale;
 
           if (
-            ["online", "doordash", "skip", "ubereats"].includes(o.orderSource) ||
+            ["online", "doordash", "skip", "ubereats", "zomato", "swiggy"].includes(o.orderSource) ||
             method === "stripe" ||
             method === "account"
           ) {
@@ -3154,7 +3158,7 @@ const calculateDaySystemTotals = async (targetDateStr, branchId) => {
       systemDeliveryTotal += order.total || 0;
 
     const isOnlinePrepaid =
-      ["online", "doordash", "skip", "ubereats"].includes(
+      ["online", "doordash", "skip", "ubereats", "zomato", "swiggy"].includes(
         order.orderSource,
       ) || order.paymentMethod === "stripe";
 
@@ -3188,7 +3192,7 @@ const calculateDaySystemTotals = async (targetDateStr, branchId) => {
           .trim();
 
         if (
-          ["online", "doordash", "skip", "ubereats"].includes(
+          ["online", "doordash", "skip", "ubereats", "zomato", "swiggy"].includes(
             order.orderSource,
           ) ||
           method === "stripe" ||

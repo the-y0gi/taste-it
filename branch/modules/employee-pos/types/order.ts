@@ -33,6 +33,7 @@ export interface SplitPayment {
   cardBrand?: string;
   cardFunding?: string;
   cardLast4?: string;
+  upiProvider?: string;
 }
 
 export interface PromoApplied {
@@ -55,10 +56,14 @@ export interface Order {
   _id?: string;
   orderNumber: string;
   orderType: "takeout" | "delivery" | "drive-through" | "dine-in";
-  orderSource: "pos" | "online" | "doordash" | "skip" | "ubereats";
+  orderSource: "pos" | "online" | "doordash" | "skip" | "ubereats" | "zomato" | "swiggy";
   table: TableInfo | null;
   customer: CustomerInfo | null;
   vehicle: VehicleInfo | null;
+  aggregatorOrderId?: string;
+  upiProvider?: string;
+  upiRefNumber?: string;
+  whatsappReceipt?: boolean;
   items: CartItem[];
   subtotal: number;
   taxRate: number;

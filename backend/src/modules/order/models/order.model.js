@@ -58,7 +58,7 @@ const paymentEntrySchema = new mongoose.Schema(
   {
     method: {
       type: String,
-      enum: ["cash", "card", "credit", "debit", "interac"],
+      enum: ["cash", "card", "credit", "debit", "interac", "upi"],
       required: true,
     },
     amount: { type: Number, required: true },
@@ -69,6 +69,7 @@ const paymentEntrySchema = new mongoose.Schema(
     cardBrand: { type: String, default: "" },
     cardFunding: { type: String, default: "" },
     cardLast4: { type: String, default: "" },
+    upiProvider: { type: String, default: "" },
   },
   { _id: false },
 );
@@ -117,9 +118,18 @@ const orderSchema = new mongoose.Schema(
     },
     orderSource: {
       type: String,
-      enum: ["pos", "online", "doordash", "skip", "ubereats"],
+      enum: ["pos", "online", "doordash", "skip", "ubereats", "zomato", "swiggy"],
       default: "pos",
     },
+    table: {
+      id: { type: String, default: "" },
+      name: { type: String, default: "" },
+      status: { type: String, default: "" },
+    },
+    aggregatorOrderId: { type: String, default: "" },
+    upiProvider: { type: String, default: "" },
+    upiRefNumber: { type: String, default: "" },
+    whatsappReceipt: { type: Boolean, default: false },
 
     items: { type: [orderItemSchema], required: true },
 

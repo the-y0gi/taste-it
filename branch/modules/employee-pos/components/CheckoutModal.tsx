@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   X,
   CreditCard,
@@ -8,7 +8,6 @@ import {
   Clock,
   Utensils,
   ShoppingBag,
-  Car,
   Minus,
   Plus,
   UserPlus,
@@ -18,16 +17,19 @@ import {
   AlertCircle,
   Loader2,
   Truck,
-  ChevronDown,
   QrCode,
+  Copy,
+  Check,
+  Smartphone,
+  TableProperties,
+  ArrowRight,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { usePosStore } from "../store/pos.store";
 import OrderLaterModal from "./OrderLaterModal";
 import PromoDiscountModal from "./PromoDiscountModal";
 import CustomerModal from "./CustomerModal";
-
-const DENOMINATIONS = [10, 20, 50, 100, 200, 500];
+import TableSelectorModal from "./TableSelectorModal";
 
 const ORDER_TYPE_LABELS: Record<
   string,
@@ -35,8 +37,40 @@ const ORDER_TYPE_LABELS: Record<
 > = {
   takeout: { label: "Takeout", icon: <ShoppingBag size={11} /> },
   delivery: { label: "Delivery", icon: <Truck size={11} /> },
-  // "drive-through": { label: "Drive Thru", icon: <Car size={11} /> },
   "dine-in": { label: "Dine In", icon: <Utensils size={11} /> },
+};
+
+const UPI_PROVIDERS = [
+  { id: "gpay", label: "Google Pay", icon: "🟢" },
+  { id: "phonepe", label: "PhonePe", icon: "🟣" },
+  { id: "paytm", label: "Paytm", icon: "🔵" },
+  { id: "bhim", label: "BHIM / Other", icon: "⚡" },
+];
+
+// Helper to calculate smart Indian currency notes for quick tender
+const getQuickTenderAmounts = (amt: number): number[] => {
+  const roundAmt = Math.ceil(amt);
+  const options = new Set<number>();
+  options.add(roundAmt);
+
+  if (amt <= 100) {
+    if (roundAmt < 100) options.add(100);
+    options.add(200);
+    options.add(500);
+  } else if (amt <= 200) {
+    if (roundAmt < 200) options.add(200);
+    options.add(500);
+  } else if (amt <= 500) {
+    if (roundAmt < 500) options.add(500);
+    options.add(1000);
+  } else {
+    const next100 = Math.ceil(amt / 100) * 100;
+    const next500 = Math.ceil(amt / 500) * 500;
+    options.add(next100);
+    if (next500 > next100) options.add(next500);
+    options.add(Math.ceil(amt / 1000) * 1000);
+  }
+  return Array.from(options).sort((a, b) => a - b).slice(0, 4);
 };
 
 export default function CheckoutModal() {
@@ -62,15 +96,20 @@ export default function CheckoutModal() {
     branchTaxFees,
     splitPayments,
     addSplitPayment,
-    updateSplitPayment,
     removeSplitPayment,
-    cashDenominations,
-    setCashDenomination,
     setCashGiven,
     cashGiven,
     changeAmount,
     orderSource,
     setOrderSource,
+    aggregatorOrderId,
+    setAggregatorOrderId,
+    upiProvider,
+    setUpiProvider,
+    upiRefNumber,
+    setUpiRefNumber,
+    whatsappReceipt,
+    setWhatsappReceipt,
     orderTiming,
     setOrderTiming,
     scheduledAt,
@@ -78,7 +117,8 @@ export default function CheckoutModal() {
     orderNotes,
     setOrderNotes,
     selectedCustomer,
-    setCustomer,
+    selectedTable,
+    setTable,
     placeOrder,
     placingOrder,
     skipLastDigits,
@@ -92,19 +132,23 @@ export default function CheckoutModal() {
   const [showOrderLater, setShowOrderLater] = useState(false);
   const [showPromo, setShowPromo] = useState(false);
   const [showCustomer, setShowCustomer] = useState(false);
-  const submittingRef = React.useRef(false);
+  const [showTableModal, setShowTableModal] = useState(false);
+  const [copiedUpi, setCopiedUpi] = useState(false);
+  const [branchInfo, setBranchInfo] = useState<{ name: string; upiId: string }>({
+    name: "Taste-It Restaurant",
+    upiId: "tasteit@upi",
+  });
 
-  // Custom split state
+  const submittingRef = useRef(false);
+
+  // Split payment helper states
   const [nextSplitAmount, setNextSplitAmount] = useState<string>("");
-  const [nextSplitMethod, setNextSplitMethod] = useState<"cash" | "card">(
-    "cash",
-  );
+  const [nextSplitMethod, setNextSplitMethod] = useState<"cash" | "upi" | "card">("cash");
 
-  // Split payment helpers
   const splitTotal = splitPayments.reduce((s, p) => s + p.amount, 0);
   const splitRemaining = Math.max(0, total - splitTotal);
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (splitPayments.length > 0 && splitRemaining > 0.01) {
       setNextSplitAmount(splitRemaining.toFixed(2));
     } else {
@@ -112,7 +156,26 @@ export default function CheckoutModal() {
     }
   }, [splitPayments.length, splitRemaining]);
 
-  React.useEffect(() => {
+  // Load branch name & UPI ID from localStorage
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const raw = localStorage.getItem("rms_branch");
+      if (raw) {
+        try {
+          const b = JSON.parse(raw);
+          const name = b.name || "Taste-It Restaurant";
+          const upi =
+            b.settings?.mainSettings?.upiId ||
+            b.upiId ||
+            `${name.toLowerCase().replace(/[^a-z0-9]/g, "")}@upi`;
+          setBranchInfo({ name, upiId: upi });
+        } catch (e) {}
+      }
+    }
+  }, []);
+
+  // Prepopulate item notes if empty
+  useEffect(() => {
     if (checkoutOpen) {
       const notesArray = cartItems
         .filter((item) => item.note && item.note.trim() !== "")
@@ -128,10 +191,32 @@ export default function CheckoutModal() {
     }
   }, [checkoutOpen, cartItems, orderNotes, setOrderNotes]);
 
-  const isThirdParty = ["doordash", "skip", "ubereats"].includes(orderSource);
+  const isThirdParty = ["doordash", "skip", "ubereats", "zomato", "swiggy"].includes(
+    orderSource,
+  );
+
+  // Dynamic UPI URI & QR Server Link
+  const upiUri = `upi://pay?pa=${branchInfo.upiId}&pn=${encodeURIComponent(
+    branchInfo.name,
+  )}&am=${total.toFixed(2)}&cu=INR&tn=${encodeURIComponent(
+    "Order " + (editingOrderNumber || "POS"),
+  )}`;
+
+  const upiQrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&margin=8&data=${encodeURIComponent(
+    upiUri,
+  )}`;
+
+  const handleCopyUpi = () => {
+    if (typeof navigator !== "undefined" && navigator.clipboard) {
+      navigator.clipboard.writeText(branchInfo.upiId);
+      setCopiedUpi(true);
+      toast.success("UPI ID copied!");
+      setTimeout(() => setCopiedUpi(false), 2000);
+    }
+  };
 
   const handleOrderTypeChange = (
-    type: "takeout" | "delivery" | "drive-through" | "dine-in",
+    type: "takeout" | "delivery" | "dine-in",
   ) => {
     setOrderType(type);
     if (type === "delivery") {
@@ -146,6 +231,8 @@ export default function CheckoutModal() {
       ) {
         setShowCustomer(true);
       }
+    } else if (type === "dine-in" && !selectedTable) {
+      setShowTableModal(true);
     }
   };
 
@@ -161,6 +248,14 @@ export default function CheckoutModal() {
   const handlePlaceOrder = async () => {
     if (submittingRef.current) return;
     submittingRef.current = true;
+
+    // Validate Dine-In Table
+    if (orderType === "dine-in" && !selectedTable) {
+      toast.error("Please assign a dining table for Dine-In order.");
+      setShowTableModal(true);
+      submittingRef.current = false;
+      return;
+    }
 
     // Validate Delivery Order Customer Info
     if (orderType === "delivery") {
@@ -182,16 +277,10 @@ export default function CheckoutModal() {
       }
     }
 
-    // Validate 3rd Party Orders
-    if (orderSource === "doordash" || orderSource === "ubereats") {
-      if (
-        !selectedCustomer ||
-        !selectedCustomer.name ||
-        !selectedCustomer.name.trim()
-      ) {
-        toast.error(
-          "Customer name is required for DoorDash and Uber Eats orders.",
-        );
+    // Validate 3rd Party Aggregator Orders
+    if (orderSource === "zomato" || orderSource === "swiggy") {
+      if (!aggregatorOrderId || !aggregatorOrderId.trim()) {
+        toast.error(`Please enter the ${orderSource.toUpperCase()} Order ID.`);
         submittingRef.current = false;
         return;
       }
@@ -215,7 +304,9 @@ export default function CheckoutModal() {
         const sumOk = Math.abs(splitTotal - total) < 0.01;
         if (!sumOk) {
           toast.error(
-            `Remaining split balance is ₹${splitRemaining.toFixed(2)}. Please pay the full amount before placing the order.`,
+            `Remaining split balance is ₹${splitRemaining.toFixed(
+              2,
+            )}. Please pay full amount.`,
           );
           submittingRef.current = false;
           return;
@@ -228,6 +319,7 @@ export default function CheckoutModal() {
         }
       }
     }
+
     if (orderTiming === "later" && !scheduledAt) {
       toast.error("Please confirm the pickup schedule.");
       submittingRef.current = false;
@@ -243,16 +335,24 @@ export default function CheckoutModal() {
           toast.success(
             <div className="flex flex-col gap-0.5 text-left">
               <span className="font-700 text-[11px] text-green-900">
-                Order Placed! 🎉
+                {orderType === "dine-in" && paymentTiming === "pay-later"
+                  ? "KOT Sent to Kitchen! 🍽️"
+                  : "Order Placed Successfully! 🎉"}
               </span>
               <span className="text-[10px] text-green-800">
                 {order.orderNumber} • {order.orderType.toUpperCase()}
+                {selectedTable ? ` • Table ${selectedTable.name}` : ""}
               </span>
               <span className="font-600 text-[10px] text-green-950">
                 {order.paymentStatus === "unpaid"
-                  ? "⏳ Payment Pending"
-                  : `✓ Paid ₹${order.total.toFixed(2)}`}
+                  ? "⏳ Table Bill / Pay Later"
+                  : `✓ Paid ₹${order.total.toFixed(2)} (${order.paymentMethod?.toUpperCase()})`}
               </span>
+              {whatsappReceipt && selectedCustomer?.phone && (
+                <span className="text-[9px] text-emerald-800 flex items-center gap-1 mt-0.5">
+                  📱 WhatsApp Bill queued for +91 {selectedCustomer.phone}
+                </span>
+              )}
             </div>,
           );
         }
@@ -276,56 +376,85 @@ export default function CheckoutModal() {
     if (!iso) return "";
     const d = new Date(iso);
     return (
-      d.toLocaleDateString("en-US", {
+      d.toLocaleDateString("en-IN", {
         weekday: "short",
         month: "short",
         day: "numeric",
       }) +
       ", " +
-      d.toLocaleTimeString("en-US", {
+      d.toLocaleTimeString("en-IN", {
         hour: "2-digit",
         minute: "2-digit",
-        hour12: false,
+        hour12: true,
       })
     );
   };
 
+  const gstRate = branchTaxFees?.gstTaxRate ?? 5;
+  const halfGstRate = (gstRate / 2).toFixed(1);
+  const halfTaxAmount = (tax / 2).toFixed(2);
+  const quickTenders = getQuickTenderAmounts(total);
+
   return (
     <>
       {/* Backdrop */}
-      <div className="fixed inset-0 z-[100] bg-black/50 backdrop-blur-[2px] flex items-center justify-center p-3">
-        {/* Modal */}
+      <div className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-[2px] flex items-center justify-center p-3">
+        {/* Modal Window */}
         <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[92vh] flex flex-col overflow-hidden animate-scale-up">
           {/* ── Header ── */}
-          <div className={`${editingOrderId ? "bg-amber-600" : "bg-brand-primary"} px-5 py-3 flex items-center gap-3 flex-shrink-0 transition-colors`}>
+          <div
+            className={`${
+              editingOrderId ? "bg-amber-600" : "bg-brand-primary"
+            } px-5 py-3 flex items-center gap-3 flex-shrink-0 transition-colors`}
+          >
             <h2 className="text-[14px] font-900 text-white uppercase tracking-widest flex items-center gap-2">
-              {editingOrderId ? `Update Order ${editingOrderNumber}` : "Your Order"}
+              {editingOrderId
+                ? `Update Order ${editingOrderNumber}`
+                : "Checkout & Order"}
             </h2>
 
-            {/* Order type tabs */}
+            {/* Order type pills */}
             <div className="flex items-center gap-1.5 ml-2">
               {(isThirdParty
                 ? (["takeout", "delivery"] as const)
-                : (["takeout", "delivery", /* "drive-through", */ "dine-in"] as const)
+                : (["takeout", "delivery", "dine-in"] as const)
               ).map((t) => {
                 const entry = ORDER_TYPE_LABELS[t];
                 if (!entry) return null;
-                const { label } = entry;
+                const { label, icon } = entry;
                 return (
                   <button
                     key={t}
                     onClick={() => handleOrderTypeChange(t)}
-                    className={`px-3.5 py-1.5 rounded-full text-[11px] font-900 uppercase tracking-wide transition-all cursor-pointer ${
+                    className={`px-3 py-1.5 rounded-full text-[11px] font-800 uppercase tracking-wide transition-all cursor-pointer flex items-center gap-1.5 ${
                       orderType === t
                         ? "bg-white text-brand-primary shadow-sm"
-                        : "bg-white/20 text-white font-800 hover:bg-white/30"
+                        : "bg-white/20 text-white hover:bg-white/30"
                     }`}
                   >
+                    {icon}
                     {label}
                   </button>
                 );
               })}
             </div>
+
+            {/* Dine-In Table Badge in Header */}
+            {orderType === "dine-in" && (
+              <button
+                type="button"
+                onClick={() => setShowTableModal(true)}
+                className={`ml-2 px-3 py-1 rounded-full text-[11px] font-800 uppercase tracking-wide flex items-center gap-1.5 transition-all cursor-pointer ${
+                  selectedTable
+                    ? "bg-amber-400 text-neutral-900 shadow-sm"
+                    : "bg-white/30 text-white animate-pulse"
+                }`}
+                title="Click to assign or change table"
+              >
+                <TableProperties size={12} />
+                {selectedTable ? selectedTable.name : "+ Select Table"}
+              </button>
+            )}
 
             <button
               onClick={closeCheckout}
@@ -337,26 +466,35 @@ export default function CheckoutModal() {
 
           {/* ── Body ── */}
           <div className="flex flex-1 overflow-hidden min-h-0">
-            {/* ══ LEFT — Payment Panel ══ */}
-            <div className="w-1/2 border-r border-neutral-100 flex flex-col overflow-hidden">
+            {/* ══ LEFT COLUMN — Payment Panel ══ */}
+            <div className="w-1/2 border-r border-neutral-100 flex flex-col overflow-hidden bg-neutral-50/30">
               {/* Scrollable content */}
               <div className="flex-1 overflow-y-auto p-4 space-y-3 no-scrollbar">
-                {/* Pay Now / Pay Later */}
+                {/* Pay Now / Pay Later Switcher */}
                 {!isThirdParty && (
                   <div className="grid grid-cols-2 gap-2">
-                    {(["pay-now", "pay-later"] as const).map((t) => (
-                      <button
-                        key={t}
-                        onClick={() => setPaymentTiming(t)}
-                        className={`py-2.5 rounded-xl text-[11px] font-700 uppercase tracking-wide transition-all cursor-pointer active:scale-[0.98] ${
-                          paymentTiming === t
-                            ? "bg-brand-primary text-white shadow-sm"
-                            : "bg-neutral-100 text-neutral-500 hover:bg-neutral-200"
-                        }`}
-                      >
-                        {t === "pay-now" ? "Pay Now" : "Pay Later"}
-                      </button>
-                    ))}
+                    <button
+                      onClick={() => setPaymentTiming("pay-now")}
+                      className={`py-2.5 rounded-xl text-[11px] font-700 uppercase tracking-wide transition-all cursor-pointer active:scale-[0.98] ${
+                        paymentTiming === "pay-now"
+                          ? "bg-brand-primary text-white shadow-sm"
+                          : "bg-neutral-100 text-neutral-500 hover:bg-neutral-200"
+                      }`}
+                    >
+                      Pay Now
+                    </button>
+                    <button
+                      onClick={() => setPaymentTiming("pay-later")}
+                      className={`py-2.5 rounded-xl text-[11px] font-700 uppercase tracking-wide transition-all cursor-pointer active:scale-[0.98] ${
+                        paymentTiming === "pay-later"
+                          ? "bg-brand-primary text-white shadow-sm"
+                          : "bg-neutral-100 text-neutral-500 hover:bg-neutral-200"
+                      }`}
+                    >
+                      {orderType === "dine-in"
+                        ? "Pay Later (KOT First)"
+                        : "Pay Later"}
+                    </button>
                   </div>
                 )}
 
@@ -367,157 +505,220 @@ export default function CheckoutModal() {
                       <button
                         key={t}
                         onClick={() => setPaymentType(t)}
-                        className={`py-2.5 rounded-xl text-[11px] font-700 uppercase tracking-wide transition-all cursor-pointer active:scale-[0.98] ${
+                        className={`py-2 rounded-xl text-[10.5px] font-700 uppercase tracking-wide transition-all cursor-pointer active:scale-[0.98] ${
                           paymentType === t
                             ? "bg-neutral-800 text-white shadow-sm"
                             : "bg-neutral-100 text-neutral-500 hover:bg-neutral-200"
                         }`}
                       >
-                        {t === "one-time" ? "One Time" : "Split Payment"}
+                        {t === "one-time" ? "Single Payment" : "Split Payment"}
                       </button>
                     ))}
                   </div>
                 )}
 
-                {/* ── PAY LATER info ── */}
+                {/* Pay Later Information Card */}
                 {paymentTiming === "pay-later" && (
-                  <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 flex items-start gap-2">
-                    <Clock
-                      size={14}
-                      className="text-amber-600 flex-shrink-0 mt-0.5"
-                    />
-                    <div>
-                      <p className="text-[11px] font-700 text-amber-800">
-                        Payment Pending
-                      </p>
-                      <p className="text-[10px] text-amber-600 mt-0.5">
-                        Order will be placed. Customer can pay when picking up
-                        (within 1–3 hours).
+                  <div className="bg-amber-50 border border-amber-200 rounded-xl p-3.5 space-y-1.5">
+                    <div className="flex items-center gap-2">
+                      <Clock size={16} className="text-amber-600" />
+                      <p className="text-[12px] font-800 text-amber-900">
+                        {orderType === "dine-in"
+                          ? "Dine-In Table Post-Paid Mode"
+                          : "Payment Pending"}
                       </p>
                     </div>
+                    <p className="text-[10.5px] text-amber-800 leading-relaxed">
+                      {orderType === "dine-in"
+                        ? `Order will punch KOT for ${
+                            selectedTable?.name || "the assigned table"
+                          } directly to the kitchen. Bill can be paid when table finishes dining.`
+                        : "Order will be placed as UNPAID. Customer can pay during pickup or parcel delivery."}
+                    </p>
                   </div>
                 )}
 
-                {/* ── ONE TIME PAYMENT ── */}
+                {/* ── ONE TIME PAYMENT CONTENT ── */}
                 {paymentTiming === "pay-now" &&
                   paymentType === "one-time" &&
                   !isThirdParty && (
                     <>
-                      {/* Amount */}
-                      <div>
-                        <label className="block text-[10px] font-600 text-neutral-500 mb-1.5 uppercase tracking-wide">
-                          Amount To Pay (₹)
-                        </label>
-                        <div className="border border-neutral-200 rounded-xl px-3.5 py-2.5 bg-brand-primary/5">
-                          <span className="text-[16px] font-800 text-brand-primary">
-                            ₹{total.toFixed(2)}
-                          </span>
-                        </div>
+                      {/* Amount To Pay */}
+                      <div className="flex items-center justify-between border border-neutral-200 rounded-xl px-4 py-3 bg-brand-primary/5">
+                        <span className="text-[11px] font-700 text-neutral-600 uppercase tracking-wide">
+                          Total Amount To Pay
+                        </span>
+                        <span className="text-[18px] font-900 text-brand-primary">
+                          ₹{total.toFixed(2)}
+                        </span>
                       </div>
 
-                      {/* Cash / UPI / Card */}
+                      {/* Payment Method Selector (Cash / UPI / Card) */}
                       <div className="grid grid-cols-3 gap-2">
                         <button
                           onClick={() => setPaymentMethod("cash")}
                           className={`py-2.5 rounded-xl text-[11px] font-700 uppercase tracking-wide transition-all cursor-pointer flex items-center justify-center gap-1.5 active:scale-[0.98] ${
                             paymentMethod === "cash"
                               ? "bg-brand-primary text-white shadow-sm"
-                              : "bg-neutral-100 text-neutral-500 hover:bg-neutral-200"
+                              : "bg-white border border-neutral-200 text-neutral-600 hover:bg-neutral-100"
                           }`}
                         >
-                          <Banknote size={13} /> Cash
+                          <Banknote size={14} /> Cash
                         </button>
                         <button
                           onClick={() => setPaymentMethod("upi")}
                           className={`py-2.5 rounded-xl text-[11px] font-700 uppercase tracking-wide transition-all cursor-pointer flex items-center justify-center gap-1.5 active:scale-[0.98] ${
                             paymentMethod === "upi"
-                              ? "bg-emerald-600 text-white shadow-sm"
-                              : "bg-neutral-100 text-neutral-500 hover:bg-neutral-200"
+                              ? "bg-emerald-600 text-white shadow-sm ring-2 ring-emerald-500/20"
+                              : "bg-white border border-neutral-200 text-neutral-600 hover:bg-neutral-100"
                           }`}
                         >
-                          <QrCode size={13} /> UPI / QR
+                          <QrCode size={14} /> UPI / QR
                         </button>
                         <button
                           onClick={() => setPaymentMethod("card")}
                           className={`py-2.5 rounded-xl text-[11px] font-700 uppercase tracking-wide transition-all cursor-pointer flex items-center justify-center gap-1.5 active:scale-[0.98] ${
                             paymentMethod === "card"
-                              ? "bg-brand-primary text-white shadow-sm"
-                              : "bg-neutral-100 text-neutral-500 hover:bg-neutral-200"
+                              ? "bg-neutral-800 text-white shadow-sm"
+                              : "bg-white border border-neutral-200 text-neutral-600 hover:bg-neutral-100"
                           }`}
                         >
-                          <CreditCard size={13} /> Card
+                          <CreditCard size={14} /> Card
                         </button>
                       </div>
 
-                      {/* UPI Info Panel */}
+                      {/* ══ DYNAMIC UPI PAYMENT PANEL ══ */}
                       {paymentMethod === "upi" && (
-                        <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3.5 flex flex-col items-center text-center gap-2">
-                          <div className="w-10 h-10 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600">
-                            <QrCode size={22} />
+                        <div className="bg-white border border-emerald-200 rounded-xl p-3.5 space-y-3 shadow-xs">
+                          {/* QR Code and Scan Info */}
+                          <div className="flex items-center gap-3">
+                            <div className="w-28 h-28 bg-white p-1 rounded-xl border border-emerald-200 flex-shrink-0 flex items-center justify-center shadow-xs">
+                              <img
+                                src={upiQrUrl}
+                                alt="UPI Dynamic QR"
+                                className="w-full h-full object-contain rounded-lg"
+                              />
+                            </div>
+                            <div className="flex-1 space-y-1.5">
+                              <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[9px] font-800 uppercase tracking-wide">
+                                <QrCode size={10} /> Dynamic UPI QR
+                              </div>
+                              <p className="text-[14px] font-900 text-emerald-950">
+                                Scan & Pay ₹{total.toFixed(2)}
+                              </p>
+                              <div className="flex items-center gap-1 text-[10.5px] text-neutral-600 font-mono bg-neutral-100 px-2 py-1 rounded-md">
+                                <span className="truncate">{branchInfo.upiId}</span>
+                                <button
+                                  type="button"
+                                  onClick={handleCopyUpi}
+                                  className="ml-auto text-neutral-500 hover:text-emerald-700 cursor-pointer p-0.5"
+                                  title="Copy UPI VPA"
+                                >
+                                  {copiedUpi ? (
+                                    <Check size={11} className="text-emerald-600" />
+                                  ) : (
+                                    <Copy size={11} />
+                                  )}
+                                </button>
+                              </div>
+                              <p className="text-[9px] text-neutral-400">
+                                Works with Google Pay, PhonePe, Paytm, BHIM & all UPI apps
+                              </p>
+                            </div>
                           </div>
-                          <div>
-                            <p className="text-[12px] font-800 text-emerald-950">
-                              UPI / Dynamic QR Ready
-                            </p>
-                            <p className="text-[10px] text-emerald-700 mt-0.5">
-                              Customer scans branch QR code via Google Pay, PhonePe, Paytm, or BHIM.
-                            </p>
+
+                          {/* UPI Provider Selection Chips */}
+                          <div className="space-y-1.5 pt-1 border-t border-neutral-100">
+                            <label className="block text-[9.5px] font-700 text-neutral-500 uppercase tracking-wide">
+                              Paid Using App (For Settlement):
+                            </label>
+                            <div className="grid grid-cols-4 gap-1.5">
+                              {UPI_PROVIDERS.map((provider) => (
+                                <button
+                                  key={provider.id}
+                                  type="button"
+                                  onClick={() => setUpiProvider(provider.id)}
+                                  className={`py-1.5 px-2 rounded-lg text-[9.5px] font-700 transition-all cursor-pointer flex items-center justify-center gap-1 border ${
+                                    upiProvider === provider.id
+                                      ? "border-emerald-600 bg-emerald-50 text-emerald-800 font-800 shadow-xs"
+                                      : "border-neutral-200 bg-neutral-50 text-neutral-600 hover:bg-neutral-100"
+                                  }`}
+                                >
+                                  <span>{provider.icon}</span>
+                                  <span>{provider.label}</span>
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+
+                          {/* Optional UTR / Reference Number Input */}
+                          <div className="space-y-1">
+                            <label className="block text-[9.5px] font-700 text-neutral-500 uppercase tracking-wide">
+                              UTR / Txn Ref No. (Optional):
+                            </label>
+                            <input
+                              type="text"
+                              maxLength={16}
+                              placeholder="e.g. 12-digit UTR or last 4 digits"
+                              value={upiRefNumber}
+                              onChange={(e) => setUpiRefNumber(e.target.value)}
+                              className="w-full border border-neutral-200 rounded-lg px-3 py-1.5 text-[11px] font-mono text-neutral-800 bg-neutral-50 focus:outline-none focus:border-emerald-600 focus:bg-white"
+                            />
                           </div>
                         </div>
                       )}
 
-                      {/* Cash denomination picker */}
+                      {/* ══ CASH PAYMENT PANEL ══ */}
                       {paymentMethod === "cash" && (
-                        <div className="space-y-2">
-                          <p className="text-[10px] font-600 text-neutral-500 uppercase tracking-wide">
-                            Cash Denominations (₹)
-                          </p>
-                          <div className="grid grid-cols-3 gap-1.5">
-                            {DENOMINATIONS.map((denom) => {
-                              const qty = cashDenominations[denom] || 0;
-                              return (
-                                <div
-                                  key={denom}
-                                  className="bg-neutral-50 border border-neutral-200 rounded-xl p-2 flex flex-col items-center gap-1.5"
-                                >
-                                  <div className="flex items-center justify-between w-full">
-                                    <span className="text-[10px] font-700 text-neutral-700">
-                                      ₹{denom}
-                                    </span>
-                                    <button
-                                      onClick={() =>
-                                        setCashDenomination(denom, qty - 1)
-                                      }
-                                      className="w-5 h-5 flex items-center justify-center rounded-md bg-neutral-200 hover:bg-neutral-300 transition-colors cursor-pointer"
-                                    >
-                                      <Minus size={9} />
-                                    </button>
-                                  </div>
-                                  <div className="flex items-center justify-between w-full">
-                                    <span className="text-[13px] font-800 text-neutral-900 w-6 text-center">
-                                      {qty}
-                                    </span>
-                                    <button
-                                      onClick={() =>
-                                        setCashDenomination(denom, qty + 1)
-                                      }
-                                      className="w-5 h-5 flex items-center justify-center rounded-md bg-brand-primary hover:bg-brand-primary-hover text-white transition-colors cursor-pointer"
-                                    >
-                                      <Plus size={9} />
-                                    </button>
-                                  </div>
-                                </div>
-                              );
-                            })}
+                        <div className="space-y-3">
+                          {/* Quick Cash Tender Notes (One-Tap Selection) */}
+                          <div className="space-y-1.5">
+                            <div className="flex items-center justify-between">
+                              <label className="text-[10.5px] font-700 text-neutral-700 uppercase tracking-wide">
+                                Quick Tender (One-Tap Note)
+                              </label>
+                              <span className="text-[9.5px] text-neutral-400">
+                                Tap note received from customer
+                              </span>
+                            </div>
+                            <div className="grid grid-cols-4 gap-2">
+                              {quickTenders.map((amt) => {
+                                const isExact = Math.abs(amt - total) < 0.01;
+                                const isCurrent = Math.abs(cashGiven - amt) < 0.01;
+                                return (
+                                  <button
+                                    key={amt}
+                                    type="button"
+                                    onClick={() => setCashGiven(amt)}
+                                    className={`py-2.5 px-1.5 rounded-xl text-[12px] font-800 transition-all cursor-pointer flex flex-col items-center justify-center border active:scale-95 ${
+                                      isCurrent
+                                        ? "bg-brand-primary text-white border-brand-primary shadow-sm"
+                                        : "bg-white border-neutral-200 text-neutral-800 hover:bg-neutral-50 hover:border-brand-primary/40"
+                                    }`}
+                                  >
+                                    <span>₹{amt}</span>
+                                    {isExact && (
+                                      <span
+                                        className={`text-[8.5px] uppercase tracking-tighter ${
+                                          isCurrent ? "text-white/80" : "text-brand-primary font-bold"
+                                        }`}
+                                      >
+                                        Exact
+                                      </span>
+                                    )}
+                                  </button>
+                                );
+                              })}
+                            </div>
                           </div>
 
-                          {/* Custom cash amount input */}
+                          {/* Custom Amount Input */}
                           <div>
-                            <label className="block text-[10px] font-600 text-neutral-500 mb-1.5 uppercase tracking-wide">
-                              Or Enter Custom Amount
+                            <label className="block text-[10.5px] font-700 text-neutral-600 mb-1.5 uppercase tracking-wide">
+                              Or Enter Cash Amount Given
                             </label>
                             <div className="relative">
-                              <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[12px] font-500 text-neutral-400">
+                              <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[13px] font-700 text-neutral-400">
                                 ₹
                               </span>
                               <input
@@ -525,39 +726,36 @@ export default function CheckoutModal() {
                                 placeholder="0.00"
                                 min="0"
                                 step="1"
-                                value={
-                                  cashGiven > 0 &&
-                                  Object.values(cashDenominations).every(
-                                    (q) => q === 0,
-                                  )
-                                    ? cashGiven
-                                    : ""
-                                }
+                                value={cashGiven > 0 ? cashGiven : ""}
                                 onChange={(e) =>
                                   setCashGiven(parseFloat(e.target.value) || 0)
                                 }
-                                className="w-full border border-neutral-200 rounded-xl pl-8 pr-4 py-2.5 text-[12px] font-600 text-neutral-800 bg-neutral-50 focus:outline-none focus:border-brand-primary focus:bg-white focus:ring-2 focus:ring-brand-primary/10 transition-all"
+                                className="w-full border border-neutral-200 rounded-xl pl-8 pr-4 py-2.5 text-[13px] font-700 text-neutral-800 bg-white focus:outline-none focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/10 transition-all"
                               />
                             </div>
                           </div>
 
-                          {/* Cash totals */}
+                          {/* Cash Given & Return Change Breakdown */}
                           {cashGiven > 0 && (
-                            <div className="bg-neutral-50 border border-neutral-200 rounded-xl p-3 space-y-1">
+                            <div className="bg-white border border-neutral-200 rounded-xl p-3.5 space-y-2 shadow-xs">
                               <div className="flex items-center justify-between">
-                                <span className="text-[10px] text-neutral-500 font-500">
-                                  Cash Given
+                                <span className="text-[11px] text-neutral-500 font-500">
+                                  Cash Given:
                                 </span>
-                                <span className="text-[11px] font-700 text-neutral-800">
+                                <span className="text-[13px] font-800 text-neutral-800">
                                   ₹{cashGiven.toFixed(2)}
                                 </span>
                               </div>
-                              <div className="flex items-center justify-between">
-                                <span className="text-[10px] text-neutral-500 font-500">
-                                  Change Due
+                              <div className="flex items-center justify-between pt-1.5 border-t border-neutral-100">
+                                <span className="text-[11.5px] text-neutral-700 font-700">
+                                  Change Due / Wapas:
                                 </span>
                                 <span
-                                  className={`text-[12px] font-800 ${changeAmount > 0 ? "text-green-600" : "text-neutral-400"}`}
+                                  className={`text-[15px] font-900 ${
+                                    changeAmount >= 0
+                                      ? "text-emerald-600"
+                                      : "text-rose-600"
+                                  }`}
                                 >
                                   ₹{changeAmount.toFixed(2)}
                                 </span>
@@ -566,75 +764,87 @@ export default function CheckoutModal() {
                           )}
                         </div>
                       )}
+
+                      {/* ══ CARD PAYMENT PANEL ══ */}
+                      {paymentMethod === "card" && (
+                        <div className="bg-white border border-neutral-200 rounded-xl p-4 flex flex-col items-center text-center gap-2">
+                          <div className="w-10 h-10 rounded-full bg-neutral-100 flex items-center justify-center text-neutral-700">
+                            <CreditCard size={22} />
+                          </div>
+                          <div>
+                            <p className="text-[12px] font-800 text-neutral-900">
+                              POS Card Machine Ready
+                            </p>
+                            <p className="text-[10.5px] text-neutral-500 mt-0.5">
+                              Swipe, Tap, or Insert card on POS EDC machine for ₹
+                              {total.toFixed(2)}.
+                            </p>
+                          </div>
+                        </div>
+                      )}
                     </>
                   )}
 
-                {/* ── ACCOUNT PAY (3rd Party) ── */}
+                {/* ══ ACCOUNT PAY (3rd Party Aggregators: Zomato, Swiggy, etc.) ══ */}
                 {paymentTiming === "pay-now" &&
                   paymentType === "one-time" &&
                   isThirdParty && (
-                    <div className="space-y-2">
-                      {/* Amount */}
-                      <div>
-                        <label className="block text-[10px] font-600 text-neutral-500 mb-1.5 uppercase tracking-wide">
-                          Amount To Pay (₹)
-                        </label>
-                        <div className="border border-neutral-200 rounded-xl px-3.5 py-2.5 bg-brand-primary/5">
-                          <span className="text-[16px] font-800 text-brand-primary">
-                            ₹{total.toFixed(2)}
-                          </span>
-                        </div>
+                    <div className="space-y-3">
+                      <div className="border border-neutral-200 rounded-xl px-4 py-3 bg-brand-primary/5 flex items-center justify-between">
+                        <span className="text-[11px] font-700 text-neutral-600 uppercase">
+                          Aggregator Bill Amount
+                        </span>
+                        <span className="text-[18px] font-900 text-brand-primary">
+                          ₹{total.toFixed(2)}
+                        </span>
                       </div>
 
-                      {/* Account Pay Badge */}
-                      <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3 flex items-start gap-2">
+                      <div className="bg-white border border-emerald-200 rounded-xl p-3.5 flex items-start gap-2.5">
                         <CheckCircle
-                          size={14}
+                          size={18}
                           className="text-emerald-600 flex-shrink-0 mt-0.5"
                         />
                         <div>
-                          <p className="text-[11px] font-700 text-emerald-800">
-                            Account Pay
+                          <p className="text-[11.5px] font-800 text-emerald-950">
+                            Account Pay (Direct Partner Settlement)
                           </p>
-                          <p className="text-[10px] text-emerald-600 mt-0.5">
-                            Payment received via{" "}
-                            {orderSource === "doordash"
-                              ? "DoorDash"
-                              : orderSource === "skip"
-                                ? "Skip The Dishes"
-                                : "Uber Eats"}
-                            . Amount will be recorded as Account Pay.
+                          <p className="text-[10px] text-emerald-800 mt-0.5 leading-relaxed">
+                            Order placed via{" "}
+                            <span className="font-bold uppercase">
+                              {orderSource}
+                            </span>
+                            . Payment will be settled via weekly aggregator account payout.
                           </p>
                         </div>
                       </div>
                     </div>
                   )}
 
-                {/* ── SPLIT PAYMENT ── */}
+                {/* ══ SPLIT PAYMENT ══ */}
                 {paymentTiming === "pay-now" && paymentType === "split" && (
                   <div className="space-y-3">
-                    {/* Status header */}
                     <div className="flex items-center justify-between border-b border-neutral-100 pb-2">
                       <p className="text-[11px] font-700 text-neutral-700 uppercase tracking-wide">
                         Split Payments
                       </p>
                       <span
-                        className={`text-[11px] font-800 ${splitRemaining < 0.01 ? "text-green-600" : "text-brand-primary"}`}
+                        className={`text-[11px] font-800 ${
+                          splitRemaining < 0.01
+                            ? "text-green-600"
+                            : "text-brand-primary"
+                        }`}
                       >
                         Paid: ₹{splitTotal.toFixed(2)} / ₹{total.toFixed(2)}
                       </span>
                     </div>
 
-                    {/* List of processed split payments */}
+                    {/* Processed Splits */}
                     {splitPayments.length > 0 && (
                       <div className="space-y-1.5">
-                        <p className="text-[9px] font-600 text-neutral-400 uppercase tracking-wide">
-                          Processed Payments
-                        </p>
                         {splitPayments.map((sp, i) => (
                           <div
                             key={i}
-                            className="flex items-center justify-between bg-neutral-50 border border-neutral-200 rounded-xl px-3 py-2"
+                            className="flex items-center justify-between bg-white border border-neutral-200 rounded-xl px-3 py-2"
                           >
                             <div className="flex items-center gap-2">
                               <span className="text-[10px] font-800 text-neutral-500">
@@ -643,13 +853,7 @@ export default function CheckoutModal() {
                               <span className="text-[11px] font-700 text-neutral-800">
                                 ₹{sp.amount.toFixed(2)}
                               </span>
-                              <span
-                                className={`px-2 py-0.5 rounded-full text-[9px] font-700 uppercase ${
-                                  sp.method === "cash"
-                                    ? "bg-orange-50 text-brand-primary border border-orange-200"
-                                    : "bg-blue-50 text-blue-700 border border-blue-200"
-                                }`}
-                              >
+                              <span className="px-2 py-0.5 rounded-full text-[9px] font-700 uppercase bg-neutral-100 text-neutral-700">
                                 {sp.method}
                               </span>
                             </div>
@@ -666,16 +870,16 @@ export default function CheckoutModal() {
                       </div>
                     )}
 
-                    {/* Next payment entry input */}
+                    {/* Next Split Input */}
                     {splitRemaining > 0.01 ? (
-                      <div className="bg-neutral-50/50 border border-dashed border-neutral-250 rounded-xl p-3 space-y-3">
+                      <div className="bg-white border border-dashed border-neutral-300 rounded-xl p-3 space-y-2.5">
                         <p className="text-[10px] font-700 text-neutral-700 uppercase tracking-wide">
-                          Pay Next Split
+                          Pay Next Split (Remaining: ₹{splitRemaining.toFixed(2)})
                         </p>
 
                         <div className="space-y-1">
                           <label className="block text-[9px] font-600 text-neutral-500 uppercase tracking-wide">
-                            Amount to Pay (₹)
+                            Amount (₹)
                           </label>
                           <input
                             type="number"
@@ -685,33 +889,25 @@ export default function CheckoutModal() {
                             step="0.01"
                             value={nextSplitAmount}
                             onChange={(e) => setNextSplitAmount(e.target.value)}
-                            className="w-full border border-neutral-200 rounded-lg px-3 py-2 text-[11px] font-650 text-neutral-800 bg-white focus:outline-none focus:border-brand-primary focus:ring-1 focus:ring-brand-primary/20"
+                            className="w-full border border-neutral-200 rounded-lg px-3 py-1.5 text-[11px] font-bold text-neutral-800 bg-neutral-50 focus:outline-none focus:border-brand-primary focus:bg-white"
                           />
                         </div>
 
-                        <div className="grid grid-cols-2 gap-2">
-                          <button
-                            type="button"
-                            onClick={() => setNextSplitMethod("cash")}
-                            className={`py-2 rounded-lg text-[10px] font-700 uppercase transition-all cursor-pointer border ${
-                              nextSplitMethod === "cash"
-                                ? "bg-brand-primary border-brand-primary text-white shadow-xs"
-                                : "bg-white border-neutral-200 text-neutral-600 hover:bg-neutral-50"
-                            }`}
-                          >
-                            Cash
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setNextSplitMethod("card")}
-                            className={`py-2 rounded-lg text-[10px] font-700 uppercase transition-all cursor-pointer border ${
-                              nextSplitMethod === "card"
-                                ? "bg-brand-primary border-brand-primary text-white shadow-xs"
-                                : "bg-white border-neutral-200 text-neutral-600 hover:bg-neutral-50"
-                            }`}
-                          >
-                            Card
-                          </button>
+                        <div className="grid grid-cols-3 gap-1.5">
+                          {(["cash", "upi", "card"] as const).map((m) => (
+                            <button
+                              key={m}
+                              type="button"
+                              onClick={() => setNextSplitMethod(m)}
+                              className={`py-1.5 rounded-lg text-[10px] font-700 uppercase transition-all cursor-pointer border ${
+                                nextSplitMethod === m
+                                  ? "bg-brand-primary border-brand-primary text-white shadow-xs"
+                                  : "bg-white border-neutral-200 text-neutral-600 hover:bg-neutral-50"
+                              }`}
+                            >
+                              {m}
+                            </button>
+                          ))}
                         </div>
 
                         <button
@@ -724,7 +920,9 @@ export default function CheckoutModal() {
                             }
                             if (amt > splitRemaining + 0.01) {
                               toast.error(
-                                `Amount cannot exceed remaining balance of ₹${splitRemaining.toFixed(2)}`,
+                                `Amount cannot exceed remaining balance of ₹${splitRemaining.toFixed(
+                                  2,
+                                )}`,
                               );
                               return;
                             }
@@ -735,17 +933,14 @@ export default function CheckoutModal() {
                           }}
                           className="w-full py-2 bg-neutral-800 hover:bg-neutral-900 text-white rounded-lg text-[10.5px] font-700 uppercase transition-all cursor-pointer shadow-xs"
                         >
-                          Pay ₹{parseFloat(nextSplitAmount || "0").toFixed(2)} (
-                          {nextSplitMethod})
+                          Add ₹{parseFloat(nextSplitAmount || "0").toFixed(2)} (
+                          {nextSplitMethod.toUpperCase()})
                         </button>
                       </div>
                     ) : (
                       <div className="bg-green-50 border border-green-200 rounded-xl p-3 text-center">
-                        <p className="text-[11px] font-750 text-green-700">
+                        <p className="text-[11px] font-800 text-green-700">
                           ✓ All splits fully paid!
-                        </p>
-                        <p className="text-[9.5px] text-green-600 mt-0.5">
-                          Click "Place Order" below to complete transaction.
                         </p>
                       </div>
                     )}
@@ -753,8 +948,8 @@ export default function CheckoutModal() {
                 )}
               </div>
 
-              {/* ── Place / Update Order Button — fixed at bottom ── */}
-              <div className="flex-shrink-0 p-4 pt-0 border-t border-neutral-100">
+              {/* ── Fixed Bottom CTA Button ── */}
+              <div className="flex-shrink-0 p-4 pt-3 border-t border-neutral-100 bg-white">
                 <button
                   onClick={handlePlaceOrder}
                   disabled={
@@ -775,35 +970,47 @@ export default function CheckoutModal() {
                       ? "bg-neutral-200 text-neutral-400 cursor-not-allowed shadow-none"
                       : editingOrderId
                         ? "bg-amber-600 hover:bg-amber-700 text-white cursor-pointer shadow-amber-600/20"
-                        : "bg-brand-primary hover:bg-brand-primary-hover text-white cursor-pointer shadow-brand-primary/20"
+                        : orderType === "dine-in" && paymentTiming === "pay-later"
+                          ? "bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer shadow-emerald-600/20"
+                          : "bg-brand-primary hover:bg-brand-primary-hover text-white cursor-pointer shadow-brand-primary/20"
                   }`}
                 >
                   {placingOrder || updatingOrder ? (
                     <>
-                      <Loader2 size={14} className="animate-spin" /> {editingOrderId ? "Updating Order..." : "Placing Order..."}
+                      <Loader2 size={15} className="animate-spin" />{" "}
+                      {editingOrderId ? "Updating Order..." : "Placing Order..."}
                     </>
                   ) : paymentTiming === "pay-now" &&
                     paymentType === "split" &&
                     splitRemaining > 0.01 ? (
-                    <>Remaining split balance: ₹{splitRemaining.toFixed(2)}</>
+                    <>Remaining balance: ₹{splitRemaining.toFixed(2)}</>
+                  ) : orderType === "dine-in" && paymentTiming === "pay-later" ? (
+                    <>
+                      🍽️ Punch KOT & Open Table{" "}
+                      {selectedTable ? `(${selectedTable.name})` : ""}
+                    </>
                   ) : paymentTiming === "pay-later" ? (
                     <>{editingOrderId ? "Update Order (Pay Later)" : "Place Order (Pay Later)"}</>
                   ) : (
-                    <>{editingOrderId ? `Update Order ₹${total.toFixed(2)}` : `Place Order ₹${total.toFixed(2)}`}</>
+                    <>
+                      {editingOrderId
+                        ? `Update Order ₹${total.toFixed(2)}`
+                        : `Place Order ₹${total.toFixed(2)}`}
+                    </>
                   )}
                 </button>
               </div>
             </div>
 
-            {/* ══ RIGHT — Order Details Panel ══ */}
-            <div className="w-1/2 flex flex-col overflow-y-auto p-4 space-y-3 no-scrollbar">
+            {/* ══ RIGHT COLUMN — Order Details Panel ══ */}
+            <div className="w-1/2 flex flex-col overflow-y-auto p-4 space-y-3 no-scrollbar bg-white">
               {/* Order Now / Order Later */}
               <div className="grid grid-cols-2 gap-2">
                 {(["now", "later"] as const).map((t) => (
                   <button
                     key={t}
                     onClick={() => handleOrderTimingChange(t)}
-                    className={`py-2.5 rounded-xl text-[11px] font-700 uppercase tracking-wide transition-all cursor-pointer active:scale-[0.98] ${
+                    className={`py-2 rounded-xl text-[11px] font-700 uppercase tracking-wide transition-all cursor-pointer active:scale-[0.98] ${
                       orderTiming === t
                         ? "bg-brand-primary text-white shadow-sm"
                         : "bg-neutral-100 text-neutral-500 hover:bg-neutral-200"
@@ -816,11 +1023,8 @@ export default function CheckoutModal() {
 
               {/* Scheduled time preview */}
               {orderTiming === "later" && scheduledAt && (
-                <div className="bg-orange-50 border border-orange-100 rounded-xl p-3 flex items-center gap-2">
-                  <Clock
-                    size={13}
-                    className="text-brand-primary flex-shrink-0"
-                  />
+                <div className="bg-orange-50 border border-orange-100 rounded-xl p-2.5 flex items-center gap-2">
+                  <Clock size={13} className="text-brand-primary flex-shrink-0" />
                   <div className="flex-1">
                     <p className="text-[10px] font-600 text-brand-primary">
                       Scheduled Pickup
@@ -838,251 +1042,256 @@ export default function CheckoutModal() {
                 </div>
               )}
 
-              {/* POS / Online Order */}
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  onClick={() => {
-                    setOrderSource("pos");
-                    // Reset order type if switching from 3rd party
-                    if (
-                      ["doordash", "skip", "ubereats"].includes(orderSource) &&
-                      orderType === "delivery"
-                    ) {
-                      setOrderType("takeout");
-                    }
-                  }}
-                  className={`py-2.5 rounded-xl text-[11px] font-700 uppercase tracking-wide transition-all cursor-pointer active:scale-[0.98] ${
-                    orderSource === "pos"
-                      ? "bg-neutral-800 text-white shadow-sm"
-                      : "bg-neutral-100 text-neutral-500 hover:bg-neutral-200"
-                  }`}
-                >
-                  POS
-                </button>
-                <button
-                  onClick={() => {
-                    setOrderSource("doordash");
-                    // Reset order type if it's not takeout or delivery
-                    if (
-                      orderType === "drive-through" ||
-                      orderType === "dine-in"
-                    ) {
-                      setOrderType("takeout");
-                    }
-                  }}
-                  className={`py-2.5 rounded-xl text-[11px] font-700 uppercase tracking-wide transition-all cursor-pointer active:scale-[0.98] ${
-                    isThirdParty
-                      ? "bg-neutral-800 text-white shadow-sm"
-                      : "bg-neutral-100 text-neutral-500 hover:bg-neutral-200"
-                  }`}
-                >
-                  Online Order
-                </button>
-              </div>
-
-              {/* 3rd Party Platform Selector */}
-              {isThirdParty && (
-                <div className="space-y-1.5">
-                  <label className="block text-[10px] font-600 text-neutral-500 uppercase tracking-wide">
-                    Select Platform
-                  </label>
-                  <div className="grid grid-cols-3 gap-1.5">
-                    {[
-                      {
-                        id: "doordash" as const,
-                        label: "DoorDash",
-                        color: "bg-red-50 border-red-200 text-red-700",
-                        activeColor: "bg-red-600 border-red-600 text-white",
-                      },
-                      {
-                        id: "skip" as const,
-                        label: "Skip",
-                        color: "bg-orange-50 border-orange-200 text-orange-700",
-                        activeColor:
-                          "bg-orange-600 border-orange-600 text-white",
-                      },
-                      {
-                        id: "ubereats" as const,
-                        label: "Uber Eats",
-                        color: "bg-green-50 border-green-200 text-green-700",
-                        activeColor: "bg-green-600 border-green-600 text-white",
-                      },
-                    ].map((platform) => (
+              {/* ── Order Source (Counter & Aggregators: POS, Zomato, Swiggy, Online) ── */}
+              <div className="space-y-1.5">
+                <label className="block text-[10px] font-700 text-neutral-500 uppercase tracking-wide">
+                  Order Source
+                </label>
+                <div className="grid grid-cols-4 gap-1.5">
+                  {[
+                    { id: "pos" as const, label: "POS Counter" },
+                    { id: "zomato" as const, label: "Zomato", color: "text-rose-600" },
+                    { id: "swiggy" as const, label: "Swiggy", color: "text-amber-600" },
+                    { id: "online" as const, label: "Direct Online" },
+                  ].map((src) => {
+                    const active = orderSource === src.id;
+                    return (
                       <button
-                        key={platform.id}
-                        onClick={() => setOrderSource(platform.id)}
-                        className={`py-2 rounded-xl text-[10px] font-700 uppercase tracking-wide transition-all cursor-pointer active:scale-[0.97] border ${
-                          orderSource === platform.id
-                            ? platform.activeColor + " shadow-sm"
-                            : platform.color + " hover:opacity-80"
+                        key={src.id}
+                        type="button"
+                        onClick={() => {
+                          setOrderSource(src.id);
+                          if (src.id === "zomato" || src.id === "swiggy") {
+                            if (orderType === "dine-in") setOrderType("takeout");
+                          }
+                        }}
+                        className={`py-2 px-1 rounded-xl text-[10.5px] font-700 uppercase tracking-tight transition-all cursor-pointer border ${
+                          active
+                            ? src.id === "zomato"
+                              ? "bg-rose-600 text-white border-rose-600 shadow-sm"
+                              : src.id === "swiggy"
+                                ? "bg-amber-600 text-white border-amber-600 shadow-sm"
+                                : "bg-neutral-800 text-white border-neutral-800 shadow-sm"
+                            : "bg-neutral-50 border-neutral-200 text-neutral-600 hover:bg-neutral-100"
                         }`}
                       >
-                        {platform.label}
+                        {src.label}
                       </button>
-                    ))}
-                  </div>
+                    );
+                  })}
+                </div>
 
-                  {orderSource === "skip" && (
-                    <div className="space-y-1 mt-2.5 animate-scale-up">
-                      <label className="block text-[10px] font-600 text-neutral-500 uppercase tracking-wide">
-                        Enter your skip last digit
-                      </label>
-                      <input
-                        type="text"
-                        maxLength={6}
-                        placeholder="Enter 6 digit number"
-                        value={skipLastDigits}
-                        onChange={(e) => {
-                          const val = e.target.value.replace(/\D/g, ""); // Allow only digits
-                          setSkipLastDigits(val);
-                        }}
-                        className="w-full border border-neutral-200 rounded-xl px-3.5 py-2 text-[11px] font-600 text-neutral-800 bg-neutral-50 focus:outline-none focus:border-brand-primary focus:bg-white focus:ring-2 focus:ring-brand-primary/10 transition-all"
-                      />
+                {/* Aggregator Order ID Field */}
+                {(orderSource === "zomato" || orderSource === "swiggy") && (
+                  <div className="space-y-1 mt-1 p-2.5 bg-neutral-50 border border-neutral-200 rounded-xl">
+                    <label className="block text-[10px] font-700 text-neutral-600 uppercase tracking-wide">
+                      {orderSource.toUpperCase()} Order ID
+                    </label>
+                    <input
+                      type="text"
+                      placeholder={`Enter ${orderSource.toUpperCase()} ID (e.g. ${
+                        orderSource === "zomato" ? "ZOM-4819" : "SWG-8092"
+                      })`}
+                      value={aggregatorOrderId}
+                      onChange={(e) => setAggregatorOrderId(e.target.value)}
+                      className="w-full border border-neutral-200 rounded-lg px-3 py-1.5 text-[11px] font-mono text-neutral-800 bg-white focus:outline-none focus:border-brand-primary"
+                    />
+                  </div>
+                )}
+              </div>
+
+              {/* ── Dine-In Table Linking Banner (When Dine-In Active) ── */}
+              {orderType === "dine-in" && (
+                <div className="bg-amber-50/80 border border-amber-200 rounded-xl p-3 flex items-center justify-between">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-lg bg-brand-primary text-white flex items-center justify-center font-bold text-sm shadow-xs">
+                      🍽️
                     </div>
-                  )}
+                    <div>
+                      <p className="text-[9.5px] font-700 text-neutral-500 uppercase tracking-wide">
+                        Assigned Table
+                      </p>
+                      <p className="text-[12px] font-800 text-neutral-900">
+                        {selectedTable ? selectedTable.name : "No Table Selected"}
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowTableModal(true)}
+                    className="px-3 py-1.5 rounded-lg bg-white border border-brand-primary text-brand-primary text-[10.5px] font-700 hover:bg-brand-primary hover:text-white transition-all cursor-pointer shadow-xs"
+                  >
+                    {selectedTable ? "Change Table" : "+ Choose Table"}
+                  </button>
                 </div>
               )}
 
               {/* Order Notes */}
               <div>
-                <label className="block text-[10px] font-600 text-neutral-500 mb-1.5 uppercase tracking-wide flex items-center gap-1">
-                  <FileText size={9} /> Order Notes
+                <label className="block text-[10px] font-600 text-neutral-500 mb-1 uppercase tracking-wide flex items-center gap-1">
+                  <FileText size={10} /> Cooking Notes / Instructions
                 </label>
                 <textarea
-                  placeholder="Add any special instructions..."
+                  placeholder="e.g. Less spicy, extra sauce, without onion..."
                   value={orderNotes}
                   onChange={(e) => setOrderNotes(e.target.value)}
-                  rows={3}
-                  className="w-full border border-neutral-200 rounded-xl px-3.5 py-2.5 text-[11px] font-500 text-neutral-700 bg-neutral-50 focus:outline-none focus:border-brand-primary focus:bg-white focus:ring-2 focus:ring-brand-primary/10 resize-none transition-all placeholder:text-neutral-400"
+                  rows={2}
+                  className="w-full border border-neutral-200 rounded-xl px-3 py-2 text-[11px] font-500 text-neutral-700 bg-neutral-50 focus:outline-none focus:border-brand-primary focus:bg-white resize-none transition-all"
                 />
               </div>
 
-              {/* Action Buttons */}
-              <div className="grid grid-cols-2 gap-2">
-                {orderSource === "skip" ? (
-                  <div className="py-2.5 rounded-xl text-[11px] font-600 flex items-center justify-center gap-1.5 border bg-neutral-100 border-neutral-200 text-neutral-400 select-none cursor-not-allowed">
-                    <UserPlus size={12} />
-                    <span>Customer Details (Skip)</span>
-                  </div>
-                ) : (
+              {/* Customer Info (Mobile First) & WhatsApp Toggle */}
+              <div className="space-y-2">
+                <div className="grid grid-cols-2 gap-2">
                   <button
+                    type="button"
                     onClick={() => setShowCustomer(true)}
-                    className={`py-2.5 rounded-xl text-[11px] font-600 flex items-center justify-center gap-1.5 transition-all cursor-pointer active:scale-[0.98] border ${
+                    className={`py-2 rounded-xl text-[11px] font-700 flex items-center justify-center gap-1.5 transition-all cursor-pointer border ${
                       selectedCustomer
                         ? "bg-orange-50 border-brand-primary text-brand-primary"
-                        : "bg-white border-neutral-200 text-neutral-700 hover:bg-neutral-50 hover:border-neutral-300"
+                        : "bg-white border-neutral-200 text-neutral-700 hover:bg-neutral-50"
                     }`}
                   >
-                    <UserPlus size={12} />
-                    {selectedCustomer
-                      ? `${selectedCustomer.name}`
-                      : "Add Customer"}
+                    <Smartphone size={13} />
+                    <span className="truncate">
+                      {selectedCustomer
+                        ? `${selectedCustomer.name} (${selectedCustomer.phone || ""})`
+                        : "+ Add Mobile / Customer"}
+                    </span>
                   </button>
-                )}
 
-                <button
-                  onClick={() => setShowPromo(true)}
-                  className={`py-2.5 rounded-xl text-[11px] font-600 flex items-center justify-center gap-1.5 transition-all cursor-pointer active:scale-[0.98] border ${
-                    discountLabel
-                      ? "bg-green-50 border-green-500 text-green-700"
-                      : "bg-neutral-800 text-white hover:bg-neutral-700 border-neutral-800"
-                  }`}
-                >
-                  <Tag size={12} />
-                  {discountLabel ? discountLabel : "Add Promo Code"}
-                </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowPromo(true)}
+                    className={`py-2 rounded-xl text-[11px] font-700 flex items-center justify-center gap-1.5 transition-all cursor-pointer border ${
+                      discountLabel
+                        ? "bg-green-50 border-green-500 text-green-700"
+                        : "bg-neutral-800 text-white hover:bg-neutral-700 border-neutral-800"
+                    }`}
+                  >
+                    <Tag size={13} />
+                    <span className="truncate">
+                      {discountLabel ? discountLabel : "Add Promo / Discount"}
+                    </span>
+                  </button>
+                </div>
+
+                {/* WhatsApp Digital Bill Option */}
+                <label className="flex items-center justify-between p-2.5 bg-emerald-50/70 border border-emerald-200 rounded-xl cursor-pointer hover:bg-emerald-50 transition-colors">
+                  <div className="flex items-center gap-2">
+                    <div className="w-5 h-5 rounded-full bg-emerald-600 text-white flex items-center justify-center text-[10px] font-bold">
+                      W
+                    </div>
+                    <div className="text-left">
+                      <p className="text-[10.5px] font-700 text-emerald-950">
+                        Send Bill on WhatsApp
+                      </p>
+                      <p className="text-[9px] text-emerald-700">
+                        {selectedCustomer?.phone
+                          ? `Will send receipt to +91 ${selectedCustomer.phone}`
+                          : "Customer mobile number required"}
+                      </p>
+                    </div>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={whatsappReceipt}
+                    onChange={(e) => setWhatsappReceipt(e.target.checked)}
+                    className="w-4 h-4 text-emerald-600 rounded border-neutral-300 focus:ring-emerald-500 cursor-pointer"
+                  />
+                </label>
               </div>
 
-              {/* ── Order Summary ── */}
-              <div className="bg-neutral-50 border border-neutral-200 rounded-xl p-4 space-y-2">
-                <p className="text-[11px] font-700 text-neutral-800 uppercase tracking-wide text-center mb-3">
+              {/* ── Order Summary with Indian GST Split ── */}
+              <div className="bg-neutral-50 border border-neutral-200 rounded-xl p-3.5 space-y-1.5">
+                <p className="text-[11px] font-800 text-neutral-800 uppercase tracking-wide text-center pb-1 border-b border-neutral-200">
                   Order Summary
                 </p>
 
-                {/* Items count */}
-                <div className="flex items-center justify-between pb-2 border-b border-neutral-100">
+                {/* Items count & Subtotal */}
+                <div className="flex items-center justify-between pt-1">
                   <span className="text-[10px] text-neutral-500 font-500">
-                    {cartItems.length} item{cartItems.length !== 1 ? "s" : ""}
+                    Items ({cartItems.length})
                   </span>
                   <span className="text-[10px] font-600 text-neutral-700">
                     ₹{subtotal.toFixed(2)}
                   </span>
                 </div>
 
-                <div className="space-y-1.5">
+                {/* Discount */}
+                {discount > 0 && (
                   <div className="flex items-center justify-between">
-                    <span className="text-[10px] text-neutral-500 font-500">
-                      Sub Total
+                    <span className="text-[10px] text-green-600 font-500 flex items-center gap-1">
+                      <CheckCircle size={9} /> Discount
                     </span>
-                    <span className="text-[10px] font-600 text-neutral-700">
-                      ₹{subtotal.toFixed(2)}
+                    <span className="text-[10px] font-700 text-green-600">
+                      -₹{discount.toFixed(2)}
                     </span>
                   </div>
-                  {discount > 0 && (
-                    <div className="flex items-center justify-between">
-                      <span className="text-[10px] text-green-600 font-500 flex items-center gap-1">
-                        <CheckCircle size={9} /> Discount
-                      </span>
-                      <span className="text-[10px] font-600 text-green-600">
-                        -₹{discount.toFixed(2)}
-                      </span>
-                    </div>
-                  )}
-                  {orderType === "delivery" && (
-                    <div className="flex items-center justify-between font-medium">
-                      <span className="text-[10px] text-brand-primary font-600 flex items-center gap-1">
-                        <Truck size={10} /> Delivery Fee
-                      </span>
-                      <span className="text-[10px] font-700 text-brand-primary">
-                        +₹{(branchTaxFees?.deliveryFee ?? 30).toFixed(2)}
-                      </span>
-                    </div>
-                  )}
+                )}
+
+                {/* Delivery fee */}
+                {orderType === "delivery" && (
                   <div className="flex items-center justify-between">
-                    <span className="text-[10px] text-neutral-500 font-500">
-                      GST ({branchTaxFees?.gstTaxRate ?? 5}%)
+                    <span className="text-[10px] text-brand-primary font-600 flex items-center gap-1">
+                      <Truck size={10} /> Delivery Fee
                     </span>
-                    <span className="text-[10px] font-600 text-neutral-700">
-                      ₹{tax.toFixed(2)}
+                    <span className="text-[10px] font-700 text-brand-primary">
+                      +₹{(branchTaxFees?.deliveryFee ?? 40).toFixed(2)}
+                    </span>
+                  </div>
+                )}
+
+                {/* Indian GST Split: CGST + SGST */}
+                <div className="space-y-1 py-1 border-t border-b border-neutral-200 my-1">
+                  <div className="flex items-center justify-between text-[10px] text-neutral-500">
+                    <span>CGST ({halfGstRate}%)</span>
+                    <span className="font-600 text-neutral-700">
+                      ₹{halfTaxAmount}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between text-[10px] text-neutral-500">
+                    <span>SGST ({halfGstRate}%)</span>
+                    <span className="font-600 text-neutral-700">
+                      ₹{halfTaxAmount}
                     </span>
                   </div>
                 </div>
 
-                <div className="flex items-center justify-between pt-2 border-t border-neutral-200 mt-1">
-                  <span className="text-[11px] font-700 text-neutral-900">
-                    Amount To Pay
+                {/* Total */}
+                <div className="flex items-center justify-between pt-1">
+                  <span className="text-[11.5px] font-800 text-neutral-900">
+                    Total Amount
                   </span>
-                  <span className="text-[15px] font-800 text-brand-primary">
+                  <span className="text-[16px] font-900 text-brand-primary">
                     ₹{total.toFixed(2)}
                   </span>
                 </div>
 
-                {/* Payment status badge */}
                 {paymentTiming === "pay-later" && (
-                  <div className="bg-amber-50 border border-amber-200 rounded-lg px-3 py-1.5 flex items-center gap-1.5 mt-1">
+                  <div className="bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-1 flex items-center gap-1.5 mt-1">
                     <Clock size={10} className="text-amber-600" />
-                    <span className="text-[10px] font-600 text-amber-700">
-                      Will be marked as UNPAID until collected
+                    <span className="text-[9.5px] font-600 text-amber-700">
+                      {orderType === "dine-in"
+                        ? "Dine-in KOT mode: marked UNPAID until table settlement"
+                        : "Will be marked UNPAID until pickup"}
                     </span>
                   </div>
                 )}
               </div>
 
-              {/* Cancel / Send Tracker */}
+              {/* Bottom Actions */}
               <div className="flex items-center justify-between pt-1">
                 <button
+                  type="button"
                   onClick={closeCheckout}
-                  className="text-[10px] font-600 text-red-500 hover:text-red-700 flex items-center gap-1 transition-colors cursor-pointer"
+                  className="text-[10.5px] font-600 text-red-500 hover:text-red-700 flex items-center gap-1 transition-colors cursor-pointer"
                 >
                   <X size={11} /> Cancel Order
                 </button>
-                <button
-                  disabled
-                  className="text-[10px] font-500 text-neutral-300 flex items-center gap-1 cursor-not-allowed"
-                  title="Coming soon"
-                >
-                  🔔 Send Tracker
-                </button>
+                <div className="text-[9.5px] text-neutral-400 font-500">
+                  Taste-It POS Terminal
+                </div>
               </div>
             </div>
           </div>
@@ -1105,6 +1314,10 @@ export default function CheckoutModal() {
       <CustomerModal
         isOpen={showCustomer}
         onClose={() => setShowCustomer(false)}
+      />
+      <TableSelectorModal
+        isOpen={showTableModal}
+        onClose={() => setShowTableModal(false)}
       />
     </>
   );

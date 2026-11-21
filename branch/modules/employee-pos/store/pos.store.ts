@@ -57,7 +57,11 @@ interface PosState {
   changeAmount: number;
 
   // ── Order Details ────────────────────────────────────────────
-  orderSource: "pos" | "online" | "doordash" | "skip" | "ubereats";
+  orderSource: "pos" | "online" | "doordash" | "skip" | "ubereats" | "zomato" | "swiggy";
+  aggregatorOrderId: string;
+  upiProvider: string;
+  upiRefNumber: string;
+  whatsappReceipt: boolean;
   orderTiming: "now" | "later";
   scheduledAt: string | null;
   orderNotes: string;
@@ -126,8 +130,12 @@ interface PosState {
   updateSplitPayment: (index: number, payment: SplitPayment) => void;
   removeSplitPayment: (index: number) => void;
   setOrderSource: (
-    source: "pos" | "online" | "doordash" | "skip" | "ubereats",
+    source: "pos" | "online" | "doordash" | "skip" | "ubereats" | "zomato" | "swiggy",
   ) => void;
+  setAggregatorOrderId: (id: string) => void;
+  setUpiProvider: (provider: string) => void;
+  setUpiRefNumber: (ref: string) => void;
+  setWhatsappReceipt: (send: boolean) => void;
   setOrderTiming: (timing: "now" | "later") => void;
   setScheduledAt: (date: string | null) => void;
   setOrderNotes: (notes: string) => void;
@@ -288,6 +296,10 @@ export const usePosStore = create<PosState>((set, get) => ({
   cashGiven: 0,
   changeAmount: 0,
   orderSource: "pos",
+  aggregatorOrderId: "",
+  upiProvider: "gpay",
+  upiRefNumber: "",
+  whatsappReceipt: true,
   orderTiming: "now",
   scheduledAt: null,
   orderNotes: "",
@@ -732,6 +744,10 @@ export const usePosStore = create<PosState>((set, get) => ({
       cashGiven: 0,
       changeAmount: 0,
       orderSource: "pos",
+      aggregatorOrderId: "",
+      upiProvider: "gpay",
+      upiRefNumber: "",
+      whatsappReceipt: true,
       orderTiming: "now",
       scheduledAt: null,
       orderNotes: "",
@@ -791,7 +807,7 @@ export const usePosStore = create<PosState>((set, get) => ({
   setOrderSource: (source) => {
     set({ orderSource: source });
     // For 3rd party platforms, auto-set payment to pay-now one-time (Account Pay)
-    if (["doordash", "skip", "ubereats"].includes(source)) {
+    if (["doordash", "skip", "ubereats", "zomato", "swiggy"].includes(source)) {
       set({
         paymentTiming: "pay-now",
         paymentType: "one-time",
@@ -799,6 +815,10 @@ export const usePosStore = create<PosState>((set, get) => ({
       });
     }
   },
+  setAggregatorOrderId: (id) => set({ aggregatorOrderId: id }),
+  setUpiProvider: (provider) => set({ upiProvider: provider }),
+  setUpiRefNumber: (ref) => set({ upiRefNumber: ref }),
+  setWhatsappReceipt: (send) => set({ whatsappReceipt: send }),
   setOrderTiming: (timing) => set({ orderTiming: timing }),
   setScheduledAt: (date) => set({ scheduledAt: date }),
   setOrderNotes: (notes) => set({ orderNotes: notes }),
@@ -843,7 +863,12 @@ export const usePosStore = create<PosState>((set, get) => ({
       cartItems,
       orderType,
       orderSource,
+      aggregatorOrderId,
+      upiProvider,
+      upiRefNumber,
+      whatsappReceipt,
       selectedCustomer,
+      selectedTable,
       subtotal,
       tax,
       discount,
@@ -875,13 +900,24 @@ export const usePosStore = create<PosState>((set, get) => ({
     if (paymentTiming === "pay-now") {
       if (paymentType === "split") {
         payments = splitPayments;
-      } else if (["doordash", "skip", "ubereats"].includes(orderSource)) {
+      } else if (["doordash", "skip", "ubereats", "zomato", "swiggy"].includes(orderSource)) {
         // 3rd party orders: payment goes to Account Pay
         // Send as cash method - backend routes to accountPay based on orderSource
         payments = [
           {
             method: "cash",
             amount: total,
+            cashGiven: 0,
+            changeGiven: 0,
+          },
+        ];
+      } else if (paymentMethod === "upi") {
+        payments = [
+          {
+            method: "upi",
+            amount: total,
+            transactionId: upiRefNumber,
+            upiProvider,
             cashGiven: 0,
             changeGiven: 0,
           },
@@ -941,6 +977,15 @@ export const usePosStore = create<PosState>((set, get) => ({
       branchId: branchId || undefined,
       branchName: branchName || undefined,
       branchCode: branchCode || undefined,
+      table: selectedTable
+        ? { id: selectedTable.id, name: selectedTable.name, status: selectedTable.status }
+        : null,
+      aggregatorOrderId: ["doordash", "skip", "ubereats", "zomato", "swiggy"].includes(orderSource)
+        ? (aggregatorOrderId || skipLastDigits)
+        : "",
+      upiProvider: paymentMethod === "upi" ? upiProvider : "",
+      upiRefNumber: paymentMethod === "upi" ? upiRefNumber : "",
+      whatsappReceipt,
       items: cartItems.map((item) => ({
         menuItemId: item.menuItemId,
         name: item.name,
@@ -1055,6 +1100,8 @@ export const usePosStore = create<PosState>((set, get) => ({
       editingOrderNumber: order.orderNumber,
       cartItems: restoredItems,
       orderType: (order.orderType as PosState["orderType"]) || "takeout",
+      selectedTable: order.table || null,
+      orderSource: (order.orderSource as PosState["orderSource"]) || "pos",
       selectedCustomer:
         order.customer &&
         order.customer.name &&
