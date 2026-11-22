@@ -1,15 +1,31 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
-import { X, Search, Keyboard, Check, MapPin } from "lucide-react";
+import React, { useState, useEffect, useRef } from "react";
+import {
+  X,
+  Search,
+  Keyboard,
+  Check,
+  MapPin,
+  User,
+  Phone,
+  Mail,
+  FileText,
+  Navigation,
+  Trash2,
+  Sparkles,
+  Building,
+  RotateCcw,
+} from "lucide-react";
 import { useForm } from "react-hook-form";
 import toast from "react-hot-toast";
 import { usePosStore } from "../store/pos.store";
 
-// Helper function to geocode manual address inputs (Primary: Mapbox Canada, Fallback: Nominatim)
+// Helper function to geocode manual address inputs (Primary: Mapbox India, Fallback: Nominatim India)
 const geocodeManualAddress = async (
   address: string,
   postalCode?: string,
+  branchCoords?: { lat: number; lng: number } | null,
 ): Promise<{ lat: number; lng: number } | null> => {
   const cleanAddr = (address || "").trim();
   const cleanPostal = (postalCode || "").trim();
@@ -19,9 +35,13 @@ const geocodeManualAddress = async (
   const mapboxToken = process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN;
 
   try {
-    // 1. Primary Priority: Mapbox Canada High-Precision Geocoding
+    // 1. Primary Priority: Mapbox India High-Precision Geocoding with optional branch proximity
     if (mapboxToken && !mapboxToken.includes("demo_token")) {
-      const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(combinedQuery)}.json?country=ca&limit=1&access_token=${mapboxToken}`;
+      let proximityParam = "";
+      if (branchCoords?.lat && branchCoords?.lng) {
+        proximityParam = `&proximity=${branchCoords.lng},${branchCoords.lat}`;
+      }
+      const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(combinedQuery)}.json?country=in&types=address,postcode,place,locality,neighborhood,poi&limit=1${proximityParam}&access_token=${mapboxToken}`;
       const res = await fetch(url);
       const data = await res.json();
       if (data?.features?.length > 0) {
@@ -30,14 +50,14 @@ const geocodeManualAddress = async (
       }
     }
 
-    // 2. Secondary Fallback: Nominatim Canada
-    const caQuery = `${combinedQuery}, Canada`;
-    const resCa = await fetch(
-      `https://nominatim.openstreetmap.org/search?format=json&countrycodes=ca&addressdetails=1&limit=1&q=${encodeURIComponent(caQuery)}`,
+    // 2. Secondary Fallback: Nominatim India
+    const inQuery = `${combinedQuery}, India`;
+    const resIn = await fetch(
+      `https://nominatim.openstreetmap.org/search?format=json&countrycodes=in&addressdetails=1&limit=1&q=${encodeURIComponent(inQuery)}`,
     );
-    const jsonCa = await resCa.json();
-    if (Array.isArray(jsonCa) && jsonCa.length > 0) {
-      return { lat: parseFloat(jsonCa[0].lat), lng: parseFloat(jsonCa[0].lon) };
+    const jsonIn = await resIn.json();
+    if (Array.isArray(jsonIn) && jsonIn.length > 0) {
+      return { lat: parseFloat(jsonIn[0].lat), lng: parseFloat(jsonIn[0].lon) };
     }
   } catch (err) {
     console.warn("Manual Geocoding Error:", err);
@@ -54,8 +74,7 @@ interface Props {
 interface FormValues {
   phone: string;
   email: string;
-  firstName: string;
-  lastName: string;
+  name: string;
   address: string;
   postalCode: string;
   driverNotes: string;
@@ -71,7 +90,17 @@ interface AddressSuggestion {
   lng: number;
 }
 
-
+interface MatchedCustomer {
+  name: string;
+  phone: string;
+  email?: string;
+  address?: string;
+  postalCode?: string;
+  driverNotes?: string;
+  lat?: number;
+  lng?: number;
+  ordersCount?: number;
+}
 
 const KEYBOARD_ROWS = [
   ["1", "2", "3", "4", "5", "6", "7", "8", "9", "0", "-", "=", "Backspace"],
@@ -82,18 +111,20 @@ const KEYBOARD_ROWS = [
 ];
 
 export default function CustomerModal({ isOpen, onClose }: Props) {
-  const { setCustomer, selectedCustomer } = usePosStore();
-  const [keyboardEnabled, setKeyboardEnabled] = useState(true);
-  const [activeField, setActiveField] = useState<keyof FormValues | null>(null);
+  const { setCustomer, selectedCustomer, orderType } = usePosStore();
+  const [keyboardEnabled, setKeyboardEnabled] = useState(false); // Default false for clean spacious desktop view
+  const [activeField, setActiveField] = useState<keyof FormValues | null>("phone");
   const [capsLock, setCapsLock] = useState(false);
   const [addressTab, setAddressTab] = useState<"auto" | "manual">("auto");
-  const [addressSuggestions, setAddressSuggestions] = useState<
-    AddressSuggestion[]
-  >([]);
+  const [addressSuggestions, setAddressSuggestions] = useState<AddressSuggestion[]>([]);
   const [isSearchingAddress, setIsSearchingAddress] = useState(false);
   const [isSearchingCustomer, setIsSearchingCustomer] = useState(false);
   const [searchError, setSearchError] = useState<string | null>(null);
-  const searchAbortRef = React.useRef<AbortController | null>(null);
+  const [matchedCustomer, setMatchedCustomer] = useState<MatchedCustomer | null>(null);
+  const [showAddressSection, setShowAddressSection] = useState(orderType === "delivery");
+  const searchAbortRef = useRef<AbortController | null>(null);
+
+  const [branchCoords, setBranchCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [selectedCoords, setSelectedCoords] = useState<{
     lat: number;
     lng: number;
@@ -103,41 +134,50 @@ export default function CustomerModal({ isOpen, onClose }: Props) {
       : null,
   );
 
-  const nameParts = (selectedCustomer?.name || "").trim().split(/\s+/);
-  const initialFirstName = nameParts[0] || "";
-  const initialLastName = nameParts.slice(1).join(" ") || "";
-
   const { register, handleSubmit, reset, setValue, getValues, watch } =
     useForm<FormValues>({
       defaultValues: {
         phone: selectedCustomer?.phone || "",
-        email: (selectedCustomer as any)?.email || "",
-        firstName: initialFirstName,
-        lastName: initialLastName,
+        email: selectedCustomer?.email || "",
+        name: selectedCustomer?.name || "",
         address: selectedCustomer?.address || "",
         postalCode: selectedCustomer?.postalCode || "",
-        searchQuery: "",
+        driverNotes: selectedCustomer?.driverNotes || "",
+        searchQuery: selectedCustomer?.phone || "",
         searchAddress: "",
       },
     });
 
-  const watchSearchQuery = watch("searchQuery");
+  const watchPhone = watch("phone");
+  const watchName = watch("name");
   const watchSearchAddress = watch("searchAddress");
+  const watchAddress = watch("address");
+  const watchPostalCode = watch("postalCode");
+
+  // Read branch coordinates for location-biased autocomplete
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem("rms_branch");
+      if (raw) {
+        const b = JSON.parse(raw);
+        if (b.lat && b.lng && !(b.lat === 0 && b.lng === 0)) {
+          setBranchCoords({ lat: Number(b.lat), lng: Number(b.lng) });
+        }
+      }
+    } catch {}
+  }, []);
 
   // Sync with changes when opening
   useEffect(() => {
     if (isOpen) {
-      const nameParts = (selectedCustomer?.name || "").trim().split(/\s+/);
-      const first = nameParts[0] || "";
-      const last = nameParts.slice(1).join(" ") || "";
       reset({
         phone: selectedCustomer?.phone || "",
-        email: (selectedCustomer as any)?.email || "",
-        firstName: first,
-        lastName: last,
+        email: selectedCustomer?.email || "",
+        name: selectedCustomer?.name || "",
         address: selectedCustomer?.address || "",
         postalCode: selectedCustomer?.postalCode || "",
-        searchQuery: "",
+        driverNotes: selectedCustomer?.driverNotes || "",
+        searchQuery: selectedCustomer?.phone || "",
         searchAddress: "",
       });
       setSelectedCoords(
@@ -145,15 +185,17 @@ export default function CustomerModal({ isOpen, onClose }: Props) {
           ? { lat: selectedCustomer.lat, lng: selectedCustomer.lng }
           : null,
       );
+      setMatchedCustomer(null);
+      setShowAddressSection(
+        orderType === "delivery" || Boolean(selectedCustomer?.address),
+      );
       setActiveField("phone");
     }
-  }, [isOpen, selectedCustomer, reset]);
+  }, [isOpen, selectedCustomer, orderType, reset]);
 
-  const addressCacheRef = React.useRef<Map<string, AddressSuggestion[]>>(
-    new Map(),
-  );
+  const addressCacheRef = useRef<Map<string, AddressSuggestion[]>>(new Map());
 
-  // Ultra-Optimized Mapbox Canada Autocomplete (350ms Debounce + Memory Cache + AbortController)
+  // ── High-Precision Mapbox India Address Autocomplete ──
   useEffect(() => {
     const query = (watchSearchAddress || "").trim();
     if (query.length < 3) {
@@ -164,7 +206,7 @@ export default function CustomerModal({ isOpen, onClose }: Props) {
 
     const cacheKey = query.toLowerCase();
 
-    // 0ms instant response from client-side memory cache (Saves API Quota)
+    // 0ms instant response from memory cache
     if (addressCacheRef.current.has(cacheKey)) {
       setAddressSuggestions(addressCacheRef.current.get(cacheKey)!);
       setIsSearchingAddress(false);
@@ -178,10 +220,13 @@ export default function CustomerModal({ isOpen, onClose }: Props) {
       try {
         const mapboxToken = process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN;
 
-        // 1. Primary Priority: Mapbox Canada High-Precision Search
+        // 1. Primary: Mapbox India (country=in)
         if (mapboxToken && !mapboxToken.includes("demo_token")) {
-          // Valid Mapbox types: address, postcode, place, locality, neighborhood, poi (street is invalid in v5)
-          const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(query)}.json?country=ca&types=address,postcode,place,locality,neighborhood&autocomplete=true&limit=8&access_token=${mapboxToken}`;
+          let proximityParam = "";
+          if (branchCoords?.lat && branchCoords?.lng) {
+            proximityParam = `&proximity=${branchCoords.lng},${branchCoords.lat}`;
+          }
+          const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(query)}.json?country=in&types=address,postcode,place,locality,neighborhood,poi&autocomplete=true&limit=8${proximityParam}&access_token=${mapboxToken}`;
           const res = await fetch(url, { signal: abortController.signal });
           const data = await res.json();
 
@@ -211,42 +256,28 @@ export default function CustomerModal({ isOpen, onClose }: Props) {
           }
         }
 
-        // 2. Secondary Fallback (Commented out as requested for testing Pure Mapbox)
-        /*
-        const url = `https://nominatim.openstreetmap.org/search?format=json&countrycodes=ca&addressdetails=1&limit=8&q=${encodeURIComponent(query)}`;
-        const res = await fetch(url, {
-          signal: abortController.signal,
-          headers: { "Accept-Language": "en" },
-        });
-        const json = await res.json();
+        // 2. Secondary Fallback: OpenStreetMap Nominatim India
+        const inQuery = `${query}, India`;
+        const resIn = await fetch(
+          `https://nominatim.openstreetmap.org/search?format=json&countrycodes=in&addressdetails=1&limit=8&q=${encodeURIComponent(inQuery)}`,
+          {
+            signal: abortController.signal,
+            headers: { "Accept-Language": "en" },
+          },
+        );
+        const jsonIn = await resIn.json();
 
-        if (Array.isArray(json) && json.length > 0) {
-          const parsed: AddressSuggestion[] = json.map((item: any) => {
+        if (Array.isArray(jsonIn) && jsonIn.length > 0) {
+          const parsed: AddressSuggestion[] = jsonIn.map((item: any) => {
             const addr = item.address || {};
-            const houseNumber = addr.house_number || "";
-            const road =
-              addr.road || addr.street || addr.pedestrian || addr.footway || "";
-            const streetStr = houseNumber ? `${houseNumber} ${road}` : road;
-            const city =
-              addr.city ||
-              addr.town ||
-              addr.village ||
-              addr.municipality ||
-              addr.suburb ||
-              addr.county ||
-              "";
-            const province = addr.state || "";
+            const street = addr.road || addr.street || addr.neighbourhood || addr.suburb || "";
+            const city = addr.city || addr.town || addr.village || addr.county || "";
+            const state = addr.state || "";
             const postcode = addr.postcode || "";
-            const parts = [
-              streetStr || item.name || "",
-              city,
-              province,
-              postcode,
-              "Canada",
-            ].filter(Boolean);
-            const fullAddr = parts.join(", ");
+            const parts = [street, city, state, postcode].filter(Boolean);
+            const fullAddr = parts.join(", ") || item.display_name || "";
             return {
-              displayName: fullAddr,
+              displayName: item.display_name || fullAddr,
               address: fullAddr,
               postalCode: postcode,
               lat: parseFloat(item.lat),
@@ -259,67 +290,123 @@ export default function CustomerModal({ isOpen, onClose }: Props) {
         } else {
           setAddressSuggestions([]);
         }
-        */
       } catch (err: any) {
-        if (err.name !== "AbortError")
-          console.error("Autocomplete error:", err);
+        if (err.name !== "AbortError") console.error("Autocomplete error:", err);
       } finally {
         if (!abortController.signal.aborted) {
           setIsSearchingAddress(false);
         }
       }
-    }, 350);
+    }, 320);
 
     return () => {
       clearTimeout(timer);
       abortController.abort();
     };
-  }, [watchSearchAddress]);
+  }, [watchSearchAddress, branchCoords]);
 
-  const watchAddress = watch("address");
-  const watchPostalCode = watch("postalCode");
-
-  // Live Geocoding for manual address inputs (Canada Priority -> Global Fallback)
+  // Live Geocoding for manual Indian address inputs
   useEffect(() => {
-    if (
-      addressTab !== "manual" ||
-      !watchAddress ||
-      watchAddress.trim().length < 3
-    ) {
+    if (addressTab !== "manual" || !watchAddress || watchAddress.trim().length < 3) {
       return;
     }
 
     const timer = setTimeout(async () => {
-      const coords = await geocodeManualAddress(watchAddress, watchPostalCode);
+      const coords = await geocodeManualAddress(watchAddress, watchPostalCode, branchCoords);
       if (coords) {
         setSelectedCoords(coords);
       }
-    }, 350);
+    }, 400);
 
     return () => clearTimeout(timer);
-  }, [watchAddress, watchPostalCode, addressTab]);
+  }, [watchAddress, watchPostalCode, addressTab, branchCoords]);
+
+  // ── Auto-Search Existing Repeat Customers by Mobile (Instant Suggestion) ──
+  const searchCustomerOnline = async (query: string) => {
+    const clean = query.trim();
+    if (!clean || clean.length < 3) {
+      setMatchedCustomer(null);
+      return;
+    }
+
+    if (searchAbortRef.current) searchAbortRef.current.abort();
+    const abort = new AbortController();
+    searchAbortRef.current = abort;
+
+    setIsSearchingCustomer(true);
+    try {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api";
+      const res = await fetch(
+        `${apiUrl}/orders/customers/search?query=${encodeURIComponent(clean)}`,
+        { signal: abort.signal, credentials: "include" },
+      );
+      if (abort.signal.aborted) return;
+      const json = await res.json();
+      if (json.success && json.data) {
+        setMatchedCustomer(json.data);
+      } else {
+        setMatchedCustomer(null);
+      }
+    } catch {
+      setMatchedCustomer(null);
+    } finally {
+      if (!abort.signal.aborted) setIsSearchingCustomer(false);
+    }
+  };
+
+  const handleApplyMatchedCustomer = (customer: MatchedCustomer) => {
+    setValue("phone", customer.phone || "");
+    setValue("name", customer.name || "");
+    if (customer.email) setValue("email", customer.email);
+    if (customer.address) {
+      setValue("address", customer.address);
+      setShowAddressSection(true);
+    }
+    if (customer.postalCode) setValue("postalCode", customer.postalCode);
+    if (customer.driverNotes) setValue("driverNotes", customer.driverNotes);
+    if (customer.lat && customer.lng) {
+      setSelectedCoords({ lat: customer.lat, lng: customer.lng });
+    }
+    setMatchedCustomer(null);
+    toast.success(`Matched profile loaded for ${customer.name || customer.phone}!`);
+  };
 
   const handleClose = () => {
     reset();
     onClose();
   };
 
+  const handleClearCustomer = () => {
+    setCustomer(null);
+    reset({
+      phone: "",
+      email: "",
+      name: "",
+      address: "",
+      postalCode: "",
+      driverNotes: "",
+      searchQuery: "",
+      searchAddress: "",
+    });
+    setSelectedCoords(null);
+    setMatchedCustomer(null);
+    toast("Customer detached from order");
+  };
+
   const onSubmit = async (data: FormValues) => {
     const cleanPhone = data.phone.trim().replace(/\D/g, "");
     if (cleanPhone.length > 0 && cleanPhone.length !== 10) {
-      toast.error("Phone number must be exactly 10 digits.");
+      toast.error("Indian mobile number must be exactly 10 digits.");
       return;
     }
-    const customerName =
-      `${data.firstName || ""} ${data.lastName || ""}`.trim();
-    const finalName = customerName || "No Name";
+
+    const finalName = data.name.trim() || (cleanPhone ? `Customer ${cleanPhone.slice(-4)}` : "Walk-in Guest");
 
     let finalLat = selectedCoords?.lat || null;
     let finalLng = selectedCoords?.lng || null;
 
-    // If manual address or lat/lng not set yet, perform Canada-priority geocoding lookup
     if (data.address && (!finalLat || !finalLng)) {
-      const coords = await geocodeManualAddress(data.address, data.postalCode);
+      const coords = await geocodeManualAddress(data.address, data.postalCode, branchCoords);
       if (coords) {
         finalLat = coords.lat;
         finalLng = coords.lng;
@@ -329,101 +416,16 @@ export default function CustomerModal({ isOpen, onClose }: Props) {
     setCustomer({
       name: finalName,
       phone: cleanPhone,
-      email: data.email || undefined,
-      address: data.address || undefined,
-      postalCode: data.postalCode || undefined,
-      driverNotes: data.driverNotes || undefined,
+      email: data.email?.trim() || undefined,
+      address: data.address?.trim() || undefined,
+      postalCode: data.postalCode?.trim() || undefined,
+      driverNotes: data.driverNotes?.trim() || undefined,
       lat: finalLat || undefined,
       lng: finalLng || undefined,
     });
-    toast.success(`Customer ${finalName} set for order.`);
+
+    toast.success(`Customer ${finalName} attached to order!`);
     onClose();
-  };
-
-  // Validate & smart-sanitize the search field on every keystroke + auto-sync to phone/email
-  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    let val = e.target.value;
-    setSearchError(null);
-
-    // If purely digits → phone mode: cap at 10 and auto-sync to Enter Phone # field
-    const digitsOnly = val.replace(/\D/g, "");
-    if (/^\d*$/.test(val)) {
-      val = digitsOnly.slice(0, 10);
-      setValue("phone", val);
-    } else if (val.includes("@") || /[a-zA-Z]/.test(val)) {
-      // Auto-sync to Enter Email Address field
-      setValue("email", val);
-    }
-
-    setValue("searchQuery", val);
-  };
-
-  const handleSearch = async (queryOverride?: string) => {
-    const query = (queryOverride ?? watchSearchQuery ?? "").trim();
-    setSearchError(null);
-
-    if (!query || query.length < 3) {
-      setSearchError("Enter at least 3 characters.");
-      return;
-    }
-
-    const isPhone = /^\d+$/.test(query);
-    const hasAt = query.includes("@");
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
-
-    if (isPhone && query.length !== 10) {
-      setSearchError("Phone number must be exactly 10 digits.");
-      return;
-    }
-
-    if (hasAt && !emailRegex.test(query)) {
-      setSearchError("Enter a valid email address (e.g. john@email.com).");
-      return;
-    }
-
-    // Cancel any previous in-flight request
-    if (searchAbortRef.current) searchAbortRef.current.abort();
-    const abort = new AbortController();
-    searchAbortRef.current = abort;
-
-    setIsSearchingCustomer(true);
-    try {
-      const apiUrl =
-        process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api";
-      const res = await fetch(
-        `${apiUrl}/orders/customers/search?query=${encodeURIComponent(query)}`,
-        { signal: abort.signal, credentials: "include" },
-      );
-      if (abort.signal.aborted) return;
-      const json = await res.json();
-      if (json.success && json.data) {
-        const found = json.data;
-        setValue("phone", found.phone || "");
-        setValue("email", found.email || "");
-        setValue("firstName", found.firstName || "");
-        setValue("lastName", found.lastName || "");
-        setValue("address", found.address || "");
-        setValue("postalCode", found.postalCode || "");
-        toast.success(
-          ` Customer loaded: ${found.firstName} ${found.lastName}`.trim(),
-        );
-      } else {
-        toast.error("No customer found in our database.");
-      }
-    } catch (err: any) {
-      if (err.name !== "AbortError") {
-        toast.error("Search failed. Please try again.");
-      }
-    } finally {
-      if (!abort.signal.aborted) setIsSearchingCustomer(false);
-    }
-  };
-
-  const handleSearchKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter") {
-      e.preventDefault();
-      handleSearch();
-    }
   };
 
   const handleKeyPress = (key: string) => {
@@ -437,64 +439,38 @@ export default function CustomerModal({ isOpen, onClose }: Props) {
       newVal = currentVal + " ";
     } else if (key === "Tab") {
       const fields: (keyof FormValues)[] = [
-        "searchQuery",
         "phone",
+        "name",
         "email",
-        "firstName",
-        "lastName",
         "searchAddress",
         "address",
         "postalCode",
+        "driverNotes",
       ];
       const idx = fields.indexOf(activeField);
       if (idx !== -1) {
         const nextField = fields[(idx + 1) % fields.length];
         setActiveField(nextField);
-        const el = document.getElementsByName(nextField)[0];
-        if (el) el.focus();
       }
       return;
-    } else if (key === "Caps Lock" || key === "Shift") {
+    } else if (key === "Enter") {
+      handleSubmit(onSubmit)();
+      return;
+    } else if (key === "Caps Lock") {
       setCapsLock(!capsLock);
       return;
-    } else if (key === "Enter") {
-      const el = document.activeElement as HTMLElement;
-      if (el) el.blur();
-      setActiveField(null);
+    } else if (key === "Shift") {
+      setCapsLock(!capsLock);
       return;
     } else {
       const char = capsLock ? key.toUpperCase() : key.toLowerCase();
       newVal = currentVal + char;
     }
 
-    if (activeField === "firstName" || activeField === "lastName") {
-      newVal = newVal.replace(/[0-9]/g, ""); // Strip out numbers
-      newVal = newVal
-        .split(" ")
-        .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-        .join(" ");
-    } else if (activeField === "phone") {
-      newVal = newVal.replace(/\D/g, "").slice(0, 10); // Strip non-digits, limit 10
-      const currentSearch = getValues("searchQuery") || "";
-      if (!currentSearch || /^\d*$/.test(currentSearch)) {
-        setValue("searchQuery", newVal);
-      }
-    } else if (activeField === "email") {
-      const currentSearch = getValues("searchQuery") || "";
-      if (!currentSearch || currentSearch.includes("@") || /[a-zA-Z]/.test(currentSearch)) {
-        setValue("searchQuery", newVal);
-      }
-    } else if (activeField === "searchQuery") {
-      const digitsOnly = newVal.replace(/\D/g, "");
-      if (/^\d*$/.test(newVal)) {
-        newVal = digitsOnly.slice(0, 10);
-        setValue("phone", newVal);
-      } else if (newVal.includes("@") || /[a-zA-Z]/.test(newVal)) {
-        setValue("email", newVal);
-      }
-    }
-
     setValue(activeField, newVal);
+    if (activeField === "phone") {
+      searchCustomerOnline(newVal);
+    }
   };
 
   const registerWithFocus = (name: keyof FormValues, options?: any) => {
@@ -506,447 +482,378 @@ export default function CustomerModal({ isOpen, onClose }: Props) {
 
   if (!isOpen) return null;
 
+  const isPhoneValid = (watchPhone || "").replace(/\D/g, "").length === 10;
+
   return (
-    <div className="fixed inset-0 z-[200] flex items-center justify-center">
+    <div className="fixed inset-0 z-[200] flex items-center justify-center p-3 sm:p-5">
       {/* Backdrop */}
-      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
+      <div className="absolute inset-0 bg-neutral-900/60 backdrop-blur-xs transition-opacity" onClick={handleClose} />
 
       {/* Modal Dialog */}
-      <div className="relative w-[940px] max-w-[95vw] bg-white rounded-2xl shadow-2xl overflow-hidden flex flex-col z-10 border border-neutral-200 animate-scale-up font-sans">
-        {/* Brand Primary Header */}
-        <div className="bg-brand-primary py-2.5 px-5 flex items-center justify-between text-white flex-shrink-0">
-          <h3 className="text-xs font-800 tracking-wider uppercase">
-            ADD NEW CUSTOMER & ADDRESS
-          </h3>
-          <button
-            type="button"
-            onClick={handleClose}
-            className="text-xs font-700 hover:text-orange-100 flex items-center gap-1 cursor-pointer transition-all active:scale-95"
-          >
-            Close <X size={14} strokeWidth={2.5} />
-          </button>
+      <div className="relative w-full max-w-3xl bg-white rounded-3xl shadow-2xl overflow-hidden flex flex-col z-10 border border-neutral-200 animate-scale-up font-sans">
+        {/* ── Modal Header with Dynamic Brand Accent ── */}
+        <div className="bg-brand-primary text-white px-5 py-3.5 flex items-center justify-between shrink-0 shadow-xs">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-xl bg-white/20 backdrop-blur-xs flex items-center justify-center shrink-0">
+              <User size={16} className="text-white" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="text-xs sm:text-sm font-900 tracking-wider uppercase">
+                  Customer & Order Delivery Profile
+                </h3>
+                {orderType && (
+                  <span className="text-[9.5px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-white/25 text-white tracking-wider">
+                    {orderType.replace("-", " ")}
+                  </span>
+                )}
+              </div>
+              <p className="text-[10px] text-white/80 font-medium">
+                Customer contact details for WhatsApp billing & delivery fulfillment.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            {/* Toggle On-Screen Virtual Keyboard */}
+            <button
+              type="button"
+              onClick={() => setKeyboardEnabled(!keyboardEnabled)}
+              className={`px-2.5 py-1.5 rounded-xl text-[10.5px] font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
+                keyboardEnabled
+                  ? "bg-white text-neutral-900 shadow-xs"
+                  : "bg-white/15 hover:bg-white/25 text-white"
+              }`}
+              title="Toggle Touch Screen Virtual Keyboard"
+            >
+              <Keyboard size={13} />
+              <span className="hidden sm:inline">Keyboard</span>
+            </button>
+
+            {/* Close Button */}
+            <button
+              type="button"
+              onClick={handleClose}
+              className="w-7 h-7 rounded-xl bg-white/15 hover:bg-white/30 text-white flex items-center justify-center cursor-pointer transition-all active:scale-95"
+            >
+              <X size={15} />
+            </button>
+          </div>
         </div>
 
-        {/* Compact container to prevent scrolling */}
-        <div className="flex-1 overflow-y-auto max-h-[85vh] bg-[#FAF9F5]">
-          <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col">
-            <div className="grid grid-cols-2 gap-x-5 gap-y-2.5 px-5 py-2.5">
-              {/* Left Column*/}
-              <div className="bg-brand-primary-light/40 border border-brand-primary-muted/20 rounded-2xl px-4 py-4 space-y-3.5">
-                <h4 className="text-[11px] font-700 text-neutral-600 text-center uppercase tracking-wide">
-                  Search by phone number or email address
-                </h4>
+        {/* ── Modal Scrollable Body ── */}
+        <div className="overflow-y-auto max-h-[82vh] bg-[#FAF9F6] p-4 sm:p-5">
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+            {/* ── 1. PRIMARY CONTACT DETAILS (India WhatsApp-First) ── */}
+            <div className="bg-white rounded-2xl border border-neutral-200/80 p-4 sm:p-4.5 shadow-2xs space-y-3.5">
+              <div className="flex items-center justify-between pb-2 border-b border-neutral-100">
+                <div className="flex items-center gap-2">
+                  <Phone size={14} className="text-brand-primary" />
+                  <span className="text-[11.5px] font-800 text-neutral-800 uppercase tracking-wider">
+                    Mobile Number & Identity
+                  </span>
+                </div>
+                {isPhoneValid && (
+                  <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200/80 px-2 py-0.5 rounded-full flex items-center gap-1">
+                    <Check size={11} className="text-emerald-600" /> WhatsApp Bill Enabled
+                  </span>
+                )}
+              </div>
 
-                <div className="grid grid-cols-2 gap-x-3.5 gap-y-2">
-                  {/* Combined Search Input */}
-                  <div className="col-span-2 space-y-1">
-                    <div className="relative">
-                      <input
-                        {...registerWithFocus("searchQuery")}
-                        onKeyDown={handleSearchKeyDown}
-                        onChange={handleSearchChange}
-                        placeholder="Phone (10 digits) or email address"
-                        inputMode="text"
-                        className={`w-full bg-white border rounded-full pl-4 pr-9 py-2 text-[11px] font-500 text-neutral-800 placeholder-neutral-400 focus:outline-none focus:ring-2 transition-all ${
-                          searchError
-                            ? "border-red-400 focus:border-red-400 focus:ring-red-200/50"
-                            : "border-neutral-200 focus:border-brand-primary focus:ring-brand-primary/10"
-                        }`}
-                      />
-                      <button
-                        type="button"
-                        onClick={() => handleSearch()}
-                        disabled={isSearchingCustomer}
-                        className="absolute right-2 top-1/2 -translate-y-1/2 w-6 h-6 flex items-center justify-center text-neutral-400 hover:text-brand-primary rounded-full cursor-pointer transition-all disabled:opacity-60"
-                      >
-                        {isSearchingCustomer ? (
-                          <svg
-                            className="animate-spin w-3 h-3 text-brand-primary"
-                            xmlns="http://www.w3.org/2000/svg"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                          >
-                            <circle
-                              className="opacity-25"
-                              cx="12"
-                              cy="12"
-                              r="10"
-                              stroke="currentColor"
-                              strokeWidth="4"
-                            />
-                            <path
-                              className="opacity-75"
-                              fill="currentColor"
-                              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
-                            />
-                          </svg>
-                        ) : (
-                          <Search size={11} />
-                        )}
-                      </button>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                {/* 10-Digit Mobile Number with Indian Flag & +91 prefix */}
+                <div className="space-y-1">
+                  <label className="block text-[10px] font-800 text-neutral-600 uppercase tracking-wider">
+                    Mobile Number <span className="text-red-500">*</span>
+                  </label>
+                  <div className="relative flex items-center">
+                    <div className="absolute left-3 flex items-center gap-1 text-[11.5px] font-bold text-neutral-500 pointer-events-none select-none">
+                      <span>🇮🇳</span>
+                      <span>+91</span>
+                      <span className="text-neutral-300">|</span>
                     </div>
-                    {/* Inline validation hint */}
-                    {searchError && (
-                      <p className="text-[10px] font-600 text-red-500 pl-3 flex items-center gap-1">
-                        <span className="text-red-400">⚠</span> {searchError}
-                      </p>
-                    )}
-                    {/* Live character hint */}
-                    {!searchError && watchSearchQuery && (
-                      <p className="text-[10px] font-500 text-neutral-400 pl-3">
-                        {/^\d*$/.test(watchSearchQuery)
-                          ? `${watchSearchQuery.length}/10 digits`
-                          : watchSearchQuery.includes("@")
-                            ? "Email format detected"
-                            : "Name search"}
-                      </p>
-                    )}
-                  </div>
-
-                  {/* Enter Phone  & Email */}
-                  <div>
                     <input
                       {...registerWithFocus("phone", {
-                        onChange: (e: any) => {
-                          const val = e.target.value
-                            .replace(/\D/g, "")
-                            .slice(0, 10);
+                        onChange: (e: React.ChangeEvent<HTMLInputElement>) => {
+                          const val = e.target.value.replace(/\D/g, "").slice(0, 10);
                           setValue("phone", val);
-                          const currentSearch = getValues("searchQuery") || "";
-                          if (!currentSearch || /^\d*$/.test(currentSearch)) {
-                            setValue("searchQuery", val);
-                          }
+                          searchCustomerOnline(val);
                         },
                       })}
-                      placeholder="Enter Phone #"
-                      className="w-full bg-white border border-neutral-200 rounded-full px-4 py-2 text-[11px] font-500 text-neutral-800 placeholder-neutral-400 focus:outline-none focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/10 transition-all"
+                      type="tel"
+                      inputMode="numeric"
+                      placeholder="98765 43210"
+                      className="w-full h-10 pl-16 pr-3 bg-neutral-50 border border-neutral-200 rounded-xl text-xs font-bold font-mono text-neutral-900 placeholder-neutral-400 focus:outline-none focus:border-brand-primary focus:bg-white focus:ring-2 focus:ring-brand-primary/10 transition-all tracking-wider"
                     />
-                  </div>
-
-                  <div>
-                    <input
-                      {...registerWithFocus("email", {
-                        onChange: (e: any) => {
-                          const val = e.target.value;
-                          setValue("email", val);
-                          const currentSearch = getValues("searchQuery") || "";
-                          if (!currentSearch || currentSearch.includes("@") || /[a-zA-Z]/.test(currentSearch)) {
-                            setValue("searchQuery", val);
-                          }
-                        },
-                      })}
-                      placeholder="Enter Email Address"
-                      className="w-full bg-white border border-neutral-200 rounded-full px-4 py-2 text-[11px] font-500 text-neutral-800 placeholder-neutral-400 focus:outline-none focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/10 transition-all"
-                    />
-                  </div>
-
-                  {/*First Name & Last Name */}
-                  <div>
-                    <input
-                      {...registerWithFocus("firstName", {
-                        onChange: (e: any) => {
-                          const val = e.target.value.replace(/[0-9]/g, ""); // Strip numbers
-                          const capitalized = val
-                            .split(" ")
-                            .map(
-                              (word: string) =>
-                                word.charAt(0).toUpperCase() + word.slice(1),
-                            )
-                            .join(" ");
-                          setValue("firstName", capitalized);
-                        },
-                      })}
-                      placeholder="Enter First Name"
-                      className="w-full bg-white border border-neutral-200 rounded-full px-4 py-2 text-[11px] font-500 text-neutral-800 placeholder-neutral-400 focus:outline-none focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/10 transition-all"
-                    />
-                  </div>
-
-                  <div>
-                    <input
-                      {...registerWithFocus("lastName", {
-                        onChange: (e: any) => {
-                          const val = e.target.value.replace(/[0-9]/g, ""); // Strip numbers
-                          const capitalized = val
-                            .split(" ")
-                            .map(
-                              (word: string) =>
-                                word.charAt(0).toUpperCase() + word.slice(1),
-                            )
-                            .join(" ");
-                          setValue("lastName", capitalized);
-                        },
-                      })}
-                      placeholder="Enter Last Name"
-                      className="w-full bg-white border border-neutral-200 rounded-full px-4 py-2 text-[11px] font-500 text-neutral-800 placeholder-neutral-400 focus:outline-none focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/10 transition-all"
-                    />
+                    {isSearchingCustomer && (
+                      <div className="absolute right-3 w-3.5 h-3.5 border-2 border-brand-primary border-t-transparent rounded-full animate-spin" />
+                    )}
                   </div>
                 </div>
 
-                <div className="flex justify-center pt-1">
-                  <button
-                    type="submit"
-                    className="px-16 py-2.5 bg-brand-primary hover:bg-brand-primary-hover text-white rounded-full text-[12px] font-800 uppercase tracking-wider shadow-md shadow-brand-primary/20 active:scale-[0.98] transition-all cursor-pointer"
-                  >
-                    Submit
-                  </button>
+                {/* Customer Full Name */}
+                <div className="space-y-1">
+                  <label className="block text-[10px] font-800 text-neutral-600 uppercase tracking-wider">
+                    Customer Full Name
+                  </label>
+                  <div className="relative">
+                    <input
+                      {...registerWithFocus("name", {
+                        onChange: (e: React.ChangeEvent<HTMLInputElement>) => {
+                          const val = e.target.value;
+                          const formatted = val
+                            .split(" ")
+                            .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+                            .join(" ");
+                          setValue("name", formatted);
+                        },
+                      })}
+                      type="text"
+                      placeholder="e.g. Rahul Sharma"
+                      className="w-full h-10 pl-8 pr-3 bg-neutral-50 border border-neutral-200 rounded-xl text-xs font-bold text-neutral-900 placeholder-neutral-400 focus:outline-none focus:border-brand-primary focus:bg-white focus:ring-2 focus:ring-brand-primary/10 transition-all"
+                    />
+                    <User size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-neutral-400" />
+                  </div>
+                </div>
+
+                {/* Email Address (Optional) */}
+                <div className="sm:col-span-2 space-y-1">
+                  <label className="block text-[10px] font-800 text-neutral-600 uppercase tracking-wider flex items-center justify-between">
+                    <span>Email Address (Optional)</span>
+                    <span className="text-[9.5px] text-neutral-400 font-normal">For tax invoice copy</span>
+                  </label>
+                  <div className="relative">
+                    <input
+                      {...registerWithFocus("email")}
+                      type="email"
+                      placeholder="customer@gmail.com"
+                      className="w-full h-9 pl-8 pr-3 bg-neutral-50 border border-neutral-200 rounded-xl text-xs font-semibold text-neutral-900 placeholder-neutral-400 focus:outline-none focus:border-brand-primary focus:bg-white focus:ring-2 focus:ring-brand-primary/10 transition-all"
+                    />
+                    <Mail size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-neutral-400" />
+                  </div>
                 </div>
               </div>
 
-              {/* Right Column */}
-              <div className="space-y-2">
-                {/* Autocomplete Tabs & Keyboard Switch */}
-                <div className="flex items-center justify-between border-b border-neutral-200/80 pb-1 flex-shrink-0">
-                  <div className="flex items-center gap-4">
-                    <button
-                      type="button"
-                      onClick={() => setAddressTab("auto")}
-                      className={`text-[11px] font-700 pb-1 transition-all cursor-pointer ${
-                        addressTab === "auto"
-                          ? "text-red-500 border-b-2 border-red-500"
-                          : "text-neutral-400 hover:text-neutral-600"
-                      }`}
-                    >
-                      Auto complete address?
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setAddressTab("manual")}
-                      className={`text-[11px] font-700 pb-1 transition-all cursor-pointer ${
-                        addressTab === "manual"
-                          ? "text-blue-500 border-b-2 border-blue-500"
-                          : "text-neutral-400 hover:text-neutral-600"
-                      }`}
-                    >
-                      Add address manually?
-                    </button>
+              {/* ── Repeat Customer Suggestion Box (Instant 1-Click Load) ── */}
+              {matchedCustomer && (
+                <div className="p-3 bg-orange-50/50 border border-brand-primary/30 rounded-xl flex items-center justify-between gap-3 animate-fade-in">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <div className="w-7 h-7 rounded-lg bg-brand-primary text-white flex items-center justify-center shrink-0">
+                      <Sparkles size={13} />
+                    </div>
+                    <div className="min-w-0">
+                      <span className="text-[11px] font-extrabold text-neutral-900 block truncate">
+                        Existing Customer: {matchedCustomer.name || matchedCustomer.phone}
+                      </span>
+                      <span className="text-[9.5px] text-neutral-500 font-medium block truncate">
+                        {matchedCustomer.address
+                          ? `Saved Address: ${matchedCustomer.address}`
+                          : "Saved profile found in directory"}
+                      </span>
+                    </div>
                   </div>
+                  <button
+                    type="button"
+                    onClick={() => handleApplyMatchedCustomer(matchedCustomer)}
+                    className="px-3 py-1.5 rounded-lg bg-neutral-900 hover:bg-neutral-800 text-white text-[10.5px] font-extrabold uppercase tracking-wider shrink-0 transition-all cursor-pointer shadow-2xs active:scale-95"
+                  >
+                    Load Profile
+                  </button>
+                </div>
+              )}
+            </div>
 
-                  {/* Keyboard Switch Toggle */}
-                  <div className="flex items-center gap-1.5 pb-1">
-                    <label className="relative inline-flex items-center cursor-pointer select-none">
-                      <input
-                        type="checkbox"
-                        checked={keyboardEnabled}
-                        onChange={(e) => setKeyboardEnabled(e.target.checked)}
-                        className="sr-only peer"
-                      />
-                      <div className="w-8 h-4.5 bg-neutral-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-neutral-300 after:border after:rounded-full after:h-3.5 after:w-3.5 after:transition-all peer-checked:bg-red-500"></div>
-                    </label>
-                    <span className="text-[10px] font-700 text-red-500 uppercase tracking-wide flex items-center gap-1">
-                      <Keyboard size={11} /> Keyboard
-                    </span>
-                  </div>
+            {/* ── 2. DELIVERY ADDRESS & MAPBOX INDIA GEOCODING ── */}
+            <div className="bg-white rounded-2xl border border-neutral-200/80 p-4 sm:p-4.5 shadow-2xs space-y-3.5">
+              <div className="flex items-center justify-between pb-2 border-b border-neutral-100">
+                <div className="flex items-center gap-2">
+                  <MapPin size={14} className="text-brand-primary" />
+                  <span className="text-[11.5px] font-800 text-neutral-800 uppercase tracking-wider">
+                    Delivery Address & Rider Routing (India)
+                  </span>
                 </div>
 
-                {/* Address Search / Input */}
-                {addressTab === "auto" ? (
-                  <div className="space-y-2">
-                    <div className="relative">
-                      <input
-                        {...registerWithFocus("searchAddress")}
-                        placeholder="Search By Address"
-                        className="w-full bg-brand-primary-light/10 border border-neutral-200 rounded-lg pl-3 pr-9 py-2 text-[11px] font-500 text-neutral-800 placeholder-neutral-400 focus:outline-none focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/10 transition-all"
-                      />
-                      {isSearchingAddress ? (
-                        <svg
-                          className="animate-spin h-3.5 w-3.5 text-brand-primary absolute right-3 top-1/2 -translate-y-1/2"
-                          xmlns="http://www.w3.org/2000/svg"
-                          fill="none"
-                          viewBox="0 0 24 24"
-                        >
-                          <circle
-                            className="opacity-25"
-                            cx="12"
-                            cy="12"
-                            r="10"
-                            stroke="currentColor"
-                            strokeWidth="4"
-                          ></circle>
-                          <path
-                            className="opacity-75"
-                            fill="currentColor"
-                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
-                          ></path>
-                        </svg>
-                      ) : (
-                        <Search
-                          size={13}
-                          className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400"
-                        />
-                      )}
-                    </div>
-
-                    {/* Filtered suggestions list */}
-                    {isSearchingAddress && (
-                      <div className="flex items-center gap-2 text-[10px] text-brand-primary font-600 px-2.5 py-1.5 bg-red-50/80 border border-red-100/80 rounded-lg animate-pulse">
-                        <svg
-                          className="animate-spin h-3 w-3 text-brand-primary shrink-0"
-                          xmlns="http://www.w3.org/2000/svg"
-                          fill="none"
-                          viewBox="0 0 24 24"
-                        >
-                          <circle
-                            className="opacity-25"
-                            cx="12"
-                            cy="12"
-                            r="10"
-                            stroke="currentColor"
-                            strokeWidth="4"
-                          ></circle>
-                          <path
-                            className="opacity-75"
-                            fill="currentColor"
-                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
-                          ></path>
-                        </svg>
-                        <span>Searching Canadian addresses with Mapbox...</span>
-                      </div>
-                    )}
-                    {addressSuggestions.length > 0 && (
-                      <div className="bg-white border border-neutral-200 rounded-lg divide-y divide-neutral-100 shadow-md max-h-[160px] overflow-y-auto z-20">
-                        {addressSuggestions.map((item, idx) => (
-                          <button
-                            key={idx}
-                            type="button"
-                            onClick={() => {
-                              setValue("address", item.address);
-                              if (item.postalCode)
-                                setValue("postalCode", item.postalCode);
-                              setValue("searchAddress", "");
-                              setSelectedCoords({
-                                lat: item.lat,
-                                lng: item.lng,
-                              });
-                              setAddressSuggestions([]);
-                              toast.success(
-                                "Address & Pin coordinates captured!",
-                              );
-                            }}
-                            className="w-full text-left px-3 py-2 text-[10.5px] font-500 text-neutral-800 hover:bg-brand-primary-light/50 transition-all flex items-center justify-between gap-2"
-                          >
-                            <span className="line-clamp-1">
-                              {item.displayName}
-                            </span>
-                            <span className="text-[9px] font-700 bg-emerald-50 text-emerald-700 border border-emerald-200 px-1.5 py-0.5 rounded shrink-0 flex items-center gap-1">
-                              <MapPin
-                                size={10}
-                                className="text-emerald-600 shrink-0"
-                              />{" "}
-                              Pinned
-                            </span>
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-3 gap-3">
-                    <div className="col-span-2">
-                      <label className="text-[9.5px] font-700 text-neutral-500 uppercase tracking-wide mb-1 block">
-                        Street Address
-                      </label>
-                      <input
-                        {...registerWithFocus("address")}
-                        placeholder="e.g. 123 Main St"
-                        className="w-full bg-white border border-neutral-200 rounded-lg px-3 py-2 text-[11px] font-500 text-neutral-800 placeholder-neutral-400 focus:outline-none focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/10 transition-all"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-[9.5px] font-700 text-neutral-500 uppercase tracking-wide mb-1 block">
-                        Postal Code
-                      </label>
-                      <input
-                        {...registerWithFocus("postalCode")}
-                        placeholder="M5V 2T6"
-                        className="w-full bg-white border border-neutral-200 rounded-lg px-3 py-2 text-[11px] font-500 text-neutral-800 placeholder-neutral-400 focus:outline-none focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/10 transition-all"
-                      />
-                    </div>
-                  </div>
-                )}
-
-                {/* Show current address selection - Compact */}
-                <div className="bg-neutral-50 border border-neutral-200/60 rounded-xl py-1.5 px-3 text-[10px] space-y-1">
-                  <div className="flex items-center justify-between">
-                    <span className="font-700 text-neutral-500 uppercase tracking-wider">
-                      Active Address Detail
-                    </span>
-                    {selectedCoords ? (
-                      <span className="text-[9px] font-700 text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200 flex items-center gap-1">
-                        <MapPin
-                          size={10}
-                          className="text-emerald-600 shrink-0"
-                        />
-                        Pin Captured ({selectedCoords.lat.toFixed(4)},{" "}
-                        {selectedCoords.lng.toFixed(4)})
-                      </span>
-                    ) : (
-                      <span className="text-[9px] text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200 flex items-center gap-1">
-                        <MapPin size={10} className="text-amber-600 shrink-0" />
-                        Auto Pin on Submit
-                      </span>
-                    )}
-                  </div>
-                  <div className="font-600 text-neutral-800 leading-tight">
-                    {watch("address") || (
-                      <span className="text-neutral-400 italic">
-                        No address selected
-                      </span>
-                    )}
-                  </div>
-                  {watch("postalCode") && (
-                    <div className="text-[9px] text-neutral-500">
-                      Postal Code: {watch("postalCode")}
+                <div className="flex items-center gap-2">
+                  {!showAddressSection ? (
+                    <button
+                      type="button"
+                      onClick={() => setShowAddressSection(true)}
+                      className="text-[10.5px] font-extrabold text-brand-primary hover:underline cursor-pointer"
+                    >
+                      + Add Address
+                    </button>
+                  ) : (
+                    <div className="flex items-center gap-2 text-[10.5px] font-bold">
+                      <button
+                        type="button"
+                        onClick={() => setAddressTab("auto")}
+                        className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer ${
+                          addressTab === "auto"
+                            ? "bg-brand-primary text-white shadow-2xs"
+                            : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200"
+                        }`}
+                      >
+                        Auto-Search
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setAddressTab("manual")}
+                        className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer ${
+                          addressTab === "manual"
+                            ? "bg-brand-primary text-white shadow-2xs"
+                            : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200"
+                        }`}
+                      >
+                        Manual Fields
+                      </button>
                     </div>
                   )}
                 </div>
-
-                {/* Driver Notes Textarea */}
-                <div className="bg-white border border-neutral-200 rounded-xl p-2.5 shadow-sm space-y-1">
-                  <label className="block text-[9.5px] font-700 text-neutral-500 uppercase tracking-wide">
-                    Driver Notes / Special Instructions
-                  </label>
-                  <textarea
-                    {...registerWithFocus("driverNotes")}
-                    rows={2}
-                    placeholder="Add Driver Notes (e.g. Gate code #1234, ring bell twice, leave at side door)..."
-                    className="w-full bg-neutral-50 border border-neutral-200 rounded-lg p-2 text-[11px] font-500 text-neutral-800 placeholder-neutral-400 focus:outline-none focus:border-brand-primary focus:bg-white focus:ring-2 focus:ring-brand-primary/10 transition-all resize-none"
-                  />
-                </div>
               </div>
+
+              {showAddressSection && (
+                <div className="space-y-3">
+                  {addressTab === "auto" ? (
+                    <div className="space-y-2">
+                      <div className="relative">
+                        <input
+                          {...registerWithFocus("searchAddress")}
+                          placeholder="Search Street, Sector, Landmark or Colony with Mapbox India..."
+                          className="w-full h-10 pl-9 pr-9 bg-neutral-50 border border-neutral-200 rounded-xl text-xs font-semibold text-neutral-900 placeholder-neutral-400 focus:outline-none focus:border-brand-primary focus:bg-white focus:ring-2 focus:ring-brand-primary/10 transition-all"
+                        />
+                        <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400" />
+                        {isSearchingAddress && (
+                          <div className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 border-2 border-brand-primary border-t-transparent rounded-full animate-spin" />
+                        )}
+                      </div>
+
+                      {/* Mapbox India Suggestions Dropdown */}
+                      {addressSuggestions.length > 0 && (
+                        <div className="bg-white border border-neutral-200 rounded-xl divide-y divide-neutral-100 shadow-lg max-h-[180px] overflow-y-auto">
+                          {addressSuggestions.map((item, idx) => (
+                            <button
+                              key={idx}
+                              type="button"
+                              onClick={() => {
+                                setValue("address", item.address);
+                                if (item.postalCode) setValue("postalCode", item.postalCode);
+                                setValue("searchAddress", "");
+                                setSelectedCoords({ lat: item.lat, lng: item.lng });
+                                setAddressSuggestions([]);
+                                toast.success("Address & Pin captured for India routing!");
+                              }}
+                              className="w-full text-left px-3.5 py-2.5 text-[11px] font-semibold text-neutral-800 hover:bg-orange-50/60 transition-all flex items-center justify-between gap-3 cursor-pointer"
+                            >
+                              <div className="flex items-start gap-2 min-w-0">
+                                <MapPin size={12} className="text-brand-primary shrink-0 mt-0.5" />
+                                <span className="line-clamp-1">{item.displayName}</span>
+                              </div>
+                              <span className="text-[9px] font-extrabold bg-emerald-50 text-emerald-700 border border-emerald-200 px-1.5 py-0.5 rounded shrink-0">
+                                Set Pin
+                              </span>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      <div className="sm:col-span-2 space-y-1">
+                        <label className="block text-[9.5px] font-800 text-neutral-600 uppercase tracking-wider">
+                          Street, Flat, House or Area
+                        </label>
+                        <input
+                          {...registerWithFocus("address")}
+                          placeholder="e.g. Flat 302, Palm Heights, Main Market"
+                          className="w-full h-9 px-3 bg-neutral-50 border border-neutral-200 rounded-xl text-xs font-semibold text-neutral-900 placeholder-neutral-400 focus:outline-none focus:border-brand-primary focus:bg-white"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="block text-[9.5px] font-800 text-neutral-600 uppercase tracking-wider">
+                          Indian PIN Code (6-Digits)
+                        </label>
+                        <input
+                          {...registerWithFocus("postalCode", {
+                            onChange: (e: React.ChangeEvent<HTMLInputElement>) => {
+                              const v = e.target.value.replace(/\D/g, "").slice(0, 6);
+                              setValue("postalCode", v);
+                            },
+                          })}
+                          maxLength={6}
+                          placeholder="e.g. 110001"
+                          className="w-full h-9 px-3 bg-neutral-50 border border-neutral-200 rounded-xl text-xs font-bold font-mono text-neutral-900 placeholder-neutral-400 focus:outline-none focus:border-brand-primary focus:bg-white tracking-wider"
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Active Address Status Pill */}
+                  <div className="bg-neutral-50/80 border border-neutral-200 rounded-xl p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
+                    <div className="min-w-0">
+                      <span className="text-[10px] font-extrabold uppercase text-neutral-400 block tracking-wider">
+                        Active Selected Address:
+                      </span>
+                      <span className="font-bold text-neutral-800 block truncate text-[11.5px] mt-0.5">
+                        {watchAddress || <em className="text-neutral-400">No address assigned yet</em>}
+                      </span>
+                    </div>
+
+                    <div className="shrink-0">
+                      {selectedCoords ? (
+                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-800 border border-emerald-200 font-mono text-[10px] font-bold">
+                          <Navigation size={10} className="text-emerald-600" />
+                          GPS ({selectedCoords.lat.toFixed(3)}, {selectedCoords.lng.toFixed(3)})
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-amber-50 text-amber-800 border border-amber-200 text-[10px] font-bold">
+                          Auto-Pin on Order
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Driver Delivery Notes / Landmark */}
+                  <div className="space-y-1">
+                    <label className="block text-[9.5px] font-800 text-neutral-600 uppercase tracking-wider flex items-center gap-1">
+                      <FileText size={11} className="text-brand-primary" />
+                      <span>Rider Notes & Landmark Instructions</span>
+                    </label>
+                    <input
+                      {...registerWithFocus("driverNotes")}
+                      placeholder="e.g. Near Shiv Mandir, 2nd floor, call on arrival, don't ring bell..."
+                      className="w-full h-9 px-3 bg-neutral-50 border border-neutral-200 rounded-xl text-xs font-medium text-neutral-800 placeholder-neutral-400 focus:outline-none focus:border-brand-primary focus:bg-white"
+                    />
+                  </div>
+                </div>
+              )}
             </div>
 
-            {/* Virtual Keyboard Section */}
+            {/* ── Virtual Keyboard (Collapsible for Clean Desktop POS) ── */}
             {keyboardEnabled && (
-              <div className="border-t border-neutral-100 bg-neutral-100/50 py-2 px-4 select-none flex-shrink-0">
-                <div className="flex flex-col gap-1 max-w-[820px] mx-auto">
+              <div className="border border-neutral-200/80 bg-neutral-100/70 p-2.5 rounded-2xl select-none animate-fade-in shadow-inner">
+                <div className="flex flex-col gap-1 max-w-[760px] mx-auto">
                   {KEYBOARD_ROWS.map((row, rowIdx) => (
                     <div key={rowIdx} className="flex gap-1 justify-center">
                       {row.map((key) => {
                         let btnClass =
-                          "h-11 rounded-lg font-700 text-[13px] transition-all active:scale-95 cursor-pointer shadow-sm flex items-center justify-center bg-white border border-neutral-200 text-neutral-700 hover:bg-neutral-50 ";
+                          "h-10 rounded-lg font-bold text-[12px] transition-all active:scale-95 cursor-pointer shadow-2xs flex items-center justify-center bg-white border border-neutral-200 text-neutral-700 hover:bg-neutral-50 ";
 
                         if (key === "Backspace") {
-                          btnClass +=
-                            "w-24 bg-neutral-200 text-neutral-800 hover:bg-neutral-300";
+                          btnClass += "w-20 bg-neutral-200/80 text-neutral-800 hover:bg-neutral-300";
                         } else if (key === "Tab") {
-                          btnClass +=
-                            "w-18 bg-neutral-200 text-neutral-800 hover:bg-neutral-300";
+                          btnClass += "w-16 bg-neutral-200/80 text-neutral-800 hover:bg-neutral-300";
                         } else if (key === "Caps Lock") {
                           btnClass +=
-                            "w-28 bg-neutral-200 text-neutral-800 hover:bg-neutral-300 " +
-                            (capsLock
-                              ? "border-brand-primary ring-1 ring-brand-primary"
-                              : "");
+                            "w-22 bg-neutral-200/80 text-neutral-800 " +
+                            (capsLock ? "border-brand-primary ring-2 ring-brand-primary/20" : "");
                         } else if (key === "Enter") {
-                          btnClass +=
-                            "w-24 bg-brand-primary text-white hover:bg-brand-primary-hover border-none";
+                          btnClass += "w-22 bg-brand-primary text-white border-none shadow-xs";
                         } else if (key === "Shift") {
-                          btnClass +=
-                            "w-24 bg-neutral-200 text-neutral-800 hover:bg-neutral-300";
+                          btnClass += "w-20 bg-neutral-200/80 text-neutral-800";
                         } else if (key === "Space") {
-                          btnClass += "w-[360px] hover:bg-neutral-50";
+                          btnClass += "w-[280px] hover:bg-neutral-50";
                         } else {
-                          btnClass += "w-12";
+                          btnClass += "w-10 sm:w-11";
                         }
 
                         return (
@@ -957,10 +864,10 @@ export default function CustomerModal({ isOpen, onClose }: Props) {
                             className={btnClass}
                           >
                             {key === "Caps Lock" && capsLock
-                              ? "CAPS ON"
+                              ? "CAPS"
                               : capsLock && key.length === 1
-                                ? key.toUpperCase()
-                                : key}
+                              ? key.toUpperCase()
+                              : key}
                           </button>
                         );
                       })}
@@ -969,6 +876,41 @@ export default function CustomerModal({ isOpen, onClose }: Props) {
                 </div>
               </div>
             )}
+
+            {/* ── Modal Footer Buttons ── */}
+            <div className="flex items-center justify-between pt-2 border-t border-neutral-200">
+              {selectedCustomer ? (
+                <button
+                  type="button"
+                  onClick={handleClearCustomer}
+                  className="px-3.5 py-2 text-xs font-bold text-red-600 hover:bg-red-50 rounded-xl transition-all flex items-center gap-1.5 cursor-pointer"
+                >
+                  <Trash2 size={13} />
+                  <span>Detach Customer</span>
+                </button>
+              ) : (
+                <span className="text-[11px] text-neutral-400 font-medium">
+                  {isPhoneValid ? "✓ Ready to attach" : "Enter 10-digit mobile number"}
+                </span>
+              )}
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleClose}
+                  className="px-4 py-2 border border-neutral-200 text-neutral-700 text-xs font-bold rounded-xl hover:bg-white transition-all cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-6 py-2.5 bg-brand-primary hover:bg-brand-primary-hover text-white text-xs font-900 rounded-xl transition-all shadow-md shadow-brand-primary/20 active:scale-95 cursor-pointer uppercase tracking-wider flex items-center gap-1.5"
+                >
+                  <Check size={14} />
+                  <span>Save & Attach Customer</span>
+                </button>
+              </div>
+            </div>
           </form>
         </div>
       </div>
