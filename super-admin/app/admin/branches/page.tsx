@@ -44,6 +44,7 @@ import {
   Image as ImageIcon,
   UploadCloud,
   Loader2,
+  Palette,
 } from "lucide-react";
 
 interface FeatureToggles {
@@ -61,7 +62,19 @@ interface FeatureToggles {
   employeeAttendance?: boolean;
   reports: boolean;
   customers: boolean;
+  onlineOrders?: boolean;
 }
+
+const COLOR_PRESETS = [
+  { name: "Warm Orange", hex: "#F97316" },
+  { name: "Crimson Red", hex: "#DC2626" },
+  { name: "Pure Veg Emerald", hex: "#10B981" },
+  { name: "Royal Indigo", hex: "#6366F1" },
+  { name: "Amber Gold", hex: "#D97706" },
+  { name: "Deep Berry", hex: "#9333EA" },
+  { name: "Espresso Brown", hex: "#78350F" },
+  { name: "Slate Charcoal", hex: "#334155" },
+];
 
 const getPresetFeatureToggles = (format: string): FeatureToggles => {
   switch (format) {
@@ -81,6 +94,7 @@ const getPresetFeatureToggles = (format: string): FeatureToggles => {
         employeeAttendance: true,
         reports: true,
         customers: true,
+        onlineOrders: true,
       };
     case "cloud_kitchen":
       return {
@@ -98,6 +112,7 @@ const getPresetFeatureToggles = (format: string): FeatureToggles => {
         employeeAttendance: true,
         reports: true,
         customers: true,
+        onlineOrders: true,
       };
     case "cafe":
       return {
@@ -115,6 +130,7 @@ const getPresetFeatureToggles = (format: string): FeatureToggles => {
         employeeAttendance: true,
         reports: true,
         customers: true,
+        onlineOrders: true,
       };
     case "fine_dine":
       return {
@@ -132,6 +148,7 @@ const getPresetFeatureToggles = (format: string): FeatureToggles => {
         employeeAttendance: true,
         reports: true,
         customers: true,
+        onlineOrders: true,
       };
     default:
       return {
@@ -149,6 +166,7 @@ const getPresetFeatureToggles = (format: string): FeatureToggles => {
         employeeAttendance: true,
         reports: true,
         customers: true,
+        onlineOrders: true,
       };
   }
 };
@@ -209,6 +227,7 @@ export default function BranchesPage() {
     password: string;
     gstNumber: string;
     logo: string;
+    themeColor: string;
     featureToggles: FeatureToggles;
     isActive: boolean;
   }>({
@@ -222,6 +241,7 @@ export default function BranchesPage() {
     password: "",
     gstNumber: "",
     logo: "",
+    themeColor: "#F97316",
     featureToggles: getPresetFeatureToggles("general"),
     isActive: true,
   });
@@ -309,6 +329,7 @@ export default function BranchesPage() {
         password: branch.password || "",
         gstNumber: branch.gstNumber || branch.settings?.mainSettings?.gstNumber || "",
         logo: branch.logo || "",
+        themeColor: branch.themeColor || "#F97316",
         featureToggles: {
           pos: bT.pos ?? true,
           kds: bT.kds ?? bT.kotKitchen ?? true,
@@ -324,6 +345,7 @@ export default function BranchesPage() {
           employeeAttendance: bT.attendance ?? bT.employeeAttendance ?? true,
           reports: bT.reports ?? true,
           customers: bT.customers ?? true,
+          onlineOrders: bT.onlineOrders ?? true,
         },
         isActive: branch.isActive,
       });
@@ -340,6 +362,7 @@ export default function BranchesPage() {
         password: "",
         gstNumber: "",
         logo: "",
+        themeColor: "#F97316",
         featureToggles: getPresetFeatureToggles("general"),
         isActive: true,
       });
@@ -604,6 +627,22 @@ export default function BranchesPage() {
                           <span>{typeObj.label}</span>
                         </span>
 
+                        {/* Theme Color Indicator */}
+                        <span
+                          className="inline-flex items-center gap-1.5 text-[9.5px] font-bold px-2 py-0.5 rounded-md bg-white text-neutral-700 border border-neutral-200 shadow-2xs"
+                          title={`Accent Theme: ${branch.themeColor || "#F97316"}`}
+                        >
+                          <span
+                            className="w-2.5 h-2.5 rounded-full border border-black/10 shrink-0"
+                            style={{ backgroundColor: branch.themeColor || "#F97316" }}
+                          />
+                          <span>
+                            {COLOR_PRESETS.find(
+                              (c) => c.hex.toLowerCase() === (branch.themeColor || "#F97316").toLowerCase()
+                            )?.name.split(" ")[0] || "Theme"}
+                          </span>
+                        </span>
+
                         {/* Active Toggle Button */}
                         <button
                           onClick={() => handleToggleActive(branch)}
@@ -733,6 +772,7 @@ export default function BranchesPage() {
                         if (bT.attendance !== false && bT.employeeAttendance !== false) activeList.push("Staff");
                         if (bT.reports !== false) activeList.push("Reports");
                         if (bT.customers !== false) activeList.push("CRM");
+                        if (bT.onlineOrders !== false) activeList.push("Online/QR");
                         return activeList.map((m) => (
                           <span key={m} className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-neutral-100 text-neutral-700 border border-neutral-200/70">
                             {m}
@@ -1025,6 +1065,93 @@ export default function BranchesPage() {
                 </div>
               </div>
 
+              {/* ── 2.5 BRAND ACCENT THEME COLOR & COLOR PICKER ── */}
+              <div className="p-3.5 bg-neutral-50/90 border border-neutral-200/80 rounded-2xl space-y-3">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pb-2 border-b border-neutral-200/60">
+                  <div className="flex items-center gap-2">
+                    <div className="w-6 h-6 rounded-lg bg-orange-100/70 text-brand-primary flex items-center justify-center shrink-0">
+                      <Palette size={13} />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-800 text-neutral-800 uppercase tracking-wider">
+                        Accent Theme Color (Applied Across POS, KDS & Customer Web)
+                      </label>
+                      <p className="text-[9.5px] text-neutral-400 font-medium">
+                        Select a popular preset or use the color picker to set any custom brand color.
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Interactive Color Picker & Live Hex Input */}
+                  <div className="flex items-center gap-2 self-start sm:self-auto bg-white p-1 rounded-xl border border-neutral-200 shadow-2xs">
+                    <label
+                      htmlFor="custom-theme-color-input"
+                      className="relative w-7 h-7 rounded-lg cursor-pointer border border-neutral-300 overflow-hidden flex items-center justify-center shrink-0 shadow-2xs hover:scale-105 transition-transform"
+                      title="Click to open color picker spectrum"
+                    >
+                      <span
+                        className="w-full h-full block"
+                        style={{ backgroundColor: formData.themeColor || "#F97316" }}
+                      />
+                      <input
+                        id="custom-theme-color-input"
+                        type="color"
+                        value={
+                          formData.themeColor && /^#[0-9A-Fa-f]{6}$/.test(formData.themeColor)
+                            ? formData.themeColor
+                            : "#F97316"
+                        }
+                        onChange={(e) =>
+                          setFormData((prev) => ({ ...prev, themeColor: e.target.value.toUpperCase() }))
+                        }
+                        className="opacity-0 absolute inset-0 w-full h-full cursor-pointer"
+                      />
+                    </label>
+
+                    <input
+                      type="text"
+                      maxLength={7}
+                      value={formData.themeColor || "#F97316"}
+                      onChange={(e) => {
+                        let val = e.target.value;
+                        if (!val.startsWith("#")) val = "#" + val;
+                        setFormData((prev) => ({ ...prev, themeColor: val.toUpperCase() }));
+                      }}
+                      className="w-20 h-7 px-1.5 bg-neutral-50 border border-neutral-200 rounded-lg text-[10.5px] font-mono font-bold text-neutral-800 uppercase tracking-wider focus:outline-none focus:bg-white focus:border-brand-primary transition-all text-center"
+                      placeholder="#F97316"
+                      title="Custom HEX color code"
+                    />
+                  </div>
+                </div>
+
+                {/* Popular Presets Grid */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-0.5">
+                  {COLOR_PRESETS.map((preset) => {
+                    const isSelected =
+                      (formData.themeColor || "#F97316").toLowerCase() === preset.hex.toLowerCase();
+                    return (
+                      <button
+                        key={preset.hex}
+                        type="button"
+                        onClick={() => setFormData((prev) => ({ ...prev, themeColor: preset.hex }))}
+                        className={`flex items-center gap-2.5 px-3 py-2 rounded-xl border text-[11px] font-bold transition-all cursor-pointer select-none ${
+                          isSelected
+                            ? "border-neutral-900 bg-neutral-900 text-white shadow-xs scale-[1.02]"
+                            : "border-neutral-200 bg-white hover:bg-neutral-100/80 text-neutral-700"
+                        }`}
+                      >
+                        <span
+                          className="w-3.5 h-3.5 rounded-full border border-black/15 shrink-0 shadow-2xs"
+                          style={{ backgroundColor: preset.hex }}
+                        />
+                        <span className="truncate">{preset.name}</span>
+                        {isSelected && <Check size={12} className="ml-auto shrink-0 text-white" />}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
               {/* ── 3. LOGIN CREDENTIALS ── */}
               <div className="p-4 bg-orange-50/40 border border-orange-200/80 rounded-2xl space-y-3">
                 <span className="text-[10.5px] font-900 uppercase tracking-wider text-brand-primary block">
@@ -1241,6 +1368,12 @@ export default function BranchesPage() {
                       desc: "Dining hall floor plan, table capacity & real-time occupancy status (Available, Occupied, Billed) (Beta)",
                       icon: TableProperties,
                       badge: "Beta",
+                    },
+                    {
+                      key: "onlineOrders",
+                      label: "Online & QR Menu Orders",
+                      desc: "Accept customer orders directly from Customer Web Menu & Table QR Code scanning",
+                      icon: Sparkles,
                     },
                   ].map((feat) => {
                     const isEnabled = (formData.featureToggles as any)[feat.key] ?? false;

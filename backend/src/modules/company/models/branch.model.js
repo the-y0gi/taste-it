@@ -98,6 +98,7 @@ const branchSchema = new mongoose.Schema(
       employeeAttendance: { type: Boolean, default: true }, // backward-compatibility alias
       reports: { type: Boolean, default: true },
       customers: { type: Boolean, default: true },
+      onlineOrders: { type: Boolean, default: true },
     },
     qrCodePayload: {
       type: String,

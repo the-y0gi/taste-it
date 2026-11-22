@@ -237,12 +237,8 @@ export default function SettingsDashboard() {
     await saveSettingsToBackend(
       {
         mainSettings,
-        logo: branchCustomization.logo,
-        themeColor: branchCustomization.themeColor,
-        restaurantType: branchCustomization.restaurantType,
-        featureToggles: branchCustomization.featureToggles,
       },
-      'Main Settings & Feature Customizations updated successfully!'
+      'Store Operations & Regional Settings updated successfully!'
     );
     // Also update rms_branch localStorage so delivery map and navigation pick up new values immediately
     try {
@@ -251,12 +247,16 @@ export default function SettingsDashboard() {
         const b = JSON.parse(raw);
         b.lat = Number(mainSettings.latitude) || b.lat;
         b.lng = Number(mainSettings.longitude) || b.lng;
-        b.logo = branchCustomization.logo;
-        b.themeColor = branchCustomization.themeColor;
-        b.restaurantType = branchCustomization.restaurantType;
-        b.featureToggles = branchCustomization.featureToggles;
+        b.gstNumber = mainSettings.gstNumber || b.gstNumber;
+        if (!b.settings) b.settings = {};
+        if (!b.settings.mainSettings) b.settings.mainSettings = {};
+        b.settings.mainSettings = {
+          ...b.settings.mainSettings,
+          ...mainSettings,
+        };
         localStorage.setItem('rms_branch', JSON.stringify(b));
         window.dispatchEvent(new Event('rms_branch_settings_changed'));
+        window.dispatchEvent(new Event('rms_branch_updated'));
       }
     } catch (e) {}
   };

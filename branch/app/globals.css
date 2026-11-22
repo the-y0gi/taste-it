@@ -85,24 +85,28 @@
 :root {
   --background: #f7f7f7;
   --foreground: #111111;
+  --rms-brand-primary: #f97316;
+  --rms-brand-primary-hover: #ea580c;
+  --rms-brand-primary-light: #fff7ed;
+  --rms-brand-primary-muted: #fed7aa;
 }
 
 @theme inline {
-  /* ── Brand Colors (Warm Indian Orange) ── */
-  --color-brand-primary:       #f97316;
-  --color-brand-primary-hover: #ea580c;
-  --color-brand-primary-light: #fff7ed;
-  --color-brand-primary-muted: #fed7aa;
+  /* ── Dynamic Brand Colors ── */
+  --color-brand-primary:       var(--rms-brand-primary, #f97316);
+  --color-brand-primary-hover: var(--rms-brand-primary-hover, #ea580c);
+  --color-brand-primary-light: var(--rms-brand-primary-light, #fff7ed);
+  --color-brand-primary-muted: var(--rms-brand-primary-muted, #fed7aa);
 
-  /* ── Tailwind Orange Palette ── */
-  --color-orange-50:           #fff7ed;
-  --color-orange-100:          #ffedd5;
+  /* ── Adaptive Orange Palette (aligned with theme color) ── */
+  --color-orange-50:           var(--rms-brand-primary-light, #fff7ed);
+  --color-orange-100:          var(--rms-brand-primary-muted, #ffedd5);
   --color-orange-200:          #fed7aa;
   --color-orange-300:          #fdba74;
   --color-orange-400:          #fb923c;
-  --color-orange-500:          #f97316;
-  --color-orange-600:          #ea580c;
-  --color-orange-700:          #c2410c;
+  --color-orange-500:          var(--rms-brand-primary, #f97316);
+  --color-orange-600:          var(--rms-brand-primary-hover, #ea580c);
+  --color-orange-700:          var(--rms-brand-primary-hover, #c2410c);
   --color-orange-800:          #9a3412;
   --color-orange-900:          #7c2d12;
   --color-orange-950:          #431407;
