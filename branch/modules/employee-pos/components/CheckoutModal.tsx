@@ -40,13 +40,6 @@ const ORDER_TYPE_LABELS: Record<
   "dine-in": { label: "Dine In", icon: <Utensils size={11} /> },
 };
 
-const UPI_PROVIDERS = [
-  { id: "gpay", label: "Google Pay", icon: "🟢" },
-  { id: "phonepe", label: "PhonePe", icon: "🟣" },
-  { id: "paytm", label: "Paytm", icon: "🔵" },
-  { id: "bhim", label: "BHIM / Other", icon: "⚡" },
-];
-
 // Helper to calculate smart Indian currency notes for quick tender
 const getQuickTenderAmounts = (amt: number): number[] => {
   const roundAmt = Math.ceil(amt);
@@ -104,10 +97,6 @@ export default function CheckoutModal() {
     setOrderSource,
     aggregatorOrderId,
     setAggregatorOrderId,
-    upiProvider,
-    setUpiProvider,
-    upiRefNumber,
-    setUpiRefNumber,
     whatsappReceipt,
     setWhatsappReceipt,
     orderTiming,
@@ -640,45 +629,6 @@ export default function CheckoutModal() {
                                 Works with Google Pay, PhonePe, Paytm, BHIM & all UPI apps
                               </p>
                             </div>
-                          </div>
-
-                          {/* UPI Provider Selection Chips */}
-                          <div className="space-y-1.5 pt-1 border-t border-neutral-100">
-                            <label className="block text-[9.5px] font-700 text-neutral-500 uppercase tracking-wide">
-                              Paid Using App (For Settlement):
-                            </label>
-                            <div className="grid grid-cols-4 gap-1.5">
-                              {UPI_PROVIDERS.map((provider) => (
-                                <button
-                                  key={provider.id}
-                                  type="button"
-                                  onClick={() => setUpiProvider(provider.id)}
-                                  className={`py-1.5 px-2 rounded-lg text-[9.5px] font-700 transition-all cursor-pointer flex items-center justify-center gap-1 border ${
-                                    upiProvider === provider.id
-                                      ? "border-emerald-600 bg-emerald-50 text-emerald-800 font-800 shadow-xs"
-                                      : "border-neutral-200 bg-neutral-50 text-neutral-600 hover:bg-neutral-100"
-                                  }`}
-                                >
-                                  <span>{provider.icon}</span>
-                                  <span>{provider.label}</span>
-                                </button>
-                              ))}
-                            </div>
-                          </div>
-
-                          {/* Optional UTR / Reference Number Input */}
-                          <div className="space-y-1">
-                            <label className="block text-[9.5px] font-700 text-neutral-500 uppercase tracking-wide">
-                              UTR / Txn Ref No. (Optional):
-                            </label>
-                            <input
-                              type="text"
-                              maxLength={16}
-                              placeholder="e.g. 12-digit UTR or last 4 digits"
-                              value={upiRefNumber}
-                              onChange={(e) => setUpiRefNumber(e.target.value)}
-                              className="w-full border border-neutral-200 rounded-lg px-3 py-1.5 text-[11px] font-mono text-neutral-800 bg-neutral-50 focus:outline-none focus:border-emerald-600 focus:bg-white"
-                            />
                           </div>
                         </div>
                       )}
