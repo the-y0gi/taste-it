@@ -7,6 +7,7 @@ import {
   Trash2,
   Plus,
   ChevronRight,
+  UtensilsCrossed,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { usePosStore } from "../store/pos.store";
@@ -18,6 +19,8 @@ export default function CartPanel() {
   const {
     cartItems,
     selectedCustomer,
+    selectedTable,
+    orderType,
     subtotal,
     tax,
     discount,
@@ -43,6 +46,10 @@ export default function CartPanel() {
   const validate = () => {
     if (!cartItems.length) {
       toast.error("Cart is empty.");
+      return false;
+    }
+    if (orderType === "dine-in" && !selectedTable) {
+      toast.error("Please assign a dining table for Dine-In order.");
       return false;
     }
     return true;
@@ -124,6 +131,12 @@ export default function CartPanel() {
             </span>
           </div>
           <div className="flex items-center gap-2">
+            {orderType === "dine-in" && selectedTable && (
+              <span className="px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800 text-[10px] font-800 uppercase tracking-wide flex items-center gap-1 shadow-2xs">
+                <UtensilsCrossed size={11} className="text-emerald-700" />
+                <span>{selectedTable.name}</span>
+              </span>
+            )}
             <div className="flex items-center gap-1 bg-neutral-100 px-2 py-0.5 rounded-md">
               <Users size={11} className="text-neutral-500" />
               <span className="text-[10px] lg:text-[11px] font-800 text-neutral-700">

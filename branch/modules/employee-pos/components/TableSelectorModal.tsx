@@ -1,92 +1,188 @@
 'use client';
 
-import React from 'react';
-import { X, TableProperties } from 'lucide-react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { X, TableProperties, RefreshCw, Users } from 'lucide-react';
+import axios from 'axios';
 import toast from 'react-hot-toast';
 import { usePosStore } from '../store/pos.store';
 import { TableInfo } from '../types';
+import DiningTableGraphic from './DiningTableGraphic';
 
-const DUMMY_TABLES: TableInfo[] = [
-  { id: 't1', name: 'Table 1', status: 'available' },
-  { id: 't2', name: 'Table 2', status: 'occupied'  },
-  { id: 't3', name: 'Table 3', status: 'reserved'  },
-  { id: 't4', name: 'Table 4', status: 'available' },
-  { id: 't5', name: 'Table 5', status: 'available' },
-  { id: 't6', name: 'Table 6', status: 'available' },
-];
+interface RealTableItem {
+  _id: string;
+  name: string;
+  section: string;
+  capacity: number;
+  status: 'available' | 'occupied' | 'billed' | 'reserved';
+  currentOrderId?: {
+    orderNumber: string;
+    total: number;
+  } | null;
+}
 
 const STATUS_STYLES: Record<TableInfo['status'], string> = {
   available: 'border-emerald-200 bg-emerald-50 text-emerald-800 hover:border-emerald-400 hover:bg-emerald-100 cursor-pointer',
-  occupied:  'border-red-200 bg-red-50 text-red-500 opacity-70 cursor-not-allowed',
+  occupied:  'border-rose-200 bg-rose-50 text-rose-600 opacity-80 cursor-not-allowed',
   reserved:  'border-amber-200 bg-amber-50 text-amber-700 hover:border-amber-400 hover:bg-amber-100 cursor-pointer',
+  billed:    'border-amber-300 bg-amber-50 text-amber-800 opacity-80 cursor-not-allowed',
 };
 
 const STATUS_DOT: Record<TableInfo['status'], string> = {
   available: 'bg-emerald-500',
-  occupied:  'bg-red-400',
+  occupied:  'bg-rose-500',
   reserved:  'bg-amber-500',
+  billed:    'bg-amber-600',
 };
 
 export default function TableSelectorModal({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
   const { selectedTable, setTable } = usePosStore();
+  const [tables, setTables] = useState<RealTableItem[]>([]);
+  const [sections, setSections] = useState<string[]>([]);
+  const [activeSection, setActiveSection] = useState<string>('all');
+  const [loading, setLoading] = useState<boolean>(true);
+
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+
+  const fetchTables = useCallback(async () => {
+    if (typeof window === 'undefined') return;
+    try {
+      const raw = localStorage.getItem('rms_branch');
+      const branchId = raw ? JSON.parse(raw)?._id || JSON.parse(raw)?.id : null;
+      if (!branchId) return;
+
+      setLoading(true);
+      const res = await axios.get(`${API_URL}/tables?branchId=${branchId}`, {
+        withCredentials: true,
+      });
+
+      if (res.data?.success) {
+        setTables(res.data.data || []);
+        setSections(res.data.sections || []);
+      }
+    } catch {
+      // fallback
+    } finally {
+      setLoading(false);
+    }
+  }, [API_URL]);
+
+  useEffect(() => {
+    if (isOpen) {
+      fetchTables();
+    }
+  }, [isOpen, fetchTables]);
+
   if (!isOpen) return null;
 
-  const handleSelect = (t: TableInfo) => {
+  const handleSelect = (t: RealTableItem) => {
     if (t.status === 'occupied') { 
-      toast.error('This table is occupied. Choose another.'); 
+      toast.error(`Table "${t.name}" is occupied with another running order.`); 
       return; 
     }
-    setTable(t); onClose();
+    setTable({
+      id: t._id,
+      name: t.name,
+      status: t.status,
+    });
+    onClose();
   };
 
+  const filteredTables = activeSection === 'all'
+    ? tables
+    : tables.filter((t) => (t.section || 'Main Dining') === activeSection);
+
   return (
-    <div className="fixed inset-0 z-[200] flex items-center justify-center">
-      <div onClick={onClose} className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
-      <div className="relative w-[420px] bg-white rounded-2xl shadow-2xl overflow-hidden z-10 animate-scale-up">
+    <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
+      <div onClick={onClose} className="absolute inset-0 bg-black/50 backdrop-blur-xs" />
+      <div className="relative w-full max-w-lg bg-white rounded-2xl shadow-2xl overflow-hidden z-10 animate-scale-up flex flex-col max-h-[85vh]">
         {/* Header */}
-        <div className="flex items-center justify-between px-5 pt-5 pb-4 border-b border-neutral-100">
-          <div>
-            <h3 className="text-[13px] font-700 text-neutral-900">Select Dining Table</h3>
-            <p className="text-[9.5px] text-neutral-400 font-500 mt-0.5">Choose an available or reserved table</p>
+        <div className="flex items-center justify-between px-5 pt-4 pb-3 border-b border-neutral-100 flex-shrink-0">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-xl bg-orange-100 text-brand-primary flex items-center justify-center font-bold">
+              <TableProperties size={16} />
+            </div>
+            <div>
+              <h3 className="text-[13.5px] font-900 text-neutral-900 uppercase">Select Dining Table</h3>
+              <p className="text-[9.5px] text-neutral-400 font-500 mt-0.5">Choose an available table for Dine-In</p>
+            </div>
           </div>
           <button onClick={onClose} className="w-7 h-7 rounded-lg bg-neutral-100 flex items-center justify-center text-neutral-500 hover:bg-neutral-200 transition-all cursor-pointer">
             <X size={13} />
           </button>
         </div>
 
-        {/* Table Grid */}
-        <div className="p-5 grid grid-cols-3 gap-3">
-          {DUMMY_TABLES.map((table) => {
-            const isActive = selectedTable?.id === table.id;
-            return (
+        {/* Section Filter Pills */}
+        {sections.length > 1 && (
+          <div className="flex items-center gap-1.5 px-5 py-2.5 bg-neutral-50 border-b border-neutral-100 overflow-x-auto no-scrollbar flex-shrink-0">
+            <button
+              type="button"
+              onClick={() => setActiveSection('all')}
+              className={`px-3 py-1 rounded-lg text-[10.5px] font-800 uppercase tracking-wide transition-all cursor-pointer border ${
+                activeSection === 'all'
+                  ? 'bg-neutral-900 text-white border-neutral-900 shadow-2xs'
+                  : 'bg-white text-neutral-600 border-neutral-200 hover:bg-neutral-100'
+              }`}
+            >
+              All ({tables.length})
+            </button>
+            {sections.map((sec) => (
               <button
-                key={table.id}
-                onClick={() => handleSelect(table)}
-                className={`flex flex-col items-center justify-center gap-2 py-4 rounded-xl border-2 transition-all active:scale-95 ${
-                  isActive
-                    ? 'border-brand-primary bg-orange-50 ring-2 ring-brand-primary/30'
-                    : STATUS_STYLES[table.status]
+                key={sec}
+                type="button"
+                onClick={() => setActiveSection(sec)}
+                className={`px-3 py-1 rounded-lg text-[10.5px] font-800 uppercase tracking-wide transition-all cursor-pointer border whitespace-nowrap ${
+                  activeSection === sec
+                    ? 'bg-brand-primary text-white border-brand-primary shadow-2xs'
+                    : 'bg-white text-neutral-600 border-neutral-200 hover:bg-neutral-100'
                 }`}
               >
-                {/* Icon */}
-                <div className={`w-10 h-10 rounded-full bg-white flex items-center justify-center border shadow-sm ${isActive ? 'border-brand-primary/30' : 'border-neutral-200'}`}>
-                  <TableProperties size={18} className={isActive ? 'text-brand-primary' : 'text-neutral-500'} />
-                </div>
-                <span className={`text-[11px] font-700 ${isActive ? 'text-brand-primary' : ''}`}>{table.name}</span>
-                {/* Status dot */}
-                <div className="flex items-center gap-1">
-                  <span className={`w-1.5 h-1.5 rounded-full ${isActive ? 'bg-brand-primary' : STATUS_DOT[table.status]}`} />
-                  <span className="text-[8px] font-600 uppercase tracking-wide text-neutral-500">{table.status}</span>
-                </div>
+                {sec}
               </button>
-            );
-          })}
+            ))}
+          </div>
+        )}
+
+        {/* Table Grid */}
+        <div className="p-5 overflow-y-auto flex-1">
+          {loading ? (
+            <div className="flex flex-col items-center justify-center py-16 text-neutral-400 gap-2">
+              <RefreshCw size={20} className="animate-spin text-brand-primary" />
+              <p className="text-xs font-700">Loading tables...</p>
+            </div>
+          ) : filteredTables.length === 0 ? (
+            <div className="text-center py-12 text-neutral-400">
+              <p className="text-xs font-700">No tables configured for this section.</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-3 sm:grid-cols-4 gap-2.5">
+              {filteredTables.map((table) => {
+                const isActive = selectedTable?.id === table._id;
+                const isOccupiedOrBilled = table.status === 'occupied' || table.status === 'billed';
+
+                return (
+                  <button
+                    key={table._id}
+                    onClick={() => handleSelect(table)}
+                    className={`relative rounded-2xl border-2 p-1.5 transition-all flex flex-col items-center justify-center ${
+                      isActive
+                        ? 'border-brand-primary bg-orange-50/80 ring-2 ring-brand-primary/30 shadow-xs'
+                        : isOccupiedOrBilled
+                        ? 'border-rose-200 bg-rose-50/20 opacity-70 cursor-not-allowed'
+                        : 'border-neutral-200 bg-white hover:border-emerald-400 cursor-pointer active:scale-95 shadow-2xs'
+                    }`}
+                  >
+                    <DiningTableGraphic table={table} compact />
+                  </button>
+                );
+              })}
+            </div>
+          )}
         </div>
 
         {/* Legend + Actions */}
-        <div className="flex items-center justify-between px-5 pb-5 gap-3">
-          <div className="flex items-center gap-3 text-[9px] font-500 text-neutral-400">
-            {[['bg-emerald-500', 'Available'], ['bg-amber-500', 'Reserved'], ['bg-red-400', 'Occupied']].map(([dot, label]) => (
+        <div className="flex items-center justify-between px-5 py-3 border-t border-neutral-100 bg-neutral-50/50 flex-shrink-0">
+          <div className="flex items-center gap-3 text-[9px] font-600 text-neutral-500">
+            {[['bg-emerald-500', 'Available'], ['bg-rose-500', 'Occupied']].map(([dot, label]) => (
               <div key={label} className="flex items-center gap-1">
                 <span className={`w-1.5 h-1.5 rounded-full ${dot}`} />
                 {label}
@@ -95,12 +191,19 @@ export default function TableSelectorModal({ isOpen, onClose }: { isOpen: boolea
           </div>
           <div className="flex gap-2">
             {selectedTable && (
-              <button onClick={() => { setTable(null); onClose(); }}
-                className="px-3 py-2 border border-neutral-200 rounded-xl text-[10px] font-600 text-neutral-600 hover:bg-neutral-50 transition-all cursor-pointer">
-                Clear
+              <button
+                type="button"
+                onClick={() => { setTable(null); onClose(); }}
+                className="px-3 py-1.5 border border-neutral-200 rounded-xl text-[10px] font-700 text-neutral-600 hover:bg-neutral-100 transition-all cursor-pointer"
+              >
+                Clear Table
               </button>
             )}
-            <button onClick={onClose} className="px-4 py-2 bg-brand-primary text-white rounded-xl text-[10px] font-700 hover:bg-brand-primary-hover transition-all cursor-pointer shadow-sm">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-4 py-1.5 bg-brand-primary text-white rounded-xl text-[10px] font-800 uppercase hover:opacity-95 transition-all cursor-pointer shadow-xs"
+            >
               Done
             </button>
           </div>

@@ -2,7 +2,7 @@
 
 import React from 'react';
 import axios from 'axios';
-import { Search, Bell, ChefHat, LayoutGrid, Menu, TrendingUp, ClipboardList, LogOut, MapPin } from 'lucide-react';
+import { Search, Bell, ChefHat, LayoutGrid, Menu, TrendingUp, ClipboardList, LogOut, MapPin, TableProperties } from 'lucide-react';
 import { usePosStore } from '../store/pos.store';
 import { usePathname, useRouter } from 'next/navigation';
 import Link from 'next/link';
@@ -180,6 +180,7 @@ export default function PosNavbar({ onToggleSidebar }: PosNavbarProps) {
 
   const rawNavLinks = [
     { key: 'pos', name: 'POS Terminal', href: '/employee/pos', icon: LayoutGrid },
+    { key: 'tables', name: 'Tables', href: '/employee/tables', icon: TableProperties },
     { key: 'kitchen', name: 'Kitchen View', href: '/employee/kitchen', icon: ChefHat },
     { key: 'orders', name: 'Orders', href: '/employee/orders', icon: ClipboardList },
     { key: 'reception_view', name: 'Reception View', href: '/employee/reception', icon: TrendingUp },
@@ -187,6 +188,10 @@ export default function PosNavbar({ onToggleSidebar }: PosNavbarProps) {
 
   const navLinks = rawNavLinks.filter((link) => {
     // ── 1. Branch Operational Module check ──
+    if (link.key === 'tables') {
+      const isTableEnabled = branchFeatureToggles.tableManagement ?? false;
+      if (!isTableEnabled) return false;
+    }
     if (link.key === 'kitchen') {
       const isKdsEnabled = branchFeatureToggles.kds !== undefined ? branchFeatureToggles.kds : branchFeatureToggles.kotKitchen;
       if (isKdsEnabled === false) return false;
@@ -201,6 +206,9 @@ export default function PosNavbar({ onToggleSidebar }: PosNavbarProps) {
     if (!activeEmployee || activeEmployee.role === 'manager') return true;
     if (link.key === 'pos') return true;
     const perms = activeEmployee.permissions || {};
+    if (link.key === 'tables') {
+      return perms['pos'] === true || perms['tables'] === true;
+    }
     if (link.key === 'orders') {
       const orderSubTabKeys = ['orders', 'orders_list', 'dashboard', 'sales_summary', 'expense_payout', 'reports', 'item_sales', 'hourly_sales', 'cash_out_summary', 'monthly_sales_summary', 'failed_transaction', 'refund_orders'];
       return orderSubTabKeys.some(k => perms[k] === true);

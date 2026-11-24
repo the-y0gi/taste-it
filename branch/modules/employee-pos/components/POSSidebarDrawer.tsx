@@ -4,7 +4,8 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { 
   X, LogOut, LayoutDashboard, KeyRound, Clock, ShoppingBag, 
   Receipt, ArrowLeftRight, Wallet, Users, UtensilsCrossed, 
-  Settings, UserCheck, Lock, Bell, BarChart3, Power, ChefHat, TrendingUp, Truck, Car, QrCode, ShieldCheck, User, FileCheck, Calendar
+  Settings, UserCheck, Lock, Bell, BarChart3, Power, ChefHat, TrendingUp, Truck, Car, QrCode, ShieldCheck, User, FileCheck, Calendar,
+  TableProperties
 } from 'lucide-react';
 import CheckInOutModal from './CheckInOutModal';
 import StoreQrModal from './StoreQrModal';
@@ -122,6 +123,7 @@ export default function POSSidebarDrawer({ isOpen, onClose, activeTab, onSelectT
     { key: 'check_in_out', label: 'Check-In/Out', icon: Clock },
     { key: 'store_qr', label: 'Store QR Code', icon: QrCode },
     { key: 'pos', label: 'POS', icon: ShoppingBag },
+    { key: 'tables', label: 'Tables / Floor', icon: TableProperties },
     { key: 'kitchen', label: 'Kitchen View', icon: ChefHat },
     { key: 'reception_view', label: 'Reception View', icon: TrendingUp },
     { key: 'delivery', label: 'Delivery', icon: Truck },
@@ -147,6 +149,12 @@ export default function POSSidebarDrawer({ isOpen, onClose, activeTab, onSelectT
   const isManagerMode = !activeEmployee || activeEmployee.role === 'manager' || isSuperAdminImp;
 
   const menuItems = rawMenuItems.filter(item => {
+    // ── 0. Dine-In Table Management check ──
+    if (item.key === 'tables') {
+      const isTableEnabled = branchFeatureToggles.tableManagement ?? false;
+      if (!isTableEnabled) return false;
+    }
+
     // ── 1. Kitchen KOT check ──
     if (item.key === 'kitchen') {
       const isKdsEnabled = branchFeatureToggles.kds !== undefined ? branchFeatureToggles.kds : branchFeatureToggles.kotKitchen;
@@ -347,6 +355,8 @@ export default function POSSidebarDrawer({ isOpen, onClose, activeTab, onSelectT
 
                       if (item.key === 'pos') {
                         window.location.href = '/employee/pos';
+                      } else if (item.key === 'tables') {
+                        window.location.href = '/employee/tables';
                       } else if (item.key === 'kitchen') {
                         window.location.href = '/employee/kitchen';
                       } else if (item.key === 'reception_view') {

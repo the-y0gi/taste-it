@@ -1,5 +1,6 @@
 const mongoose = require("mongoose");
 const Order = require("../models/order.model");
+const Table = require("../models/table.model");
 const Product = require("../../menu/models/product.model");
 const Category = require("../../menu/models/category.model");
 const Expense = require("../../expense/models/expense.model");
@@ -376,6 +377,27 @@ exports.createOrder = async (orderData) => {
       await paymentDoc.save();
     }
 
+    // Update Table status for Dine-In orders
+    if (order.orderType === "dine-in" && order.table?.id) {
+      try {
+        if (order.paymentStatus === "paid") {
+          await Table.findByIdAndUpdate(order.table.id, {
+            status: "available",
+            currentOrderId: null,
+            occupiedSince: null,
+          });
+        } else {
+          await Table.findByIdAndUpdate(order.table.id, {
+            status: "occupied",
+            currentOrderId: order._id,
+            occupiedSince: new Date(),
+          });
+        }
+      } catch (tblErr) {
+        logger.error(`Error updating table status on createOrder: ${tblErr.message}`);
+      }
+    }
+
     logger.info(
       `Order created: ${orderNumber} for branch: ${order.branchName || "Main"}`,
     );
@@ -708,6 +730,19 @@ exports.markOrderPaid = async (id, payments) => {
 
     await order.save();
 
+    // If order is paid and attached to a Dine-In table, free up the table
+    if (order.paymentStatus === "paid" && order.orderType === "dine-in" && order.table?.id) {
+      try {
+        await Table.findByIdAndUpdate(order.table.id, {
+          status: "available",
+          currentOrderId: null,
+          occupiedSince: null,
+        });
+      } catch (tblErr) {
+        logger.error(`Error freeing table on markOrderPaid: ${tblErr.message}`);
+      }
+    }
+
     logger.info(
       `Order ${order.orderNumber} payments updated. Total paid: ${paymentsTotal}`,
     );
@@ -796,6 +831,19 @@ exports.cancelOrder = async (
     triggerOrderUpdated(order).catch((err) => {
       logger.error(`Error triggering cancel Pusher event: ${err.message}`);
     });
+
+    // If cancelled order was occupying a Dine-In table, free it up
+    if (order.orderType === "dine-in" && order.table?.id) {
+      try {
+        await Table.findByIdAndUpdate(order.table.id, {
+          status: "available",
+          currentOrderId: null,
+          occupiedSince: null,
+        });
+      } catch (tblErr) {
+        logger.error(`Error freeing table on cancelOrder: ${tblErr.message}`);
+      }
+    }
 
     logger.info(
       `Order ${order.orderNumber} cancelled by ${userName}. Reason: ${reason}`,

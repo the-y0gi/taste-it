@@ -20,7 +20,7 @@ export interface VehicleInfo {
 export interface TableInfo {
   id: string;
   name: string;
-  status: "available" | "occupied" | "reserved";
+  status: "available" | "occupied" | "reserved" | "billed";
 }
 
 export interface SplitPayment {

@@ -1,13 +1,14 @@
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";
-import { UserPlus } from "lucide-react";
+import { UserPlus, TableProperties } from "lucide-react";
 import { MenuItem } from "../types";
 import { usePosStore } from "../store/pos.store";
 import MenuCard from "./MenuCard";
 import SearchBar from "./SearchBar";
 import SortDropdown from "./SortDropdown";
 import CustomerModal from "./CustomerModal";
+import TableSelectorModal from "./TableSelectorModal";
 
 interface MenuGridProps {
   onOpenModifiers: (item: MenuItem) => void;
@@ -32,9 +33,11 @@ export default function MenuGrid({ onOpenModifiers }: MenuGridProps) {
     orderType,
     setOrderType,
     selectedCustomer,
+    selectedTable,
   } = usePosStore();
 
   const [showCustomer, setShowCustomer] = useState(false);
+  const [showTableModal, setShowTableModal] = useState(false);
   const [branchToggles, setBranchToggles] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
@@ -151,6 +154,7 @@ export default function MenuGrid({ onOpenModifiers }: MenuGridProps) {
                   onClick={() => {
                     setOrderType(id as any);
                     if (id === "delivery") setShowCustomer(true);
+                    if (id === "dine-in" && !selectedTable) setShowTableModal(true);
                   }}
                   className={`px-2 md:px-3 py-1 rounded-lg text-[10.5px] md:text-[11.5px] font-bold transition-all cursor-pointer ${
                     active
@@ -162,6 +166,24 @@ export default function MenuGrid({ onOpenModifiers }: MenuGridProps) {
                 </button>
               );
             })}
+
+            {/* Dine-In Selected Table indicator / selector */}
+            {orderType === "dine-in" && (
+              <button
+                onClick={() => setShowTableModal(true)}
+                className={`ml-0.5 px-2 py-1 rounded-lg border text-[10px] md:text-[11px] font-bold flex items-center gap-1 transition-all cursor-pointer ${
+                  selectedTable
+                    ? "bg-emerald-50 border-emerald-500 text-emerald-800 shadow-2xs"
+                    : "bg-white border-neutral-300 text-neutral-800 hover:bg-neutral-50 animate-pulse"
+                }`}
+                title="Select Dining Table"
+              >
+                <TableProperties size={11} className={selectedTable ? "text-emerald-600" : "text-neutral-500"} />
+                <span className="truncate max-w-[85px]">
+                  {selectedTable ? selectedTable.name : "+ Table"}
+                </span>
+              </button>
+            )}
 
             {branchToggles.customers !== false && (
               <button
@@ -274,6 +296,11 @@ export default function MenuGrid({ onOpenModifiers }: MenuGridProps) {
       <CustomerModal
         isOpen={showCustomer}
         onClose={() => setShowCustomer(false)}
+      />
+
+      <TableSelectorModal
+        isOpen={showTableModal}
+        onClose={() => setShowTableModal(false)}
       />
     </div>
   );

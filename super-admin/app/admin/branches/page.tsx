@@ -1365,9 +1365,8 @@ export default function BranchesPage() {
                     {
                       key: "tableManagement",
                       label: "Dine-In Table Layout",
-                      desc: "Dining hall floor plan, table capacity & real-time occupancy status (Available, Occupied, Billed) (Beta)",
+                      desc: "Dining hall floor plan, table capacity & real-time occupancy status (Available, Occupied, Billed)",
                       icon: TableProperties,
-                      badge: "Beta",
                     },
                     {
                       key: "onlineOrders",

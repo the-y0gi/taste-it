@@ -12,6 +12,7 @@ import StoreTimingsTab from './settings-components/StoreTimingsTab';
 import HolidaysTab from './settings-components/HolidaysTab';
 import KitchenStationsTab from './settings-components/KitchenStationsTab';
 import WhatsAppGatewayTab from './settings-components/WhatsAppGatewayTab';
+import TableManagementSettingsTab from './settings-components/TableManagementSettingsTab';
 
 // Shared Types & Icons
 import {
@@ -22,6 +23,7 @@ import {
   ChefHat,
   MessageSquare,
   Calendar,
+  TableProperties,
 } from 'lucide-react';
 import { TabType, Terminal, Till, StoreTiming, TimingUpdate, Holiday, TaxFeesSettings, KitchenSettings, DEFAULT_KITCHEN_SETTINGS } from './settings-components/settingsTypes';
 
@@ -62,6 +64,21 @@ export default function SettingsDashboard() {
       onlineOrders: true,
     },
   });
+
+  const isTableManagementEnabled = React.useMemo(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const raw = localStorage.getItem('rms_branch');
+        if (raw) {
+          const b = JSON.parse(raw);
+          if (b.featureToggles?.tableManagement !== undefined) {
+            return Boolean(b.featureToggles.tableManagement);
+          }
+        }
+      } catch {}
+    }
+    return Boolean(branchCustomization.featureToggles?.tableManagement);
+  }, [branchCustomization.featureToggles]);
 
   // ── 2. Tax & Fees Settings State ──
   const [taxFeesSettings, setTaxFeesSettings] = useState<TaxFeesSettings>({
@@ -352,6 +369,20 @@ export default function SettingsDashboard() {
               <span>Main Settings</span>
             </button>
 
+            {isTableManagementEnabled && (
+              <button
+                onClick={() => setActiveTab('table_management')}
+                className={`px-3.5 py-2 rounded-xl text-[11px] lg:text-[12px] font-800 tracking-wide uppercase transition-all duration-150 cursor-pointer whitespace-nowrap flex items-center gap-1.5 ${
+                  activeTab === 'table_management'
+                    ? 'bg-brand-primary text-white shadow-sm'
+                    : 'text-neutral-600 hover:text-brand-primary hover:bg-white/60'
+                }`}
+              >
+                <TableProperties size={13} />
+                <span>Dining Tables</span>
+              </button>
+            )}
+
             <button
               onClick={() => setActiveTab('tax_fees')}
               className={`px-3.5 py-2 rounded-xl text-[11px] lg:text-[12px] font-800 tracking-wide uppercase transition-all duration-150 cursor-pointer whitespace-nowrap flex items-center gap-1.5 ${
@@ -449,6 +480,10 @@ export default function SettingsDashboard() {
                   onSubmit={handleMainSettingsSubmit}
                   saving={saving}
                 />
+              )}
+
+              {activeTab === 'table_management' && (
+                <TableManagementSettingsTab branchId={getBranchId()} />
               )}
 
               {activeTab === 'tax_fees' && (

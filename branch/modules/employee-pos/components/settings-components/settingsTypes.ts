@@ -50,6 +50,7 @@ export interface TaxFeesSettings {
 
 export type TabType =
   | 'main_settings'
+  | 'table_management'
   | 'tax_fees'
   | 'terminal_setup'
   | 'store_timings'
