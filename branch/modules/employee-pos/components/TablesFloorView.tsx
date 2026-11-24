@@ -505,56 +505,41 @@ export default function TablesFloorView() {
                     />
                   </div>
 
-                  {/* ── Ordered Items Preview on Table Card (Itemized breakdown) ── */}
-                  {(isOccupied || isBilled) && table.currentOrderId && (
-                    <div
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleOpenBillModal(table);
-                      }}
-                      className="my-1.5 p-2 rounded-2xl bg-neutral-50/90 hover:bg-amber-50/60 border border-neutral-200/80 hover:border-amber-300 transition-all cursor-pointer group select-none shadow-2xs"
-                      title="Click to view full receipt & itemized bill"
-                    >
-                      <div className="flex items-center justify-between text-[10px] font-800 text-neutral-600 group-hover:text-amber-800 mb-1">
-                        <span className="flex items-center gap-1">
-                          <Receipt size={11} className="text-amber-600" />
-                          <span>
-                            {table.currentOrderId.items && table.currentOrderId.items.length > 0
-                              ? `${table.currentOrderId.items.reduce((s: number, i: any) => s + (i.quantity || 1), 0)} Items Ordered`
+                  {/* ── Compact Ordered Items Bar (Single-row, fixed height, click opens itemized bill) ── */}
+                  {(isOccupied || isBilled) && table.currentOrderId && (() => {
+                    const totalItems = table.currentOrderId.items && table.currentOrderId.items.length > 0
+                      ? table.currentOrderId.items.reduce((s: number, i: any) => s + (i.quantity || 1), 0)
+                      : (table.currentOrderId.total ? 1 : 0);
+
+                    return (
+                      <div
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleOpenBillModal(table);
+                        }}
+                        className="my-1.5 px-3 py-2 rounded-2xl bg-neutral-50/90 hover:bg-amber-50/80 border border-neutral-200/90 hover:border-amber-300 transition-all cursor-pointer group select-none shadow-2xs flex items-center justify-between"
+                        title="Click to view full receipt & itemized bill"
+                      >
+                        <div className="flex items-center gap-1.5 text-[10.5px] font-800 text-neutral-700 group-hover:text-amber-900 truncate mr-2">
+                          <Receipt size={12} className="text-amber-600 shrink-0" />
+                          <span className="truncate">
+                            {totalItems > 0
+                              ? `${totalItems} ${totalItems === 1 ? 'Item' : 'Items'} Ordered`
                               : 'Order Active'}
                           </span>
-                        </span>
-                        <span className="text-[9.5px] font-900 text-amber-700 group-hover:translate-x-0.5 transition-transform flex items-center gap-0.5">
-                          Bill <ChevronRight size={10} />
-                        </span>
-                      </div>
-
-                      {table.currentOrderId.items && table.currentOrderId.items.length > 0 ? (
-                        <div className="space-y-0.5">
-                          {table.currentOrderId.items.slice(0, 2).map((item: any, iIdx: number) => {
-                            const itemAmt = item.totalPrice ?? (item.basePrice * (item.quantity || 1));
-                            return (
-                              <div key={iIdx} className="flex items-center justify-between text-[10px] font-700 text-neutral-700">
-                                <span className="truncate max-w-[130px] text-neutral-800">
-                                  <span className="font-800 text-neutral-900">{item.quantity || 1}x</span> {item.name}
-                                </span>
-                                <span className="font-800 text-neutral-900 shrink-0 ml-1">
-                                  ₹{itemAmt.toFixed(0)}
-                                </span>
-                              </div>
-                            );
-                          })}
-                          {table.currentOrderId.items.length > 2 && (
-                            <p className="text-[9px] font-700 text-neutral-400 italic pt-0.5">
-                              +{table.currentOrderId.items.length - 2} more items...
-                            </p>
-                          )}
                         </div>
-                      ) : (
-                        <p className="text-[10px] text-neutral-400 font-600 italic">Tap to view bill</p>
-                      )}
-                    </div>
-                  )}
+
+                        <div className="flex items-center gap-1 shrink-0">
+                          <span className="text-[11px] font-900 text-neutral-900 group-hover:text-amber-800">
+                            ₹{(table.currentOrderId.total || 0).toFixed(0)}
+                          </span>
+                          <span className="text-[9.5px] font-800 text-amber-700 group-hover:translate-x-0.5 transition-transform flex items-center">
+                            Bill <ChevronRight size={11} />
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })()}
 
                   {/* ── Bottom Action Dock ── */}
                   <div className="pt-2 border-t border-neutral-100 mt-1">
