@@ -25,6 +25,7 @@ import {
 } from 'lucide-react';
 import { usePosStore } from '../store/pos.store';
 import DiningTableGraphic from './DiningTableGraphic';
+import TableBillModal from './TableBillModal';
 
 interface TableOrder {
   _id: string;
@@ -63,6 +64,10 @@ export default function TablesFloorView() {
   // Transfer Modal State
   const [transferModalOpen, setTransferModalOpen] = useState<boolean>(false);
   const [transferSourceTable, setTransferSourceTable] = useState<TableData | null>(null);
+
+  // Bill / Receipt Modal State
+  const [billModalOpen, setBillModalOpen] = useState<boolean>(false);
+  const [billModalTable, setBillModalTable] = useState<TableData | null>(null);
 
   const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
 
@@ -195,28 +200,32 @@ export default function TablesFloorView() {
     router.push('/employee/pos');
   };
 
-  // 3. Mark Table as Billed (Print Bill / Pre-Bill)
-  const handleMarkBilled = async (t: TableData) => {
-    const orderId = (typeof t.currentOrderId === 'object' && t.currentOrderId?._id)
-      ? t.currentOrderId._id
-      : (typeof t.currentOrderId === 'string' ? t.currentOrderId : undefined);
+  // 3. Open Bill / Receipt Modal & Auto-mark Billed
+  const handleOpenBillModal = async (t: TableData) => {
+    setBillModalTable(t);
+    setBillModalOpen(true);
 
-    try {
-      setActionLoading(true);
-      const res = await axios.patch(
-        `${API_URL}/tables/${t._id}/status`,
-        { status: 'billed', orderId },
-        { withCredentials: true }
-      );
-      if (res.data?.success) {
-        toast.success(`Table "${t.name}" marked as Billed (Payment Pending)`);
+    // If occupied, mark as billed in DB in the background
+    if (t.status === 'occupied') {
+      const orderId = (typeof t.currentOrderId === 'object' && t.currentOrderId?._id)
+        ? t.currentOrderId._id
+        : (typeof t.currentOrderId === 'string' ? t.currentOrderId : undefined);
+
+      try {
+        await axios.patch(
+          `${API_URL}/tables/${t._id}/status`,
+          { status: 'billed', orderId },
+          { withCredentials: true }
+        );
         fetchTables(true);
+      } catch (err: any) {
+        console.warn('Could not auto-mark table as billed:', err);
       }
-    } catch (err: any) {
-      toast.error(err.response?.data?.message || 'Failed to update table status');
-    } finally {
-      setActionLoading(false);
     }
+  };
+
+  const handleMarkBilled = (t: TableData) => {
+    handleOpenBillModal(t);
   };
 
   // 4. Settle / Pay Table Order (Direct modal popup over Floor Plan!)
@@ -489,12 +498,63 @@ export default function TablesFloorView() {
                   </div>
 
                   {/* ── Realistic Top-Down Table & Chairs Visual ── */}
-                  <div className="py-2">
+                  <div className="py-1">
                     <DiningTableGraphic
                       table={table}
                       timeElapsed={timeElapsed}
                     />
                   </div>
+
+                  {/* ── Ordered Items Preview on Table Card (Itemized breakdown) ── */}
+                  {(isOccupied || isBilled) && table.currentOrderId && (
+                    <div
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleOpenBillModal(table);
+                      }}
+                      className="my-1.5 p-2 rounded-2xl bg-neutral-50/90 hover:bg-amber-50/60 border border-neutral-200/80 hover:border-amber-300 transition-all cursor-pointer group select-none shadow-2xs"
+                      title="Click to view full receipt & itemized bill"
+                    >
+                      <div className="flex items-center justify-between text-[10px] font-800 text-neutral-600 group-hover:text-amber-800 mb-1">
+                        <span className="flex items-center gap-1">
+                          <Receipt size={11} className="text-amber-600" />
+                          <span>
+                            {table.currentOrderId.items && table.currentOrderId.items.length > 0
+                              ? `${table.currentOrderId.items.reduce((s: number, i: any) => s + (i.quantity || 1), 0)} Items Ordered`
+                              : 'Order Active'}
+                          </span>
+                        </span>
+                        <span className="text-[9.5px] font-900 text-amber-700 group-hover:translate-x-0.5 transition-transform flex items-center gap-0.5">
+                          Bill <ChevronRight size={10} />
+                        </span>
+                      </div>
+
+                      {table.currentOrderId.items && table.currentOrderId.items.length > 0 ? (
+                        <div className="space-y-0.5">
+                          {table.currentOrderId.items.slice(0, 2).map((item: any, iIdx: number) => {
+                            const itemAmt = item.totalPrice ?? (item.basePrice * (item.quantity || 1));
+                            return (
+                              <div key={iIdx} className="flex items-center justify-between text-[10px] font-700 text-neutral-700">
+                                <span className="truncate max-w-[130px] text-neutral-800">
+                                  <span className="font-800 text-neutral-900">{item.quantity || 1}x</span> {item.name}
+                                </span>
+                                <span className="font-800 text-neutral-900 shrink-0 ml-1">
+                                  ₹{itemAmt.toFixed(0)}
+                                </span>
+                              </div>
+                            );
+                          })}
+                          {table.currentOrderId.items.length > 2 && (
+                            <p className="text-[9px] font-700 text-neutral-400 italic pt-0.5">
+                              +{table.currentOrderId.items.length - 2} more items...
+                            </p>
+                          )}
+                        </div>
+                      ) : (
+                        <p className="text-[10px] text-neutral-400 font-600 italic">Tap to view bill</p>
+                      )}
+                    </div>
+                  )}
 
                   {/* ── Bottom Action Dock ── */}
                   <div className="pt-2 border-t border-neutral-100 mt-1">
@@ -535,9 +595,9 @@ export default function TablesFloorView() {
                         <div className="grid grid-cols-2 gap-1.5">
                           <button
                             type="button"
-                            onClick={() => handleMarkBilled(table)}
+                            onClick={() => handleOpenBillModal(table)}
                             className="py-1.5 px-1 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-[10.5px] font-800 uppercase transition-all cursor-pointer shadow-2xs flex items-center justify-center gap-1"
-                            title="Print bill"
+                            title="Print bill & receipt"
                           >
                             <Printer size={12} />
                             <span>Bill</span>
@@ -555,21 +615,31 @@ export default function TablesFloorView() {
                     ) : (
                       /* isBilled */
                       <div className="space-y-1.5">
-                        <div className="flex items-center gap-1.5">
+                        <div className="grid grid-cols-3 gap-1.5">
                           <button
                             type="button"
                             onClick={() => handleAddItemsToTable(table)}
-                            className="py-1.5 px-2.5 rounded-xl bg-neutral-50 hover:bg-neutral-100 border border-neutral-200 text-neutral-700 text-[10px] font-800 uppercase cursor-pointer"
+                            className="py-1.5 px-1 rounded-xl bg-neutral-50 hover:bg-neutral-100 border border-neutral-200 text-neutral-700 text-[10px] font-800 uppercase cursor-pointer"
                             title="Add more items"
                           >
                             + Item
                           </button>
                           <button
                             type="button"
-                            onClick={() => handleSettleTable(table)}
-                            className="flex-1 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-900 uppercase tracking-wide transition-all cursor-pointer shadow-xs flex items-center justify-center gap-1 active:scale-98"
+                            onClick={() => handleOpenBillModal(table)}
+                            className="py-1.5 px-1 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-[10px] font-800 uppercase cursor-pointer shadow-2xs flex items-center justify-center gap-1"
+                            title="View & print bill slip"
                           >
-                            <span>Settle Bill ₹</span>
+                            <Printer size={11} />
+                            <span>Bill</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleSettleTable(table)}
+                            className="py-1.5 px-1 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-[10.5px] font-900 uppercase tracking-wide cursor-pointer shadow-xs flex items-center justify-center gap-0.5 active:scale-98"
+                            title="Settle bill & free table"
+                          >
+                            <span>Settle ₹</span>
                           </button>
                         </div>
                       </div>
@@ -664,6 +734,15 @@ export default function TablesFloorView() {
           </div>
         </div>
       )}
+
+      {/* ── Table Bill & Thermal Receipt Modal ── */}
+      <TableBillModal
+        isOpen={billModalOpen}
+        onClose={() => setBillModalOpen(false)}
+        table={billModalTable as any}
+        onSettle={(t) => handleSettleTable(t as any)}
+        onRefresh={() => fetchTables(true)}
+      />
     </div>
   );
 }
