@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";
-import { UserPlus, TableProperties } from "lucide-react";
+import { UserPlus, TableProperties, UtensilsCrossed } from "lucide-react";
 import { MenuItem } from "../types";
 import { usePosStore } from "../store/pos.store";
 import MenuCard from "./MenuCard";
@@ -293,7 +293,7 @@ export default function MenuGrid({ onOpenModifiers }: MenuGridProps) {
           </div>
         ) : (
           <div className="flex flex-col items-center justify-center h-40 border border-dashed border-neutral-200 rounded-xl p-6 text-center bg-neutral-50">
-            <span className="text-2xl mb-2">🍽️</span>
+            <UtensilsCrossed size={32} className="text-neutral-300 mb-2" />
             <h4 className="text-[12px] font-bold text-neutral-700">
               No items found
             </h4>

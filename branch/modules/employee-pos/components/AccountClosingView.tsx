@@ -379,7 +379,7 @@ export default function AccountClosingView() {
     setEnteredMastercard(String(dep.mastercard));
     setEnteredGiftCard(String(dep.giftCard));
     setComments(dep.comments || "");
-    toast("Editing deposit entry", { icon: "✏️" });
+    toast.success("Editing deposit entry");
   };
 
   // ── Edit Cancel Handler ──

@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Bell, Settings, ChefHat, ChevronDown, Power, LayoutGrid, ClipboardList, Menu, TrendingUp } from 'lucide-react';
+import { Bell, Settings, ChefHat, ChevronDown, Power, LayoutGrid, ClipboardList, Menu, TrendingUp, Zap } from 'lucide-react';
 
 interface ReceptionNavbarProps {
   onToggleSidebar?: () => void;
@@ -68,7 +68,7 @@ export default function ReceptionNavbar({ onToggleSidebar }: ReceptionNavbarProp
           ) : (
             <div className="flex items-center gap-2">
               <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-orange-600 to-amber-500 flex items-center justify-center text-white shadow-sm font-black text-sm">
-                ⚡
+                <Zap size={16} className="fill-white" />
               </div>
               <div className="flex flex-col">
                 <span className="text-[14px] font-900 text-neutral-900 tracking-tight leading-none">

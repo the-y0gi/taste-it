@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { X, Tag, Percent, DollarSign, CheckCircle, Loader2 } from 'lucide-react';
+import { X, Tag, Percent, DollarSign, CheckCircle, Loader2, AlertCircle } from 'lucide-react';
 import axios from 'axios';
 import { usePosStore } from '../store/pos.store';
 
@@ -392,7 +392,7 @@ export default function PromoDiscountModal({ isOpen, onClose }: PromoDiscountMod
           {/* Error */}
           {error && (
             <p className="text-[10px] font-500 text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">
-              ⚠ {error}
+              <span className="flex items-center gap-1.5"><AlertCircle size={12} className="shrink-0" /> {error}</span>
             </p>
           )}
 

@@ -227,7 +227,7 @@ export default function AttendanceReportView() {
       const channel = pusher.subscribe(channelName);
 
       channel.bind("attendance-updated", () => {
-        toast("Attendance updated live ⚡", { icon: "", duration: 3000 });
+        toast.success("Attendance updated live", { duration: 3000 });
         fetchReport();
       });
 

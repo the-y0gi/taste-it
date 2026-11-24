@@ -7,6 +7,8 @@ import {
   MessageSquare,
   ChefHat,
   Pizza,
+  Flame,
+  Gift,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import {
@@ -414,8 +416,7 @@ export default function ModifierDrawer({
 
     if (deselected) {
       setSelections(newSelections);
-      toast("Some options were removed (unavailable for this size)", {
-        icon: "⚠️",
+      toast.error("Some options were removed (unavailable for this size)", {
         duration: 2500,
       });
     }
@@ -1172,8 +1173,8 @@ export default function ModifierDrawer({
           <div className="flex items-center gap-1.5">
             {typeof g.freeSelectionLimit === "number" &&
               g.freeSelectionLimit > 0 && (
-                <span className="text-[9px] font-700 text-emerald-700 bg-emerald-100/80 px-2 py-0.5 rounded-full">
-                  🎁 First {g.freeSelectionLimit} Free
+                <span className="text-[9px] font-700 text-emerald-700 bg-emerald-100/80 px-2 py-0.5 rounded-full flex items-center gap-1">
+                  <Gift size={10} /> First {g.freeSelectionLimit} Free
                 </span>
               )}
             <span className="text-[9px] font-600 text-neutral-500 bg-neutral-100 px-2 py-0.5 rounded-full">
@@ -1295,13 +1296,17 @@ export default function ModifierDrawer({
                           <span>- NO {opt.name}</span>
                         </p>
                       ) : qty > 1 ? (
-                        <p className="text-[8.5px] font-800 text-brand-primary">
-                          🔥 {qty === 2 ? "Extra" : `${qty}x Extra`} (+ $
-                          {optPriceWithQty.toFixed(2)})
+                        <p className="text-[8.5px] font-800 text-brand-primary flex items-center gap-0.5">
+                          <Flame size={10} className="shrink-0" />
+                          <span>
+                            {qty === 2 ? "Extra" : `${qty}x Extra`} (+ $
+                            {optPriceWithQty.toFixed(2)})
+                          </span>
                         </p>
                       ) : included ? (
-                        <p className="text-[8.5px] font-700 text-emerald-600">
-                          ✓ Included
+                        <p className="text-[8.5px] font-700 text-emerald-600 flex items-center gap-0.5">
+                          <Check size={10} className="shrink-0" />
+                          <span>Included</span>
                         </p>
                       ) : optPrice > 0 ? (
                         <div className="text-[9px] font-700 text-brand-primary">
@@ -1316,8 +1321,9 @@ export default function ModifierDrawer({
                                   <span className="line-through text-neutral-400 font-normal text-[8px]">
                                     +${opt.price.toFixed(2)}
                                   </span>
-                                  <span className="font-bold text-brand-primary">
-                                    🔥 +${dealP.toFixed(2)}
+                                  <span className="font-bold text-brand-primary flex items-center gap-0.5">
+                                    <Flame size={10} className="shrink-0" />
+                                    <span>+${dealP.toFixed(2)}</span>
                                   </span>
                                 </span>
                               );
@@ -1620,7 +1626,11 @@ export default function ModifierDrawer({
               }`}
             >
               <div className="flex items-center gap-2">
-                <span className="text-base">🔥</span>
+                <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${
+                  isDealApplied ? "bg-white/20 text-white" : "bg-amber-100 text-amber-600"
+                }`}>
+                  <Flame size={16} />
+                </div>
                 <div>
                   <span className="text-[11px] font-900 tracking-wider uppercase block">
                     Deal of the Day Available
@@ -1667,7 +1677,8 @@ export default function ModifierDrawer({
                         : "text-amber-700 bg-amber-100/90 border-amber-200/60"
                     }`}
                   >
-                    🔥 {isDealApplied ? "Deal Active" : "Deal Available (Off)"}
+                    <Flame size={10} className="shrink-0" />
+                    <span>{isDealApplied ? "Deal Active" : "Deal Available (Off)"}</span>
                   </span>
                 )}
               </div>

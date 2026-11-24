@@ -165,10 +165,10 @@ export default function CheckInOutModal({
 
       if (res.data.success) {
         const actionLabels = {
-          "check-in": "Checked In successfully! Have a great shift. 👍",
-          "break-in": "Break started ☕",
-          "break-out": "Break ended. Welcome back! 💼",
-          "check-out": "Checked Out successfully! See you next time. 👋",
+          "check-in": "Checked In successfully! Have a great shift.",
+          "break-in": "Break started.",
+          "break-out": "Break ended. Welcome back!",
+          "check-out": "Checked Out successfully! See you next time.",
         };
         toast.success(actionLabels[actionType]);
         onSuccess();
@@ -353,8 +353,8 @@ export default function CheckInOutModal({
                 </span>
               ) : todayAttendance?.status === "on-break" ? (
                 <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-900 text-amber-700 bg-amber-100 border border-amber-300">
-                  <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
-                  On Break ☕
+                  <Coffee size={12} className="text-amber-700 shrink-0" />
+                  On Break
                 </span>
               ) : (
                 <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-900 text-neutral-600 bg-neutral-100 border border-neutral-300">

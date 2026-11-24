@@ -11,6 +11,7 @@ import {
   CreditCard,
   UtensilsCrossed,
   RefreshCw,
+  Phone,
 } from 'lucide-react';
 
 export interface TableBillData {
@@ -225,8 +226,9 @@ export default function TableBillModal({
                     </span>
                   </div>
                   {order.customer.phone && (
-                    <span className="font-700 text-neutral-600 bg-white px-2.5 py-1 rounded-lg border border-neutral-200 text-[11px]">
-                      📞 {order.customer.phone}
+                    <span className="font-700 text-neutral-600 bg-white px-2.5 py-1 rounded-lg border border-neutral-200 text-[11px] inline-flex items-center gap-1.5">
+                      <Phone size={12} className="text-neutral-500" />
+                      {order.customer.phone}
                     </span>
                   )}
                 </div>

@@ -3,6 +3,9 @@
 import React, { useState } from "react";
 import {
   X,
+  CheckCircle2,
+  Car,
+  AlertCircle,
   Printer,
   RefreshCw,
   CreditCard,
@@ -960,7 +963,7 @@ export default function OrderDetailModal({
                     {/* Refunded Badge if already refunded */}
                     {order.paymentStatus === "refunded" && (
                       <div className="w-full py-2 bg-rose-50 border border-rose-200 text-rose-700 text-[11px] font-800 rounded-full text-center uppercase tracking-wider">
-                        ✓ Order Refunded
+                        Order Refunded
                       </div>
                     )}
                   </>
@@ -1151,15 +1154,15 @@ export default function OrderDetailModal({
                         <td className="px-4 py-2 font-700">
                           {hist.status === "driver_assigned" ? (
                             <span className="text-indigo-600">
-                              🚗 Driver Assigned
+                              Driver Assigned
                             </span>
                           ) : hist.status === "driver_delivered" ? (
                             <span className="text-green-600">
-                              ✓ Delivered by Driver
+                              Delivered by Driver
                             </span>
                           ) : hist.status === "pos_delivered" ? (
                             <span className="text-green-600">
-                              ✓ Delivered (POS Dispatch)
+                              Delivered (POS Dispatch)
                             </span>
                           ) : (
                             <span className="text-brand-primary capitalize">
@@ -1298,7 +1301,7 @@ export default function OrderDetailModal({
             </div>
 
             {/* <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-[11px] text-amber-800 font-600">
-              ⚠️ Warning: This will mark the order as Refunded & Cancelled. This action cannot be undone.
+              Warning: This will mark the order as Refunded & Cancelled. This action cannot be undone.
             </div> */}
 
             <div className="flex items-center justify-end gap-2.5 pt-2">
@@ -1463,7 +1466,7 @@ export default function OrderDetailModal({
                   />
                   {emailError && (
                     <p className="text-[10px] font-700 text-red-500 mt-1 pl-1 flex items-center gap-1">
-                      <span>⚠</span> {emailError}
+                      <AlertCircle size={11} className="shrink-0" /> {emailError}
                     </p>
                   )}
                 </div>

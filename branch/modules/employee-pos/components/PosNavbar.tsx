@@ -2,7 +2,7 @@
 
 import React from 'react';
 import axios from 'axios';
-import { Search, Bell, ChefHat, LayoutGrid, Menu, TrendingUp, ClipboardList, LogOut, MapPin, TableProperties } from 'lucide-react';
+import { Search, Bell, ChefHat, LayoutGrid, Menu, TrendingUp, ClipboardList, LogOut, MapPin, TableProperties, Zap } from 'lucide-react';
 import { usePosStore } from '../store/pos.store';
 import { usePathname, useRouter } from 'next/navigation';
 import Link from 'next/link';
@@ -271,7 +271,7 @@ export default function PosNavbar({ onToggleSidebar }: PosNavbarProps) {
             ) : (
               <div className="flex items-center gap-2">
                 <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-orange-600 to-amber-500 flex items-center justify-center text-white shadow-sm font-black text-sm">
-                  ⚡
+                  <Zap size={16} className="fill-white" />
                 </div>
                 <div className="flex flex-col">
                   <span className="text-[14px] font-900 text-neutral-900 tracking-tight leading-none">

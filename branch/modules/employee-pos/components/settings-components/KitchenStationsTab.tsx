@@ -17,6 +17,8 @@ import {
   Unlock,
   X,
   RotateCcw,
+  Pizza,
+  Drumstick,
 } from "lucide-react";
 
 interface KitchenStationsTabProps {
@@ -533,7 +535,7 @@ export default function KitchenStationsTab({
                         }
                         className="sr-only"
                       />
-                      <span>🍕 Pizza</span>
+                      <span className="flex items-center gap-1.5"><Pizza size={13} /> Pizza</span>
                       {handlesPizza && <Check size={11} strokeWidth={3} className="shrink-0" />}
                     </label>
 
@@ -555,7 +557,7 @@ export default function KitchenStationsTab({
                         }
                         className="sr-only"
                       />
-                      <span>🍗 Wings</span>
+                      <span className="flex items-center gap-1.5"><Drumstick size={13} /> Wings</span>
                       {handlesWings && <Check size={11} strokeWidth={3} className="shrink-0" />}
                     </label>
                   </div>

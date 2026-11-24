@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
 import toast from "react-hot-toast";
-import { X, Plus, Trash2, Clock, Calendar, Check, Save } from "lucide-react";
+import { X, Plus, Trash2, Clock, Calendar, Check, Save, AlertCircle } from "lucide-react";
 
 interface ShiftSegmentInput {
   startTime: string;
@@ -372,7 +372,7 @@ export default function EditScheduleModal({
                           }`}
                         />
                         {startInvalid && (
-                          <p className="text-[10px] text-red-500 font-700 mt-1">⚠ Invalid time (0–23 hrs, 0–59 min)</p>
+                          <p className="text-[10px] text-red-500 font-700 mt-1"><span className="inline-flex items-center gap-1"><AlertCircle size={11} className="shrink-0" /> Invalid time (0–23 hrs, 0–59 min)</span></p>
                         )}
                       </div>
                       <div>
@@ -396,7 +396,10 @@ export default function EditScheduleModal({
                           }`}
                         />
                         {endInvalid && (
-                          <p className="text-[10px] text-red-500 font-700 mt-1">⚠ Invalid time (0–23 hrs, 0–59 min)</p>
+                          <p className="text-[10px] text-red-500 font-700 mt-1 flex items-center gap-1">
+                            <AlertCircle size={11} className="shrink-0" />
+                            <span>Invalid time (0–23 hrs, 0–59 min)</span>
+                          </p>
                         )}
                       </div>
                     </div>

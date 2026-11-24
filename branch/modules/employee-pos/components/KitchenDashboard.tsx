@@ -7,7 +7,7 @@ import KitchenOrderCard from './KitchenOrderCard';
 import KitchenDetailModal from './KitchenDetailModal';
 import POSSidebarDrawer from './POSSidebarDrawer';
 import { Order } from '../types';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ChefHat } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { getPusherClient } from '../../../lib/pusher';
 import { getLocalTodayStr, getLocalDateStr } from '../utils/timezone';
@@ -372,7 +372,6 @@ const playKitchenNotificationSound = () => {
       toast.success(`New Order Received: ${data.orderNumber ? '#' + data.orderNumber : ''}`, {
         duration: 4000,
         position: 'top-right',
-        icon: '🍳'
       });
     });
 
@@ -872,8 +871,8 @@ const playKitchenNotificationSound = () => {
               {/* If no orders matching filters */}
               {filteredOrders.length === 0 && (
                 <div className="col-span-1 sm:col-span-2 md:col-span-3 xl:col-span-4 flex-1 flex flex-col h-full bg-white/70 rounded-xl border-2 border-dashed border-neutral-300 p-6 items-center justify-center text-center text-neutral-400">
-                  <div className="w-12 h-12 bg-orange-50 rounded-full flex items-center justify-center mb-3">
-                    🍳
+                  <div className="w-12 h-12 bg-orange-50 rounded-full flex items-center justify-center mb-3 text-brand-primary">
+                    <ChefHat size={24} />
                   </div>
                   <p className="text-[13px] font-800 text-neutral-850 uppercase tracking-wide">Queue Clear</p>
                   <p className="text-[11px] text-neutral-400 mt-1 max-w-[200px]">

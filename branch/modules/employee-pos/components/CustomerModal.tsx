@@ -13,6 +13,7 @@ import {
   FileText,
   Navigation,
   Trash2,
+  CheckCircle2,
   Sparkles,
   Building,
   RotateCcw,
@@ -889,8 +890,15 @@ export default function CustomerModal({ isOpen, onClose }: Props) {
                   <span>Detach Customer</span>
                 </button>
               ) : (
-                <span className="text-[11px] text-neutral-400 font-medium">
-                  {isPhoneValid ? "✓ Ready to attach" : "Enter 10-digit mobile number"}
+                <span className="text-[11px] text-neutral-400 font-medium flex items-center gap-1">
+                  {isPhoneValid ? (
+                    <>
+                      <CheckCircle2 size={12} className="text-emerald-600" />
+                      <span className="text-emerald-700 font-bold">Ready to attach</span>
+                    </>
+                  ) : (
+                    "Enter 10-digit mobile number"
+                  )}
                 </span>
               )}
 

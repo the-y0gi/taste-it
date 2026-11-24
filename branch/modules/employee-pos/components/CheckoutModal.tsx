@@ -7,6 +7,7 @@ import {
   Banknote,
   Clock,
   Utensils,
+  UtensilsCrossed,
   ShoppingBag,
   Minus,
   Plus,
@@ -14,6 +15,7 @@ import {
   Tag,
   FileText,
   CheckCircle,
+  CheckCircle2,
   AlertCircle,
   Loader2,
   Truck,
@@ -37,7 +39,7 @@ const ORDER_TYPE_LABELS: Record<
 > = {
   takeout: { label: "Takeout", icon: <ShoppingBag size={11} /> },
   delivery: { label: "Delivery", icon: <Truck size={11} /> },
-  "dine-in": { label: "Dine In", icon: <Utensils size={11} /> },
+  "dine-in": { label: "Dine In", icon: <UtensilsCrossed size={11} /> },
 };
 
 // Helper to calculate smart Indian currency notes for quick tender
@@ -336,23 +338,41 @@ export default function CheckoutModal() {
         if (updated) {
           toast.success(
             <div className="flex flex-col gap-0.5 text-left">
-              <span className="font-700 text-[11px] text-green-900">
-                {paymentTiming === "pay-now"
-                  ? "Table Bill Settled & Paid! 🎉"
-                  : "Order Updated & KOT Sent! 🍽️"}
+              <span className="font-700 text-[11px] text-green-900 flex items-center gap-1">
+                {paymentTiming === "pay-now" ? (
+                  <>
+                    <CheckCircle2 size={13} className="text-emerald-600" />
+                    <span>Table Bill Settled & Paid!</span>
+                  </>
+                ) : (
+                  <>
+                    <UtensilsCrossed size={13} className="text-emerald-600" />
+                    <span>Order Updated & KOT Sent!</span>
+                  </>
+                )}
               </span>
               <span className="text-[10px] text-green-800">
                 {updated.orderNumber} • {updated.orderType.toUpperCase()}
                 {selectedTable ? ` • Table ${selectedTable.name}` : ""}
               </span>
-              <span className="font-600 text-[10px] text-green-950">
-                {updated.paymentStatus === "paid"
-                  ? `✓ Paid ₹${updated.total.toFixed(2)} (${(updated.paymentMethod || paymentMethod).toUpperCase()})`
-                  : "⏳ Running Dine-In Table Bill"}
+              <span className="font-600 text-[10px] text-green-950 flex items-center gap-1">
+                {updated.paymentStatus === "paid" ? (
+                  <>
+                    <Check size={11} className="text-emerald-700" />
+                    <span>
+                      Paid ₹{updated.total.toFixed(2)} ({(updated.paymentMethod || paymentMethod).toUpperCase()})
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    <Clock size={11} className="text-amber-700" />
+                    <span>Running Dine-In Table Bill</span>
+                  </>
+                )}
               </span>
               {whatsappReceipt && selectedCustomer?.phone && (
                 <span className="text-[9px] text-emerald-800 flex items-center gap-1 mt-0.5">
-                  📱 WhatsApp Bill queued for +91 {selectedCustomer.phone}
+                  <Smartphone size={10} /> WhatsApp Bill queued for +91 {selectedCustomer.phone}
                 </span>
               )}
             </div>,
@@ -363,23 +383,41 @@ export default function CheckoutModal() {
         if (order) {
           toast.success(
             <div className="flex flex-col gap-0.5 text-left">
-              <span className="font-700 text-[11px] text-green-900">
-                {orderType === "dine-in" && paymentTiming === "pay-later"
-                  ? "KOT Sent to Kitchen! 🍽️"
-                  : "Order Placed Successfully! 🎉"}
+              <span className="font-700 text-[11px] text-green-900 flex items-center gap-1">
+                {orderType === "dine-in" && paymentTiming === "pay-later" ? (
+                  <>
+                    <UtensilsCrossed size={13} className="text-emerald-600" />
+                    <span>KOT Sent to Kitchen!</span>
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle2 size={13} className="text-emerald-600" />
+                    <span>Order Placed Successfully!</span>
+                  </>
+                )}
               </span>
               <span className="text-[10px] text-green-800">
                 {order.orderNumber} • {order.orderType.toUpperCase()}
                 {selectedTable ? ` • Table ${selectedTable.name}` : ""}
               </span>
-              <span className="font-600 text-[10px] text-green-950">
-                {order.paymentStatus === "unpaid"
-                  ? "⏳ Table Bill / Pay Later"
-                  : `✓ Paid ₹${order.total.toFixed(2)} (${order.paymentMethod?.toUpperCase()})`}
+              <span className="font-600 text-[10px] text-green-950 flex items-center gap-1">
+                {order.paymentStatus === "unpaid" ? (
+                  <>
+                    <Clock size={11} className="text-amber-700" />
+                    <span>Table Bill / Pay Later</span>
+                  </>
+                ) : (
+                  <>
+                    <Check size={11} className="text-emerald-700" />
+                    <span>
+                      Paid ₹{order.total.toFixed(2)} ({order.paymentMethod?.toUpperCase()})
+                    </span>
+                  </>
+                )}
               </span>
               {whatsappReceipt && selectedCustomer?.phone && (
                 <span className="text-[9px] text-emerald-800 flex items-center gap-1 mt-0.5">
-                  📱 WhatsApp Bill queued for +91 {selectedCustomer.phone}
+                  <Smartphone size={10} /> WhatsApp Bill queued for +91 {selectedCustomer.phone}
                 </span>
               )}
             </div>,
@@ -935,8 +973,9 @@ export default function CheckoutModal() {
                       </div>
                     ) : (
                       <div className="bg-green-50 border border-green-200 rounded-xl p-3 text-center">
-                        <p className="text-[11px] font-800 text-green-700">
-                          ✓ All splits fully paid!
+                        <p className="text-[11px] font-800 text-green-700 flex items-center justify-center gap-1.5">
+                          <CheckCircle2 size={13} className="text-green-600" />
+                          <span>All splits fully paid!</span>
                         </p>
                       </div>
                     )}
@@ -983,26 +1022,37 @@ export default function CheckoutModal() {
                     splitRemaining > 0.01 ? (
                     <>Remaining balance: ₹{splitRemaining.toFixed(2)}</>
                   ) : editingOrderId && paymentTiming === "pay-now" ? (
-                    <>
-                      💰 Pay & Settle Bill ₹{total.toFixed(2)}
-                    </>
+                    <span className="flex items-center justify-center gap-2">
+                      <Banknote size={17} />
+                      <span>Pay & Settle Bill ₹{total.toFixed(2)}</span>
+                    </span>
                   ) : editingOrderId && paymentTiming === "pay-later" ? (
-                    <>
-                      🍽️ Update Order & Fire KOT (₹{total.toFixed(2)})
-                    </>
+                    <span className="flex items-center justify-center gap-2">
+                      <UtensilsCrossed size={17} />
+                      <span>Update Order & Fire KOT (₹{total.toFixed(2)})</span>
+                    </span>
                   ) : orderType === "dine-in" && paymentTiming === "pay-later" ? (
-                    <>
-                      🍽️ Punch KOT & Open Table{" "}
-                      {selectedTable ? `(${selectedTable.name})` : ""}
-                    </>
+                    <span className="flex items-center justify-center gap-2">
+                      <UtensilsCrossed size={17} />
+                      <span>
+                        Punch KOT & Open Table{" "}
+                        {selectedTable ? `(${selectedTable.name})` : ""}
+                      </span>
+                    </span>
                   ) : paymentTiming === "pay-later" ? (
-                    <>{editingOrderId ? "Update Order (Pay Later)" : "Place Order (Pay Later)"}</>
+                    <span className="flex items-center justify-center gap-2">
+                      <Clock size={16} />
+                      <span>{editingOrderId ? "Update Order (Pay Later)" : "Place Order (Pay Later)"}</span>
+                    </span>
                   ) : (
-                    <>
-                      {editingOrderId
-                        ? `Update Order ₹${total.toFixed(2)}`
-                        : `Place Order ₹${total.toFixed(2)}`}
-                    </>
+                    <span className="flex items-center justify-center gap-2">
+                      <CheckCircle2 size={16} />
+                      <span>
+                        {editingOrderId
+                          ? `Update Order ₹${total.toFixed(2)}`
+                          : `Place Order ₹${total.toFixed(2)}`}
+                      </span>
+                    </span>
                   )}
                 </button>
               </div>
@@ -1110,8 +1160,8 @@ export default function CheckoutModal() {
               {orderType === "dine-in" && (
                 <div className="bg-amber-50/80 border border-amber-200 rounded-xl p-3 flex items-center justify-between">
                   <div className="flex items-center gap-2.5">
-                    <div className="w-8 h-8 rounded-lg bg-brand-primary text-white flex items-center justify-center font-bold text-sm shadow-xs">
-                      🍽️
+                    <div className="w-8 h-8 rounded-lg bg-brand-primary text-white flex items-center justify-center shadow-xs">
+                      <UtensilsCrossed size={16} />
                     </div>
                     <div>
                       <p className="text-[9.5px] font-700 text-neutral-500 uppercase tracking-wide">

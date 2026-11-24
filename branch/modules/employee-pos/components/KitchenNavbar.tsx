@@ -1,6 +1,6 @@
 'use client';
 
-import { ChefHat, ChevronDown, Bell, Settings, Power, LayoutGrid, ClipboardList, Menu, TrendingUp } from 'lucide-react';
+import { ChefHat, ChevronDown, Bell, Settings, Power, LayoutGrid, ClipboardList, Menu, TrendingUp, Zap } from 'lucide-react';
 import React from 'react';
 
 interface KitchenNavbarProps {
@@ -70,7 +70,7 @@ export default function KitchenNavbar({ activePendingCount, activeConfirmedCount
           ) : (
             <div className="flex items-center gap-2">
               <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-orange-600 to-amber-500 flex items-center justify-center text-white shadow-sm font-black text-sm">
-                ⚡
+                <Zap size={16} className="fill-white" />
               </div>
               <div className="flex flex-col">
                 <span className="text-[14px] font-900 text-neutral-900 tracking-tight leading-none">
