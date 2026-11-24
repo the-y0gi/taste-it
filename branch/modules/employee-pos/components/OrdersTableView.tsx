@@ -234,7 +234,7 @@ export default function OrdersTableView({
                 const formattedType = {
                   takeout: 'Take-Out',
                   'drive-through': 'Drive-Thru',
-                  'dine-in': 'Dine-In',
+                  'dine-in': order.table?.name ? `Dine-In (${order.table.name})` : 'Dine-In',
                   delivery: 'Delivery',
                 }[order.orderType] || order.orderType;
 

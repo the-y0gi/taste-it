@@ -184,6 +184,7 @@ export default function OrdersDashboard() {
   const [searchKeyword, setSearchKeyword] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [paymentFilter, setPaymentFilter] = useState("");
+  const [orderTypeFilter, setOrderTypeFilter] = useState("");
 
   // Date states (Default: Last 30 Days)
   const getPastDateStr = (daysAgo: number) => {
@@ -228,7 +229,7 @@ export default function OrdersDashboard() {
         if (rawBranch) {
           try {
             const b = JSON.parse(rawBranch);
-            branchId = b._id;
+            branchId = b._id || b.id || b.branchId;
           } catch (e) {}
         }
       }
@@ -266,9 +267,10 @@ export default function OrdersDashboard() {
             startDate: startDate,
             endDate: endDate,
             status: statusFilter || undefined,
+            orderType: orderTypeFilter || undefined,
             paymentStatus: paymentFilter || undefined,
             fields:
-              "orderNumber,customer,subtotal,total,orderType,orderSource,paymentStatus,paymentMethod,payments,status,createdAt,orderTiming,scheduledAt,dueAt",
+              "orderNumber,customer,subtotal,total,orderType,orderSource,paymentStatus,paymentMethod,payments,status,createdAt,orderTiming,scheduledAt,dueAt,table,items",
             page: isAllLimit ? 1 : currentPage,
             limit: isAllLimit ? 1000 : entriesPerPage,
             search: searchKeyword || undefined,
@@ -300,6 +302,7 @@ export default function OrdersDashboard() {
     endDate,
     singleDate,
     statusFilter,
+    orderTypeFilter,
     paymentFilter,
     currentPage,
     entriesPerPage,
@@ -309,7 +312,7 @@ export default function OrdersDashboard() {
   // ── Reset Page On Filter Change ──
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchKeyword, statusFilter, paymentFilter, startDate, endDate]);
+  }, [searchKeyword, statusFilter, orderTypeFilter, paymentFilter, startDate, endDate]);
 
   // ── Load employee permissions on mount ──
   useEffect(() => {
@@ -391,9 +394,12 @@ export default function OrdersDashboard() {
       if (resolvedTab === "dashboard") {
         setStartDate(getPastDateStr(30));
         setEndDate(getTodayDateStr());
+      } else if (resolvedTab === "orders") {
+        setStartDate(getPastDateStr(7));
+        setEndDate(getTodayDateStr());
+        setSingleDate(getTodayDateStr());
       } else if (
         [
-          "orders",
           "reception_view",
           "sales_summary",
           "hourly_sales",
@@ -644,12 +650,16 @@ export default function OrdersDashboard() {
   const handleClearFilters = () => {
     setSearchKeyword("");
     setStatusFilter("");
+    setOrderTypeFilter("");
     setPaymentFilter("");
     const today = getTodayDateStr();
     setSingleDate(today);
 
     if (activeSubTab === "dashboard") {
       setStartDate(getPastDateStr(30));
+      setEndDate(today);
+    } else if (activeSubTab === "orders") {
+      setStartDate(getPastDateStr(7));
       setEndDate(today);
     } else {
       setStartDate(today);
@@ -732,8 +742,8 @@ export default function OrdersDashboard() {
                 onClick={() => {
                   setActiveSubTab("orders");
                   setIsMoreDropdownOpen(false);
-                  setStartDate(singleDate);
-                  setEndDate(singleDate);
+                  setStartDate(getPastDateStr(7));
+                  setEndDate(getTodayDateStr());
                 }}
                 className={`px-4 py-1.5 rounded-lg text-[11px] lg:text-[12.5px] font-800 tracking-wide uppercase transition-all duration-150 cursor-pointer ${
                   activeSubTab === "orders"
@@ -1049,6 +1059,27 @@ export default function OrdersDashboard() {
                         <option value="ready">Ready For Pickup</option>
                         <option value="completed">Order Completed</option>
                         <option value="cancelled">Cancelled</option>
+                      </select>
+                      <ChevronDown
+                        size={13}
+                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-neutral-400 pointer-events-none"
+                      />
+                    </div>
+                  )}
+
+                  {/* Order Type Select */}
+                  {activeSubTab === "orders" && (
+                    <div className="relative">
+                      <select
+                        value={orderTypeFilter}
+                        onChange={(e) => setOrderTypeFilter(e.target.value)}
+                        className="appearance-none bg-neutral-50 border border-neutral-200 rounded-lg pl-3 pr-8 py-1.5 text-[12px] font-600 text-neutral-700 hover:border-neutral-350 focus:outline-none focus:border-brand-primary cursor-pointer transition-all"
+                      >
+                        <option value="">All Types</option>
+                        <option value="dine-in">Dine-In (Tables)</option>
+                        <option value="takeout">Take-Out</option>
+                        <option value="delivery">Delivery</option>
+                        <option value="drive-through">Drive-Thru</option>
                       </select>
                       <ChevronDown
                         size={13}
