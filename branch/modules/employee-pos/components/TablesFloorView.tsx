@@ -51,7 +51,7 @@ interface TableData {
 
 export default function TablesFloorView() {
   const router = useRouter();
-  const { setTable, setOrderType, openCheckout } = usePosStore();
+  const { setTable, setOrderType, openCheckout, loadOrderForEditing, clearCart, setPaymentTiming, checkoutOpen } = usePosStore();
 
   const [tables, setTables] = useState<TableData[]>([]);
   const [sections, setSections] = useState<string[]>([]);
@@ -112,6 +112,13 @@ export default function TablesFloorView() {
     return () => clearInterval(interval);
   }, [fetchTables]);
 
+  // Auto-refresh tables when checkout modal closes (e.g. after bill settlement)
+  useEffect(() => {
+    if (!checkoutOpen) {
+      fetchTables(true);
+    }
+  }, [checkoutOpen, fetchTables]);
+
   // Format elapsed time (e.g. "24m")
   const getElapsedTime = (occupiedSince?: string | null, createdAt?: string | null) => {
     const timeStr = occupiedSince || createdAt;
@@ -126,35 +133,79 @@ export default function TablesFloorView() {
 
   // 1. Click Available Table -> Select Table & Open POS Cart for Dine-In
   const handleSelectVacantTable = (t: TableData) => {
+    const orderId = t.currentOrderId?._id || (typeof t.currentOrderId === 'string' ? t.currentOrderId : null);
+    if (orderId) {
+      handleAddItemsToTable(t);
+      return;
+    }
+    clearCart();
     setTable({
       id: t._id,
       name: t.name,
       status: 'available',
     });
     setOrderType('dine-in');
+    setPaymentTiming('pay-later');
     toast.success(`Selected ${t.name} for Dine-In order`);
     router.push('/employee/pos');
   };
 
-  // 2. Click "Add Items" on Occupied Table -> Select Table & Open POS Cart to add running KOT items
-  const handleAddItemsToTable = (t: TableData) => {
+  // 2. Click "Add Items" / "+ KOT" on Occupied Table -> Select Table & Open POS Cart to add running KOT items
+  const handleAddItemsToTable = async (t: TableData) => {
+    let fullOrder: any = t.currentOrderId;
+    const orderId = (typeof t.currentOrderId === 'object' && t.currentOrderId?._id)
+      ? t.currentOrderId._id
+      : (typeof t.currentOrderId === 'string' ? t.currentOrderId : null);
+
+    if (orderId) {
+      try {
+        setActionLoading(true);
+        const res = await axios.get(`${API_URL}/orders/${orderId}`, {
+          withCredentials: true,
+        });
+        if (res.data?.success && res.data?.data) {
+          fullOrder = res.data.data;
+        }
+      } catch (err: any) {
+        console.warn("Could not fetch order by ID, using populated order:", err);
+      } finally {
+        setActionLoading(false);
+      }
+    }
+
+    if (fullOrder && (fullOrder.items || fullOrder._id)) {
+      if (!fullOrder.table || !fullOrder.table.name) {
+        fullOrder.table = { id: t._id, name: t.name, status: t.status };
+      }
+      loadOrderForEditing(fullOrder);
+      setPaymentTiming('pay-later');
+      toast.success(`Loaded running order #${fullOrder.orderNumber || ''} (${t.name})`);
+      router.push('/employee/pos');
+      return;
+    }
+
     setTable({
       id: t._id,
       name: t.name,
-      status: 'occupied',
+      status: t.status,
     });
     setOrderType('dine-in');
+    setPaymentTiming('pay-later');
     toast.success(`Adding items to ${t.name}`);
     router.push('/employee/pos');
   };
 
   // 3. Mark Table as Billed (Print Bill / Pre-Bill)
   const handleMarkBilled = async (t: TableData) => {
+    const orderId = (typeof t.currentOrderId === 'object' && t.currentOrderId?._id)
+      ? t.currentOrderId._id
+      : (typeof t.currentOrderId === 'string' ? t.currentOrderId : undefined);
+
     try {
       setActionLoading(true);
       const res = await axios.patch(
         `${API_URL}/tables/${t._id}/status`,
-        { status: 'billed', orderId: t.currentOrderId?._id },
+        { status: 'billed', orderId },
         { withCredentials: true }
       );
       if (res.data?.success) {
@@ -168,16 +219,50 @@ export default function TablesFloorView() {
     }
   };
 
-  // 4. Settle / Pay Table Order
-  const handleSettleTable = (t: TableData) => {
-    setTable({
-      id: t._id,
-      name: t.name,
-      status: t.status,
-    });
-    setOrderType('dine-in');
-    openCheckout();
-    router.push('/employee/pos');
+  // 4. Settle / Pay Table Order (Direct modal popup over Floor Plan!)
+  const handleSettleTable = async (t: TableData) => {
+    let fullOrder: any = t.currentOrderId;
+    const orderId = (typeof t.currentOrderId === 'object' && t.currentOrderId?._id)
+      ? t.currentOrderId._id
+      : (typeof t.currentOrderId === 'string' ? t.currentOrderId : null);
+
+    if (!orderId && !fullOrder) {
+      toast.error(`No running order to settle for ${t.name}`);
+      return;
+    }
+
+    try {
+      setActionLoading(true);
+      if (orderId) {
+        try {
+          const res = await axios.get(`${API_URL}/orders/${orderId}`, {
+            withCredentials: true,
+          });
+          if (res.data?.success && res.data?.data) {
+            fullOrder = res.data.data;
+          }
+        } catch (fetchErr) {
+          console.warn("Could not fetch order by ID, using populated order on table:", fetchErr);
+        }
+      }
+
+      if (!fullOrder) {
+        toast.error('Could not load order for settlement');
+        return;
+      }
+
+      if (!fullOrder.table || !fullOrder.table.name) {
+        fullOrder.table = { id: t._id, name: t.name, status: t.status };
+      }
+
+      loadOrderForEditing(fullOrder);
+      setPaymentTiming('pay-now');
+      openCheckout();
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'Failed to open settlement');
+    } finally {
+      setActionLoading(false);
+    }
   };
 
   // 5. Open Transfer Modal

@@ -15,6 +15,7 @@ interface RealTableItem {
   capacity: number;
   status: 'available' | 'occupied' | 'billed' | 'reserved';
   currentOrderId?: {
+    _id?: string;
     orderNumber: string;
     total: number;
   } | null;
@@ -35,7 +36,7 @@ const STATUS_DOT: Record<TableInfo['status'], string> = {
 };
 
 export default function TableSelectorModal({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
-  const { selectedTable, setTable } = usePosStore();
+  const { selectedTable, setTable, cartItems, loadOrderForEditing, setPaymentTiming } = usePosStore();
   const [tables, setTables] = useState<RealTableItem[]>([]);
   const [sections, setSections] = useState<string[]>([]);
   const [activeSection, setActiveSection] = useState<string>('all');
@@ -74,10 +75,31 @@ export default function TableSelectorModal({ isOpen, onClose }: { isOpen: boolea
 
   if (!isOpen) return null;
 
-  const handleSelect = (t: RealTableItem) => {
-    if (t.status === 'occupied') { 
-      toast.error(`Table "${t.name}" is occupied with another running order.`); 
-      return; 
+  const handleSelect = async (t: RealTableItem) => {
+    if (t.status === 'occupied' || t.status === 'billed') {
+      const orderId = t.currentOrderId?._id || (typeof t.currentOrderId === 'string' ? t.currentOrderId : null);
+      if (orderId && cartItems.length === 0) {
+        try {
+          const res = await axios.get(`${API_URL}/orders/${orderId}`, {
+            withCredentials: true,
+          });
+          if (res.data?.success && res.data?.data) {
+            const fullOrder = res.data.data;
+            if (!fullOrder.table || !fullOrder.table.name) {
+              fullOrder.table = { id: t._id, name: t.name, status: t.status };
+            }
+            loadOrderForEditing(fullOrder);
+            setPaymentTiming('pay-later');
+            toast.success(`Loaded running order #${fullOrder.orderNumber} for Table ${t.name}`);
+            onClose();
+            return;
+          }
+        } catch {
+          // fallback
+        }
+      }
+      toast.error(`Table "${t.name}" is occupied with another running order.`);
+      return;
     }
     setTable({
       id: t._id,

@@ -1096,38 +1096,53 @@ export const usePosStore = create<PosState>((set, get) => ({
 
   // ── Load Order For Editing ───────────────────────────────────
   loadOrderForEditing: (order) => {
-    const restoredItems: CartItem[] = (order.items || []).map((item) => {
+    const restoredItems: CartItem[] = (order.items || []).map((item: any) => {
       const modifierSum = (item.selectedModifiers || []).reduce(
-        (sum, mod) => sum + mod.price,
+        (sum: number, mod: any) => sum + (Number(mod.price) || 0),
         0,
       );
+      const qty = Math.max(1, Number(item.quantity) || 1);
       const unitPrice =
-        item.basePrice ||
-        roundToTwo((item.totalPrice || 0) / (item.quantity || 1) - modifierSum);
+        item.basePrice !== undefined && !isNaN(Number(item.basePrice))
+          ? Number(item.basePrice)
+          : roundToTwo((Number(item.totalPrice) || 0) / qty - modifierSum);
+      const computedTotal =
+        item.totalPrice !== undefined && !isNaN(Number(item.totalPrice))
+          ? Number(item.totalPrice)
+          : roundToTwo((unitPrice + modifierSum) * qty);
+
       return {
-        id: generateCartItemId(item.menuItemId, item.selectedModifiers || [], item.name),
-        menuItemId: item.menuItemId,
+        id: generateCartItemId(
+          String(item.menuItemId || item._id || Math.random()),
+          item.selectedModifiers || [],
+          item.name
+        ),
+        menuItemId: String(item.menuItemId || item._id || ""),
         categoryId: item.categoryId || "",
         categoryName: item.categoryName || "",
-        name: item.name,
+        name: item.name || "Menu Item",
         image: item.image || "",
         basePrice: unitPrice,
         selectedModifiers: item.selectedModifiers || [],
-        quantity: item.quantity || 1,
-        totalPrice:
-          item.totalPrice ||
-          roundToTwo((unitPrice + modifierSum) * (item.quantity || 1)),
+        quantity: qty,
+        totalPrice: computedTotal,
         note: item.note || "",
         kitchenLabel: item.kitchenLabel || "make_table",
       };
     });
 
+    const orderTable = order.table && order.table.name ? {
+      id: order.table.id || (order.table as any)._id,
+      name: order.table.name,
+      status: (order.table.status as any) || "occupied",
+    } : null;
+
     set({
       editingOrderId: order._id,
       editingOrderNumber: order.orderNumber,
       cartItems: restoredItems,
-      orderType: (order.orderType as PosState["orderType"]) || "takeout",
-      selectedTable: order.table || null,
+      orderType: (order.orderType as PosState["orderType"]) || "dine-in",
+      selectedTable: orderTable,
       orderSource: (order.orderSource as PosState["orderSource"]) || "pos",
       selectedCustomer:
         order.customer &&
@@ -1136,10 +1151,30 @@ export const usePosStore = create<PosState>((set, get) => ({
           ? order.customer
           : null,
       orderNotes: order.notes || "",
+      appliedPromo: order.promoCode ? {
+        code: order.promoCode,
+        description: `Promo: ${order.promoCode}`,
+        discountType: "flat",
+        discountValue: order.discount || 0,
+        discountAmount: order.discount || 0,
+        applyCount: order.promoApplyCount || 1,
+      } : null,
+      manualDiscountType: order.discountType === "percentage" || order.discountType === "flat" ? order.discountType : null,
+      manualDiscountValue: order.discount || 0,
+      paymentTiming: (order.paymentTiming as any) || (order.paymentStatus === "paid" ? "pay-now" : "pay-later"),
+      cashGiven: Number(order.total) || 0,
+      changeAmount: 0,
+      splitPayments: [],
+      subtotal: Number(order.subtotal) || 0,
+      tax: Number(order.tax) || 0,
+      discount: Number(order.discount) || 0,
+      total: Number(order.total) || 0,
     });
 
-    get().calculateTotals();
-    toast.success(`Order ${order.orderNumber} loaded for editing`);
+    if (restoredItems.length > 0) {
+      get().calculateTotals();
+    }
+    toast.success(`Order ${order.orderNumber} loaded`);
   },
 
   // ── Cancel Editing Mode ───────────────────────────────────────
@@ -1169,12 +1204,22 @@ export const usePosStore = create<PosState>((set, get) => ({
       cartItems,
       orderType,
       selectedCustomer,
+      selectedTable,
       subtotal,
       tax,
       discount,
       total,
       orderNotes,
       orders,
+      paymentTiming,
+      paymentType,
+      paymentMethod,
+      splitPayments,
+      cashGiven,
+      changeAmount,
+      upiProvider,
+      upiRefNumber,
+      orderSource,
     } = get();
 
     if (!editingOrderId) {
@@ -1223,6 +1268,9 @@ export const usePosStore = create<PosState>((set, get) => ({
         selectedCustomer.name.trim()
           ? selectedCustomer
           : { name: "No Name", phone: "", email: "" },
+      table: selectedTable
+        ? { id: selectedTable.id, name: selectedTable.name, status: selectedTable.status }
+        : undefined,
     };
 
     try {
@@ -1231,10 +1279,64 @@ export const usePosStore = create<PosState>((set, get) => ({
       const res = await axios.patch(
         `${apiUrl}/orders/${editingOrderId}`,
         payload,
+        { withCredentials: true }
       );
 
       if (res.data.success) {
-        const updatedOrder = res.data.data as Order;
+        let updatedOrder = res.data.data as Order;
+
+        // If paying now (settlement), send payments to markOrderPaid
+        if (paymentTiming === "pay-now") {
+          let payments: SplitPayment[] = [];
+          if (paymentType === "split") {
+            payments = splitPayments;
+          } else if (["doordash", "skip", "ubereats", "zomato", "swiggy"].includes(orderSource)) {
+            payments = [
+              {
+                method: "cash",
+                amount: total,
+                cashGiven: 0,
+                changeGiven: 0,
+              },
+            ];
+          } else if (paymentMethod === "upi") {
+            payments = [
+              {
+                method: "upi",
+                amount: total,
+                transactionId: upiRefNumber,
+                upiProvider,
+                cashGiven: 0,
+                changeGiven: 0,
+              },
+            ];
+          } else {
+            payments = [
+              {
+                method: paymentMethod,
+                amount: total,
+                cashGiven: paymentMethod === "cash" ? cashGiven : 0,
+                changeGiven: paymentMethod === "cash" ? changeAmount : 0,
+              },
+            ];
+          }
+
+          if (payments.length > 0) {
+            try {
+              const payRes = await axios.patch(
+                `${apiUrl}/orders/${editingOrderId}/payment`,
+                { payments },
+                { withCredentials: true }
+              );
+              if (payRes.data?.success && payRes.data?.data) {
+                updatedOrder = payRes.data.data as Order;
+              }
+            } catch (payErr: any) {
+              console.error("Payment recording error:", payErr);
+            }
+          }
+        }
+
         const updatedOrdersList = orders.map((o) =>
           o._id === editingOrderId ? updatedOrder : o,
         );
@@ -1264,7 +1366,7 @@ export const usePosStore = create<PosState>((set, get) => ({
           total: 0,
         });
         toast.success(
-          `Order ${editingOrderNumber || ""} updated successfully!`,
+          `Order ${editingOrderNumber || ""} ${paymentTiming === "pay-now" ? "settled & paid" : "updated"} successfully!`,
         );
         return updatedOrder;
       }

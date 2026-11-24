@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import PosNavbar from '@/modules/employee-pos/components/PosNavbar';
 import POSSidebarDrawer from '@/modules/employee-pos/components/POSSidebarDrawer';
 import TablesFloorView from '@/modules/employee-pos/components/TablesFloorView';
+import CheckoutModal from '@/modules/employee-pos/components/CheckoutModal';
 import EmployeePermissionGuard from '@/modules/employee-pos/components/EmployeePermissionGuard';
 
 export default function TablesPage() {
@@ -17,6 +18,9 @@ export default function TablesPage() {
 
         {/* Floor Plan View */}
         <TablesFloorView />
+
+        {/* Checkout Modal Overlay for instant settlement on floor plan */}
+        <CheckoutModal />
 
         {/* Sidebar Drawer */}
         <POSSidebarDrawer

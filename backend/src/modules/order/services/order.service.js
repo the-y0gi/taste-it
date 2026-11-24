@@ -731,9 +731,12 @@ exports.markOrderPaid = async (id, payments) => {
     await order.save();
 
     // If order is paid and attached to a Dine-In table, free up the table
-    if (order.paymentStatus === "paid" && order.orderType === "dine-in" && order.table?.id) {
+    if (order.paymentStatus === "paid" && order.orderType === "dine-in") {
       try {
-        await Table.findByIdAndUpdate(order.table.id, {
+        const query = order.table?.id
+          ? { $or: [{ _id: order.table.id }, { currentOrderId: order._id }] }
+          : { currentOrderId: order._id };
+        await Table.updateMany(query, {
           status: "available",
           currentOrderId: null,
           occupiedSince: null,
@@ -983,8 +986,31 @@ exports.updateOrderItems = async (id, updateData) => {
     if (updateData.notes !== undefined) order.notes = updateData.notes;
     if (updateData.customer !== undefined) order.customer = updateData.customer;
     if (updateData.orderType !== undefined) order.orderType = updateData.orderType;
+    if (updateData.table !== undefined) order.table = updateData.table;
 
     await order.save();
+
+    // Ensure linked table references this order
+    if (order.orderType === "dine-in" && order.table?.id) {
+      try {
+        if (order.paymentStatus === "paid") {
+          const query = { $or: [{ _id: order.table.id }, { currentOrderId: order._id }] };
+          await Table.updateMany(query, {
+            status: "available",
+            currentOrderId: null,
+            occupiedSince: null,
+          });
+        } else {
+          await Table.findByIdAndUpdate(order.table.id, {
+            status: "occupied",
+            currentOrderId: order._id,
+            occupiedSince: order.createdAt || new Date(),
+          });
+        }
+      } catch (tblErr) {
+        logger.error(`Error updating table in updateOrderItems: ${tblErr.message}`);
+      }
+    }
     logger.info(
       `Order ${order.orderNumber} items updated. Payment status: ${order.paymentStatus}`,
     );

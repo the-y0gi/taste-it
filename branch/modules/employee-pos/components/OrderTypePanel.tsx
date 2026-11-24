@@ -173,9 +173,19 @@ const ORDER_TYPES = [
 type OT = typeof ORDER_TYPES[number]['id'];
 
 export default function OrderTypePanel() {
-  const { orderType, setOrderType, selectedCustomer, cartItems } = usePosStore();
+  const { orderType, setOrderType, selectedCustomer, cartItems, editingOrderId } = usePosStore();
   const [showCustomer, setShowCustomer] = useState(false);
-  const [branchToggles, setBranchToggles] = React.useState<Record<string, boolean>>({});
+  const [branchToggles, setBranchToggles] = React.useState<Record<string, boolean>>(() => {
+    if (typeof window === "undefined") return {};
+    try {
+      const raw = localStorage.getItem("rms_branch");
+      if (raw) {
+        const b = JSON.parse(raw);
+        return b.featureToggles || {};
+      }
+    } catch {}
+    return {};
+  });
 
   React.useEffect(() => {
     const readToggles = () => {
@@ -207,10 +217,12 @@ export default function OrderTypePanel() {
   }, [branchToggles]);
 
   React.useEffect(() => {
+    if (editingOrderId) return;
+    if (Object.keys(branchToggles).length === 0) return;
     if (availableOrderTypes.length > 0 && !availableOrderTypes.some((t) => t.id === orderType)) {
       setOrderType(availableOrderTypes[0].id as any);
     }
-  }, [availableOrderTypes, orderType, setOrderType]);
+  }, [availableOrderTypes, orderType, setOrderType, editingOrderId, branchToggles]);
 
   const handleTypeChange = (t: OT) => {
     setOrderType(t);

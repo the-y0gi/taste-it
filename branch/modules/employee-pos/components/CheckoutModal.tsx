@@ -332,7 +332,32 @@ export default function CheckoutModal() {
 
     try {
       if (editingOrderId) {
-        await updateOrder();
+        const updated = await updateOrder();
+        if (updated) {
+          toast.success(
+            <div className="flex flex-col gap-0.5 text-left">
+              <span className="font-700 text-[11px] text-green-900">
+                {paymentTiming === "pay-now"
+                  ? "Table Bill Settled & Paid! 🎉"
+                  : "Order Updated & KOT Sent! 🍽️"}
+              </span>
+              <span className="text-[10px] text-green-800">
+                {updated.orderNumber} • {updated.orderType.toUpperCase()}
+                {selectedTable ? ` • Table ${selectedTable.name}` : ""}
+              </span>
+              <span className="font-600 text-[10px] text-green-950">
+                {updated.paymentStatus === "paid"
+                  ? `✓ Paid ₹${updated.total.toFixed(2)} (${(updated.paymentMethod || paymentMethod).toUpperCase()})`
+                  : "⏳ Running Dine-In Table Bill"}
+              </span>
+              {whatsappReceipt && selectedCustomer?.phone && (
+                <span className="text-[9px] text-emerald-800 flex items-center gap-1 mt-0.5">
+                  📱 WhatsApp Bill queued for +91 {selectedCustomer.phone}
+                </span>
+              )}
+            </div>,
+          );
+        }
       } else {
         const order = await placeOrder();
         if (order) {
@@ -408,11 +433,17 @@ export default function CheckoutModal() {
           {/* ── Header ── */}
           <div
             className={`${
-              editingOrderId ? "bg-amber-600" : "bg-brand-primary"
+              editingOrderId && paymentTiming === "pay-now"
+                ? "bg-emerald-600"
+                : editingOrderId
+                ? "bg-amber-600"
+                : "bg-brand-primary"
             } px-5 py-3 flex items-center gap-3 flex-shrink-0 transition-colors`}
           >
             <h2 className="text-[14px] font-900 text-white uppercase tracking-widest flex items-center gap-2">
-              {editingOrderId
+              {editingOrderId && paymentTiming === "pay-now"
+                ? `Settle Order ${editingOrderNumber}`
+                : editingOrderId
                 ? `Update Order ${editingOrderNumber}`
                 : "Checkout & Order"}
             </h2>
@@ -933,22 +964,32 @@ export default function CheckoutModal() {
                       paymentType === "split" &&
                       splitRemaining > 0.01)
                       ? "bg-neutral-200 text-neutral-400 cursor-not-allowed shadow-none"
-                      : editingOrderId
-                        ? "bg-amber-600 hover:bg-amber-700 text-white cursor-pointer shadow-amber-600/20"
-                        : orderType === "dine-in" && paymentTiming === "pay-later"
-                          ? "bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer shadow-emerald-600/20"
-                          : "bg-brand-primary hover:bg-brand-primary-hover text-white cursor-pointer shadow-brand-primary/20"
+                      : editingOrderId && paymentTiming === "pay-now"
+                        ? "bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer shadow-emerald-600/20"
+                        : editingOrderId
+                          ? "bg-amber-600 hover:bg-amber-700 text-white cursor-pointer shadow-amber-600/20"
+                          : orderType === "dine-in" && paymentTiming === "pay-later"
+                            ? "bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer shadow-emerald-600/20"
+                            : "bg-brand-primary hover:bg-brand-primary-hover text-white cursor-pointer shadow-brand-primary/20"
                   }`}
                 >
                   {placingOrder || updatingOrder ? (
                     <>
                       <Loader2 size={15} className="animate-spin" />{" "}
-                      {editingOrderId ? "Updating Order..." : "Placing Order..."}
+                      {editingOrderId ? (paymentTiming === "pay-now" ? "Settling Bill..." : "Updating Order...") : "Placing Order..."}
                     </>
                   ) : paymentTiming === "pay-now" &&
                     paymentType === "split" &&
                     splitRemaining > 0.01 ? (
                     <>Remaining balance: ₹{splitRemaining.toFixed(2)}</>
+                  ) : editingOrderId && paymentTiming === "pay-now" ? (
+                    <>
+                      💰 Pay & Settle Bill ₹{total.toFixed(2)}
+                    </>
+                  ) : editingOrderId && paymentTiming === "pay-later" ? (
+                    <>
+                      🍽️ Update Order & Fire KOT (₹{total.toFixed(2)})
+                    </>
                   ) : orderType === "dine-in" && paymentTiming === "pay-later" ? (
                     <>
                       🍽️ Punch KOT & Open Table{" "}

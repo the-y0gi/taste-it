@@ -29,7 +29,7 @@ exports.getTables = async (req, res) => {
     let tables = await Table.find({ branchId, isActive: { $ne: false } })
       .populate({
         path: "currentOrderId",
-        select: "orderNumber orderType paymentStatus orderStatus total items createdAt",
+        select: "orderNumber orderType paymentStatus orderStatus total subtotal tax discount items customer table orderSource notes createdAt",
       })
       .sort({ section: 1, sortOrder: 1, name: 1 })
       .lean();
@@ -48,7 +48,7 @@ exports.getTables = async (req, res) => {
       tables = await Table.find({ branchId, isActive: { $ne: false } })
         .populate({
           path: "currentOrderId",
-          select: "orderNumber orderType paymentStatus orderStatus total items createdAt",
+          select: "orderNumber orderType paymentStatus orderStatus total subtotal tax discount items customer table orderSource notes createdAt",
         })
         .sort({ section: 1, sortOrder: 1, name: 1 })
         .lean();
@@ -273,7 +273,7 @@ exports.updateTableStatus = async (req, res) => {
 
     const populated = await Table.findById(table._id).populate({
       path: "currentOrderId",
-      select: "orderNumber orderType paymentStatus orderStatus total items createdAt",
+      select: "orderNumber orderType paymentStatus orderStatus total subtotal tax discount items customer table orderSource notes createdAt",
     });
 
     return res.status(200).json({
