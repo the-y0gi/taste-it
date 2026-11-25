@@ -23,6 +23,8 @@ import {
   EyeOff,
   UploadCloud,
   Loader2,
+  Coffee,
+  Zap,
 } from 'lucide-react';
 import PosNavbar from '@/modules/employee-pos/components/PosNavbar';
 import POSSidebarDrawer from '@/modules/employee-pos/components/POSSidebarDrawer';
@@ -78,9 +80,163 @@ export interface Category {
   branchId?: string;
 }
 
+export const DEFAULT_TAPRI_ITEMS = [
+  {
+    name: 'Cutting Chai',
+    shortcode: 'CC',
+    price: 10,
+    foodType: 'veg' as const,
+    image: 'https://images.unsplash.com/photo-1544787219-7f47ccb76574?w=500&q=80',
+    description: 'Classic Indian spiced cutting tea boiled to perfection with milk and sugar.',
+  },
+  {
+    name: 'Special Masala Chai',
+    shortcode: 'MC',
+    price: 15,
+    foodType: 'veg' as const,
+    image: 'https://images.unsplash.com/photo-1561047029-3000c68339ca?w=500&q=80',
+    description: 'Brewed with fresh ginger, crushed cardamom, cloves and cinnamon.',
+  },
+  {
+    name: 'Kulhad Chai',
+    shortcode: 'KC',
+    price: 25,
+    foodType: 'veg' as const,
+    image: 'https://images.unsplash.com/photo-1576092768241-dec231879fc3?w=500&q=80',
+    description: 'Earthy clay-pot aroma boiled hot chai served in traditional kulhad.',
+  },
+  {
+    name: 'Hot Filter Coffee',
+    shortcode: 'HC',
+    price: 20,
+    foodType: 'veg' as const,
+    image: 'https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?w=500&q=80',
+    description: 'Frothy hot South-Indian style filter coffee.',
+  },
+  {
+    name: 'Crispy Samosa',
+    shortcode: 'SM',
+    price: 15,
+    foodType: 'veg' as const,
+    image: 'https://images.unsplash.com/photo-1601050690597-df0568f70950?w=500&q=80',
+    description: 'Golden fried crispy triangle pastry filled with spicy potatoes and peas.',
+  },
+  {
+    name: 'Kachori (Pyaaz / Dal)',
+    shortcode: 'KCH',
+    price: 15,
+    foodType: 'veg' as const,
+    image: 'https://images.unsplash.com/photo-1626777552726-4a6b54c97e46?w=500&q=80',
+    description: 'Flaky crispy round snack stuffed with spiced lentils and spices.',
+  },
+  {
+    name: 'Bread Pakora',
+    shortcode: 'BP',
+    price: 20,
+    foodType: 'veg' as const,
+    image: 'https://images.unsplash.com/photo-1589301760014-d929f3979dbc?w=500&q=80',
+    description: 'Deep fried batter coated bread stuffed with spiced potato masala.',
+  },
+  {
+    name: 'Bun Maska',
+    shortcode: 'BM',
+    price: 30,
+    foodType: 'veg' as const,
+    image: 'https://images.unsplash.com/photo-1509440159596-0249088772ff?w=500&q=80',
+    description: 'Soft sweet bun sliced and generously slathered with creamy fresh butter.',
+  },
+  {
+    name: 'Indori Poha',
+    shortcode: 'PH',
+    price: 25,
+    foodType: 'veg' as const,
+    image: 'https://images.unsplash.com/photo-1626777552726-4a6b54c97e46?w=500&q=80',
+    description: 'Flattened rice cooked with turmeric, onions, peanuts and fresh coriander.',
+  },
+  {
+    name: 'Mumbai Vada Pav',
+    shortcode: 'VP',
+    price: 20,
+    foodType: 'veg' as const,
+    image: 'https://images.unsplash.com/photo-1589301760014-d929f3979dbc?w=500&q=80',
+    description: 'Spicy potato batata vada sandwiched in pav with dry garlic chutney.',
+  },
+  {
+    name: 'Parle-G / Rusk',
+    shortcode: 'RSK',
+    price: 10,
+    foodType: 'veg' as const,
+    image: 'https://images.unsplash.com/photo-1558961363-fa8fdf82db35?w=500&q=80',
+    description: 'Crunchy tea dunking biscuits and toasted rusks.',
+  },
+  {
+    name: 'Cold Coffee',
+    shortcode: 'CCF',
+    price: 35,
+    foodType: 'veg' as const,
+    image: 'https://images.unsplash.com/photo-1517256064527-09c73fc73e38?w=500&q=80',
+    description: 'Chilled blended creamy coffee served cold.',
+  },
+];
+
+export const getAlternativeImage = (name: string): string => {
+  const n = name.toLowerCase();
+  if (n.includes('chai') || n.includes('tea')) {
+    return 'https://images.unsplash.com/photo-1544787219-7f47ccb76574?w=500&q=80';
+  }
+  if (n.includes('coffee')) {
+    return 'https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?w=500&q=80';
+  }
+  if (n.includes('samosa') || n.includes('kachori') || n.includes('pakora') || n.includes('snack')) {
+    return 'https://images.unsplash.com/photo-1601050690597-df0568f70950?w=500&q=80';
+  }
+  if (n.includes('bun') || n.includes('maska') || n.includes('bread') || n.includes('toast') || n.includes('biscuit') || n.includes('rusk')) {
+    return 'https://images.unsplash.com/photo-1509440159596-0249088772ff?w=500&q=80';
+  }
+  if (n.includes('poha')) {
+    return 'https://images.unsplash.com/photo-1626777552726-4a6b54c97e46?w=500&q=80';
+  }
+  if (n.includes('vada') || n.includes('pav') || n.includes('burger')) {
+    return 'https://images.unsplash.com/photo-1589301760014-d929f3979dbc?w=500&q=80';
+  }
+  if (n.includes('maggi') || n.includes('noodle')) {
+    return 'https://images.unsplash.com/photo-1612927601601-6638404737ce?w=500&q=80';
+  }
+  return 'https://images.unsplash.com/photo-1544787219-7f47ccb76574?w=500&q=80';
+};
+
 export default function BranchMenuPage() {
   const [activeTab, setActiveTab] = useState<'products' | 'categories'>('products');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [branchType, setBranchType] = useState<string>('general');
+  const [isLoadingStarterMenu, setIsLoadingStarterMenu] = useState(false);
+
+  useEffect(() => {
+    const updateBranchType = () => {
+      if (typeof window !== 'undefined') {
+        const rawBranch = localStorage.getItem('rms_branch');
+        if (rawBranch) {
+          try {
+            const b = JSON.parse(rawBranch);
+            setBranchType(b.restaurantType || 'general');
+          } catch (e) {
+            setBranchType('general');
+          }
+        } else {
+          setBranchType('general');
+        }
+      }
+    };
+    updateBranchType();
+    window.addEventListener('rms_branch_updated', updateBranchType);
+    window.addEventListener('storage', updateBranchType);
+    return () => {
+      window.removeEventListener('rms_branch_updated', updateBranchType);
+      window.removeEventListener('storage', updateBranchType);
+    };
+  }, []);
+
+  const isTeaStall = branchType === 'tea_stall';
 
   // Data states
   const [products, setProducts] = useState<Product[]>([]);
@@ -430,10 +586,17 @@ export default function BranchMenuPage() {
         isJainAvailable: !!prod.isJainAvailable,
         pricingType: prod.pricingType || (prod.variants && prod.variants.length > 0 ? 'variant' : 'single'),
         price: prod.price || 0,
-        variants: prod.variants && prod.variants.length > 0 ? prod.variants : [
-          { name: 'Lite', price: prod.price || 90, isDefault: true },
-          { name: 'Heavy', price: (prod.price || 90) + 30, isDefault: false },
-        ],
+        variants: prod.variants && prod.variants.length > 0 ? prod.variants : (
+          isTeaStall
+            ? [
+                { name: 'Cutting (Half)', price: 10, isDefault: true },
+                { name: 'Full Cup', price: 20, isDefault: false },
+              ]
+            : [
+                { name: 'Lite', price: prod.price || 90, isDefault: true },
+                { name: 'Heavy', price: (prod.price || 90) + 30, isDefault: false },
+              ]
+        ),
         addons: prod.addons || [],
         kitchenLabel: prod.kitchenLabel || 'fast_food',
         description: prod.description || '',
@@ -451,10 +614,15 @@ export default function BranchMenuPage() {
         isJainAvailable: false,
         pricingType: 'single',
         price: 0,
-        variants: [
-          { name: 'Lite (1 Tikki)', price: 90, isDefault: true },
-          { name: 'Heavy (2 Tikki)', price: 120, isDefault: false },
-        ],
+        variants: isTeaStall
+          ? [
+              { name: 'Cutting (Half)', price: 10, isDefault: true },
+              { name: 'Full Cup', price: 20, isDefault: false },
+            ]
+          : [
+              { name: 'Lite (1 Tikki)', price: 90, isDefault: true },
+              { name: 'Heavy (2 Tikki)', price: 120, isDefault: false },
+            ],
         addons: [],
         kitchenLabel: 'fast_food',
         description: '',
@@ -468,11 +636,35 @@ export default function BranchMenuPage() {
 
   const handleSaveProduct = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!prodForm.name.trim()) return toast.error('Dish name is required');
-    if (!prodForm.categoryId) return toast.error('Please select a category');
+    if (!prodForm.name.trim()) return toast.error('Item name is required');
 
     const { branchId } = getBranchInfo();
     const headers = getAuthHeaders();
+
+    let targetCatId: string = prodForm.categoryId || '';
+    if (!targetCatId && categories.length > 0) {
+      targetCatId = (categories[0]._id || categories[0].id || '') as string;
+    }
+    if (!targetCatId) {
+      // Auto-create default category if none exists so user is never blocked
+      try {
+        const catRes = await axios.post(
+          `${apiUrl}/menu/categories`,
+          {
+            name: isTeaStall ? 'Chai & Snacks' : 'General',
+            slug: isTeaStall ? 'chai-snacks' : 'general',
+            branchId,
+            isActive: true,
+          },
+          { headers }
+        );
+        if (catRes.data?.success && catRes.data.data) {
+          targetCatId = (catRes.data.data._id || catRes.data.data.id || '') as string;
+        }
+      } catch (e) {}
+    }
+
+    if (!targetCatId) return toast.error('Please create at least one category');
 
     // Compute base price
     let finalBasePrice = prodForm.price;
@@ -481,8 +673,15 @@ export default function BranchMenuPage() {
       finalBasePrice = def ? def.price : 0;
     }
 
+    // Auto-resolve alternative image if no image was uploaded
+    const resolvedImage = prodForm.image?.trim() || getAlternativeImage(prodForm.name);
+
     const payload = {
       ...prodForm,
+      categoryId: targetCatId,
+      image: resolvedImage,
+      foodType: isTeaStall ? 'veg' : prodForm.foodType,
+      kitchenLabel: isTeaStall ? 'fast_food' : prodForm.kitchenLabel,
       price: finalBasePrice,
       hasVariants: prodForm.pricingType === 'variant',
       branchId,
@@ -494,10 +693,10 @@ export default function BranchMenuPage() {
       if (editingProduct) {
         const id = editingProduct._id || editingProduct.id;
         await axios.put(`${apiUrl}/menu/products/${id}`, payload, { headers });
-        toast.success(`Dish "${prodForm.name}" updated!`);
+        toast.success(`"${prodForm.name}" updated!`);
       } else {
         await axios.post(`${apiUrl}/menu/products`, payload, { headers });
-        toast.success(`Dish "${prodForm.name}" added to menu!`);
+        toast.success(`"${prodForm.name}" added to menu!`);
       }
       setShowProductModal(false);
       fetchMenuData();
@@ -505,6 +704,64 @@ export default function BranchMenuPage() {
       toast.error(err.response?.data?.message || 'Failed to save product');
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleLoadDefaultTapriMenu = async () => {
+    setIsLoadingStarterMenu(true);
+    const toastId = toast.loading('Setting up 12 classic Tapri menu items with images...');
+    try {
+      const { branchId } = getBranchInfo();
+      const headers = getAuthHeaders();
+
+      // Ensure Category
+      let targetCatId = categories[0]?._id || categories[0]?.id;
+      if (!targetCatId) {
+        const catRes = await axios.post(
+          `${apiUrl}/menu/categories`,
+          {
+            name: 'Chai & Snacks',
+            slug: 'chai-snacks',
+            description: 'Classic Tea, Hot Drinks & Quick Snacks',
+            branchId,
+            isActive: true,
+          },
+          { headers }
+        );
+        if (catRes.data?.success && catRes.data.data) {
+          targetCatId = catRes.data.data._id || catRes.data.data.id;
+        }
+      }
+
+      if (!targetCatId) {
+        throw new Error('Could not initialize category.');
+      }
+
+      let count = 0;
+      for (const item of DEFAULT_TAPRI_ITEMS) {
+        await axios.post(
+          `${apiUrl}/menu/products`,
+          {
+            ...item,
+            categoryId: targetCatId,
+            branchId,
+            pricingType: 'single',
+            kitchenLabel: 'fast_food',
+            isActive: true,
+            displayOrder: count + 1,
+          },
+          { headers }
+        );
+        count++;
+      }
+
+      toast.success(`Loaded ${count} popular Tapri items with images! ☕🥟`, { id: toastId });
+      await fetchMenuData();
+    } catch (err: any) {
+      console.error('Error loading starter menu:', err);
+      toast.error(err.response?.data?.message || err.message || 'Failed to load starter menu', { id: toastId });
+    } finally {
+      setIsLoadingStarterMenu(false);
     }
   };
 
@@ -543,8 +800,49 @@ export default function BranchMenuPage() {
   };
 
   // ── Variant Preset Loaders ───────────────────────────────────────────────
-  const applyVariantPreset = (type: 'burger' | 'half_full' | 'pizza' | 'shake') => {
-    if (type === 'burger') {
+  const applyVariantPreset = (
+    type: 'burger' | 'half_full' | 'pizza' | 'shake' | 'chai' | 'bun_maska' | 'snack_plate' | 'maggi'
+  ) => {
+    if (type === 'chai') {
+      setProdForm((prev) => ({
+        ...prev,
+        pricingType: 'variant',
+        variants: [
+          { name: 'Cutting (Half)', price: 10, isDefault: true },
+          { name: 'Full Cup', price: 20, isDefault: false },
+          { name: 'Kulhad', price: 25, isDefault: false },
+        ],
+      }));
+    } else if (type === 'bun_maska') {
+      setProdForm((prev) => ({
+        ...prev,
+        pricingType: 'variant',
+        variants: [
+          { name: 'Plain Maska', price: 30, isDefault: true },
+          { name: 'Jam Maska', price: 35, isDefault: false },
+          { name: 'Extra Maska', price: 40, isDefault: false },
+        ],
+      }));
+    } else if (type === 'snack_plate') {
+      setProdForm((prev) => ({
+        ...prev,
+        pricingType: 'variant',
+        variants: [
+          { name: 'Single (1 Pc)', price: 15, isDefault: true },
+          { name: 'Plate (2 Pcs)', price: 28, isDefault: false },
+        ],
+      }));
+    } else if (type === 'maggi') {
+      setProdForm((prev) => ({
+        ...prev,
+        pricingType: 'variant',
+        variants: [
+          { name: 'Plain Maggi', price: 30, isDefault: true },
+          { name: 'Veg Masala', price: 40, isDefault: false },
+          { name: 'Cheese Maggi', price: 50, isDefault: false },
+        ],
+      }));
+    } else if (type === 'burger') {
       setProdForm((prev) => ({
         ...prev,
         pricingType: 'variant',
@@ -630,47 +928,75 @@ export default function BranchMenuPage() {
         <div className="bg-white border-b border-neutral-200 px-6 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shrink-0 shadow-xs">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-orange-50 border border-orange-200 flex items-center justify-center text-orange-600 shadow-xs">
-              <UtensilsCrossed size={20} />
+              {isTeaStall ? <Coffee size={20} /> : <UtensilsCrossed size={20} />}
             </div>
             <div>
               <h1 className="text-lg font-900 text-neutral-900 tracking-tight flex items-center gap-2">
-                <span>Branch Menu &amp; Catalog</span>
+                <span>{isTeaStall ? 'Chai & Snacks Menu Catalog' : 'Branch Menu & Catalog'}</span>
                 <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-orange-100 text-orange-700">
                   {getBranchInfo().branchName}
                 </span>
+                {isTeaStall && (
+                  <span className="text-[9.5px] font-black px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-900 border border-amber-300 uppercase tracking-wider flex items-center gap-1 shadow-2xs">
+                    <Zap size={10} className="fill-amber-600 text-amber-600" />
+                    <span>Tapri Mode</span>
+                  </span>
+                )}
               </h1>
               <p className="text-[11px] font-medium text-neutral-400">
-                Manage your branch categories, Indian food items, pricing variants &amp; daily stock status
+                {isTeaStall
+                  ? 'Manage fast counter tea, coffee, samosa & quick snacks items'
+                  : 'Manage your branch categories, Indian food items, pricing variants & daily stock status'}
               </p>
             </div>
           </div>
 
           {/* Action Tabs & Buttons */}
           <div className="flex items-center gap-2.5">
-            <div className="flex bg-neutral-100 p-1 rounded-xl border border-neutral-200">
+            {!isTeaStall ? (
+              <div className="flex bg-neutral-100 p-1 rounded-xl border border-neutral-200">
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('products')}
+                  className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                    activeTab === 'products'
+                      ? 'bg-white text-orange-600 shadow-xs'
+                      : 'text-neutral-500 hover:text-neutral-900'
+                  }`}
+                >
+                  Dishes ({products.length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('categories')}
+                  className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                    activeTab === 'categories'
+                      ? 'bg-white text-orange-600 shadow-xs'
+                      : 'text-neutral-500 hover:text-neutral-900'
+                  }`}
+                >
+                  Categories ({categories.length})
+                </button>
+              </div>
+            ) : (
+              <div className="px-3.5 py-1.5 bg-orange-50 border border-orange-200 text-orange-800 rounded-xl text-xs font-black shadow-2xs flex items-center gap-1.5">
+                <span>☕</span>
+                <span>Tapri Items ({products.length})</span>
+              </div>
+            )}
+
+            {isTeaStall && products.length === 0 && (
               <button
                 type="button"
-                onClick={() => setActiveTab('products')}
-                className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                  activeTab === 'products'
-                    ? 'bg-white text-orange-600 shadow-xs'
-                    : 'text-neutral-500 hover:text-neutral-900'
-                }`}
+                onClick={handleLoadDefaultTapriMenu}
+                disabled={isLoadingStarterMenu}
+                className="px-3.5 py-2 bg-gradient-to-r from-amber-600 to-orange-500 hover:from-amber-700 hover:to-orange-600 text-white rounded-xl text-xs font-black transition-all flex items-center gap-1.5 shadow-md shadow-orange-500/20 active:scale-95 cursor-pointer"
+                title="Automatically create 12 popular tapri items"
               >
-                Dishes ({products.length})
+                <Zap size={14} className="fill-white" />
+                <span>{isLoadingStarterMenu ? 'Loading...' : 'Load Tapri Menu'}</span>
               </button>
-              <button
-                type="button"
-                onClick={() => setActiveTab('categories')}
-                className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                  activeTab === 'categories'
-                    ? 'bg-white text-orange-600 shadow-xs'
-                    : 'text-neutral-500 hover:text-neutral-900'
-                }`}
-              >
-                Categories ({categories.length})
-              </button>
-            </div>
+            )}
 
             <button
               type="button"
@@ -688,7 +1014,7 @@ export default function BranchMenuPage() {
                 className="px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-xl text-xs font-black transition-all flex items-center gap-1.5 shadow-md shadow-orange-500/20 active:scale-95 cursor-pointer"
               >
                 <Plus size={15} strokeWidth={3} />
-                <span>Add Dish</span>
+                <span>{isTeaStall ? 'Add Item' : 'Add Dish'}</span>
               </button>
             ) : (
               <button
@@ -730,19 +1056,21 @@ export default function BranchMenuPage() {
 
               {/* Filters Group */}
               <div className="flex flex-wrap items-center gap-2">
-                {/* Category Dropdown */}
-                <select
-                  value={selectedCategoryFilter}
-                  onChange={(e) => setSelectedCategoryFilter(e.target.value)}
-                  className="bg-neutral-50 border border-neutral-200 rounded-xl px-3 py-2 text-xs font-bold text-neutral-700 focus:outline-none focus:border-orange-500 cursor-pointer"
-                >
-                  <option value="all">All Categories</option>
-                  {categories.map((c) => (
-                    <option key={c._id || c.id} value={c._id || c.id}>
-                      {c.name}
-                    </option>
-                  ))}
-                </select>
+                {/* Category Dropdown (Hidden for Tea Stall) */}
+                {!isTeaStall && (
+                  <select
+                    value={selectedCategoryFilter}
+                    onChange={(e) => setSelectedCategoryFilter(e.target.value)}
+                    className="bg-neutral-50 border border-neutral-200 rounded-xl px-3 py-2 text-xs font-bold text-neutral-700 focus:outline-none focus:border-orange-500 cursor-pointer"
+                  >
+                    <option value="all">All Categories</option>
+                    {categories.map((c) => (
+                      <option key={c._id || c.id} value={c._id || c.id}>
+                        {c.name}
+                      </option>
+                    ))}
+                  </select>
+                )}
 
                 {/* Food Type Pill Buttons */}
                 <div className="flex bg-neutral-100 p-0.5 rounded-xl border border-neutral-200">
@@ -796,9 +1124,31 @@ export default function BranchMenuPage() {
                 </div>
               ) : filteredProducts.length === 0 ? (
                 <div className="flex-1 flex flex-col items-center justify-center text-center p-8">
-                  <span className="text-4xl mb-2">🍽️</span>
-                  <p className="text-sm font-black text-neutral-800">No dishes match your filter</p>
-                  <p className="text-xs text-neutral-400 mt-1">Try resetting search or click &quot;Add Dish&quot; above.</p>
+                  {isTeaStall && products.length === 0 ? (
+                    <div className="max-w-md mx-auto p-6 bg-orange-50/70 rounded-3xl border border-orange-200 text-center shadow-xs">
+                      <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-amber-600 to-orange-500 text-white flex items-center justify-center mx-auto mb-3 shadow-md">
+                        <Coffee size={28} />
+                      </div>
+                      <h3 className="text-base font-black text-neutral-900 mb-1">Your Tapri Menu is Empty</h3>
+                      <p className="text-xs text-neutral-500 mb-4 font-medium leading-relaxed">
+                        Save time! Click below to auto-load 12 classic Chai, Coffee, Samosa, Kachori &amp; Bun Maska items with standard pricing and appetizing images.
+                      </p>
+                      <button
+                        onClick={handleLoadDefaultTapriMenu}
+                        disabled={isLoadingStarterMenu}
+                        className="px-5 py-2.5 bg-gradient-to-r from-amber-600 to-orange-500 hover:from-amber-700 hover:to-orange-600 text-white text-xs font-black rounded-xl shadow-md shadow-orange-500/20 active:scale-95 transition-all flex items-center justify-center gap-2 mx-auto cursor-pointer"
+                      >
+                        <Zap size={15} className="fill-white" />
+                        <span>{isLoadingStarterMenu ? 'Creating 12 Tapri Items...' : '⚡ 1-Click Load Popular Tapri Menu'}</span>
+                      </button>
+                    </div>
+                  ) : (
+                    <>
+                      <span className="text-4xl mb-2">🍽️</span>
+                      <p className="text-sm font-black text-neutral-800">No items match your filter</p>
+                      <p className="text-xs text-neutral-400 mt-1">Try resetting search or click &quot;Add {isTeaStall ? 'Item' : 'Dish'}&quot; above.</p>
+                    </>
+                  )}
                 </div>
               ) : (
                 <div className="overflow-x-auto overflow-y-auto flex-1">
@@ -806,11 +1156,11 @@ export default function BranchMenuPage() {
                     <thead className="bg-neutral-50/80 border-b border-neutral-200 text-neutral-500 text-[10px] font-black uppercase tracking-wider sticky top-0 z-10 backdrop-blur-xs">
                       <tr>
                         <th className="px-5 py-3 w-16 text-center">Image</th>
-                        <th className="px-5 py-3">Dish / Item Name</th>
+                        <th className="px-5 py-3">{isTeaStall ? 'Item Name' : 'Dish / Item Name'}</th>
                         <th className="px-5 py-3 text-center w-24">Shortcode</th>
-                        <th className="px-5 py-3">Category</th>
+                        {!isTeaStall && <th className="px-5 py-3">Category</th>}
                         <th className="px-5 py-3">Pricing &amp; Variants</th>
-                        <th className="px-5 py-3 text-center w-28">Kitchen</th>
+                        {!isTeaStall && <th className="px-5 py-3 text-center w-28">Kitchen</th>}
                         <th className="px-5 py-3 text-center w-32">Daily Stock</th>
                         <th className="px-5 py-3 text-right w-28">Actions</th>
                       </tr>
@@ -829,13 +1179,11 @@ export default function BranchMenuPage() {
                             {/* Image */}
                             <td className="px-5 py-3 text-center">
                               <div className="relative w-10 h-10 rounded-xl overflow-hidden bg-neutral-100 border border-neutral-200 mx-auto">
-                                {prod.image ? (
-                                  <img src={prod.image} alt={prod.name} className="w-full h-full object-cover" />
-                                ) : (
-                                  <div className="w-full h-full flex items-center justify-center text-neutral-300">
-                                    <ImageIcon size={16} />
-                                  </div>
-                                )}
+                                <img
+                                  src={prod.image || getAlternativeImage(prod.name)}
+                                  alt={prod.name}
+                                  className="w-full h-full object-cover"
+                                />
                                 {/* Food Type Dot */}
                                 <span
                                   className={`absolute top-1 left-1 w-2 h-2 rounded-full ring-1 ring-white ${
@@ -887,12 +1235,14 @@ export default function BranchMenuPage() {
                               )}
                             </td>
 
-                            {/* Category */}
-                            <td className="px-5 py-3">
-                              <span className="inline-flex px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-orange-50 border border-orange-200 text-orange-700">
-                                {catName}
-                              </span>
-                            </td>
+                            {/* Category (Hidden for Tea Stall) */}
+                            {!isTeaStall && (
+                              <td className="px-5 py-3">
+                                <span className="inline-flex px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-orange-50 border border-orange-200 text-orange-700">
+                                  {catName}
+                                </span>
+                              </td>
+                            )}
 
                             {/* Pricing / Variants */}
                             <td className="px-5 py-3">
@@ -914,12 +1264,14 @@ export default function BranchMenuPage() {
                               )}
                             </td>
 
-                            {/* Kitchen Station */}
-                            <td className="px-5 py-3 text-center">
-                              <span className="text-[9.5px] font-extrabold uppercase px-2 py-0.5 rounded bg-neutral-100 text-neutral-600 border border-neutral-200">
-                                {prod.kitchenLabel?.replace('_', ' ') || 'fast food'}
-                              </span>
-                            </td>
+                            {/* Kitchen Station (Hidden for Tea Stall) */}
+                            {!isTeaStall && (
+                              <td className="px-5 py-3 text-center">
+                                <span className="text-[9.5px] font-extrabold uppercase px-2 py-0.5 rounded bg-neutral-100 text-neutral-600 border border-neutral-200">
+                                  {prod.kitchenLabel?.replace('_', ' ') || 'fast food'}
+                                </span>
+                              </td>
+                            )}
 
                             {/* Daily Stock Toggle */}
                             <td className="px-5 py-3 text-center">
@@ -1062,11 +1414,20 @@ export default function BranchMenuPage() {
               {/* Modal Header */}
               <div className="px-6 py-4 border-b border-neutral-100 flex items-center justify-between bg-neutral-50/50">
                 <div>
-                  <h2 className="text-base font-black text-neutral-900">
-                    {editingProduct ? 'Edit Dish' : 'Add New Indian Dish'}
+                  <h2 className="text-base font-black text-neutral-900 flex items-center gap-2">
+                    {editingProduct
+                      ? isTeaStall ? 'Edit Tapri Item' : 'Edit Dish'
+                      : isTeaStall ? '⚡ Quick Add Tapri Item' : 'Add New Indian Dish'}
+                    {isTeaStall && (
+                      <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-orange-100 text-orange-700">
+                        Tapri Mode
+                      </span>
+                    )}
                   </h2>
                   <p className="text-[11px] text-neutral-400 font-medium">
-                    Configure pricing, columnar variants (Lite/Heavy), shortcodes, and food type
+                    {isTeaStall
+                      ? 'Fast item entry with automated category & station. Ready for 1-tap POS selling.'
+                      : 'Configure pricing, columnar variants (Lite/Heavy), shortcodes, and food type'}
                   </p>
                 </div>
                 <button
@@ -1088,7 +1449,7 @@ export default function BranchMenuPage() {
                     <input
                       type="text"
                       required
-                      placeholder="e.g. Cheese Overloaded Burger"
+                      placeholder={isTeaStall ? "e.g. Masala Chai, Samosa, Bun Maska" : "e.g. Cheese Overloaded Burger"}
                       value={prodForm.name}
                       onChange={(e) => setProdForm({ ...prodForm, name: e.target.value })}
                       className="w-full bg-neutral-50 border border-neutral-200 rounded-xl px-3 py-2 text-xs font-bold text-neutral-800 focus:outline-none focus:border-orange-500"
@@ -1109,93 +1470,144 @@ export default function BranchMenuPage() {
                 </div>
 
                 {/* Category & Kitchen Station */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-black text-neutral-500 uppercase tracking-wider">
-                      Category *
-                    </label>
-                    <select
-                      required
-                      value={prodForm.categoryId}
-                      onChange={(e) => setProdForm({ ...prodForm, categoryId: e.target.value })}
-                      className="w-full bg-neutral-50 border border-neutral-200 rounded-xl px-3 py-2 text-xs font-bold text-neutral-800 focus:outline-none focus:border-orange-500 cursor-pointer"
-                    >
-                      <option value="" disabled>Select category</option>
-                      {categories.map((c) => (
-                        <option key={c._id || c.id} value={c._id || c.id}>
-                          {c.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-black text-neutral-500 uppercase tracking-wider">
-                      Kitchen Station
-                    </label>
-                    <select
-                      value={prodForm.kitchenLabel}
-                      onChange={(e) => setProdForm({ ...prodForm, kitchenLabel: e.target.value })}
-                      className="w-full bg-neutral-50 border border-neutral-200 rounded-xl px-3 py-2 text-xs font-bold text-neutral-800 focus:outline-none focus:border-orange-500 cursor-pointer"
-                    >
-                      <option value="fast_food">🍔 Fast Food Station</option>
-                      <option value="tandoor">🔥 Tandoor Station</option>
-                      <option value="chinese">🥡 Chinese Station</option>
-                      <option value="main_kitchen">🍛 Main Kitchen / Curries</option>
-                      <option value="beverages">🥤 Beverages / Shakes</option>
-                      <option value="general">🍽️ General Kitchen</option>
-                    </select>
-                  </div>
-                </div>
-
-                {/* Food Type Badges & Jain Friendly Toggle */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3 bg-neutral-50 rounded-2xl border border-neutral-200">
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] font-black text-neutral-500 uppercase tracking-wider block">
-                      Indian Food Badge
-                    </label>
-                    <div className="flex gap-2">
-                      <button
-                        type="button"
-                        onClick={() => setProdForm({ ...prodForm, foodType: 'veg' })}
-                        className={`flex-1 py-1.5 rounded-xl border text-xs font-extrabold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
-                          prodForm.foodType === 'veg'
-                            ? 'bg-emerald-50 border-emerald-500 text-emerald-800 shadow-xs'
-                            : 'bg-white border-neutral-200 text-neutral-600'
-                        }`}
+                {isTeaStall ? (
+                  /* Single stall / Tapri mode: Station is hidden, Category is optional/automated */
+                  categories.length > 1 ? (
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-black text-neutral-500 uppercase tracking-wider">
+                        Category (Optional)
+                      </label>
+                      <select
+                        value={prodForm.categoryId}
+                        onChange={(e) => setProdForm({ ...prodForm, categoryId: e.target.value })}
+                        className="w-full bg-neutral-50 border border-neutral-200 rounded-xl px-3 py-2 text-xs font-bold text-neutral-800 focus:outline-none focus:border-orange-500 cursor-pointer"
                       >
-                        <span className="w-2.5 h-2.5 rounded-full bg-emerald-600" />
-                        <span>Veg</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setProdForm({ ...prodForm, foodType: 'non_veg' })}
-                        className={`flex-1 py-1.5 rounded-xl border text-xs font-extrabold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
-                          prodForm.foodType === 'non_veg'
-                            ? 'bg-red-50 border-red-500 text-red-800 shadow-xs'
-                            : 'bg-white border-neutral-200 text-neutral-600'
-                        }`}
+                        <option value="">Chai & Snacks (Default)</option>
+                        {categories.map((c) => (
+                          <option key={c._id || c.id} value={c._id || c.id}>
+                            {c.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  ) : (
+                    <div className="p-3 bg-orange-50/60 rounded-xl border border-orange-100 flex items-center justify-between text-xs font-bold text-orange-900">
+                      <div className="flex items-center gap-2">
+                        <span>☕</span>
+                        <span>Category: <strong>{categories[0]?.name || 'Chai & Snacks'}</strong> (Auto-assigned)</span>
+                      </div>
+                      <span className="text-[9.5px] bg-orange-200/80 text-orange-900 px-2 py-0.5 rounded-md font-extrabold uppercase">
+                        Single Counter
+                      </span>
+                    </div>
+                  )
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-black text-neutral-500 uppercase tracking-wider">
+                        Category *
+                      </label>
+                      <select
+                        required
+                        value={prodForm.categoryId}
+                        onChange={(e) => setProdForm({ ...prodForm, categoryId: e.target.value })}
+                        className="w-full bg-neutral-50 border border-neutral-200 rounded-xl px-3 py-2 text-xs font-bold text-neutral-800 focus:outline-none focus:border-orange-500 cursor-pointer"
                       >
-                        <span className="w-2.5 h-2.5 rounded-full bg-red-600" />
-                        <span>Non-Veg</span>
-                      </button>
+                        <option value="" disabled>Select category</option>
+                        {categories.map((c) => (
+                          <option key={c._id || c.id} value={c._id || c.id}>
+                            {c.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-black text-neutral-500 uppercase tracking-wider">
+                        Kitchen Station
+                      </label>
+                      <select
+                        value={prodForm.kitchenLabel}
+                        onChange={(e) => setProdForm({ ...prodForm, kitchenLabel: e.target.value })}
+                        className="w-full bg-neutral-50 border border-neutral-200 rounded-xl px-3 py-2 text-xs font-bold text-neutral-800 focus:outline-none focus:border-orange-500 cursor-pointer"
+                      >
+                        <option value="fast_food">🍔 Fast Food Station</option>
+                        <option value="tandoor">🔥 Tandoor Station</option>
+                        <option value="chinese">🥡 Chinese Station</option>
+                        <option value="main_kitchen">🍛 Main Kitchen / Curries</option>
+                        <option value="beverages">🥤 Beverages / Shakes</option>
+                        <option value="general">🍽️ General Kitchen</option>
+                      </select>
                     </div>
                   </div>
+                )}
 
-                  <div className="flex items-center justify-between sm:justify-end gap-3 pt-4 sm:pt-0">
-                    <label className="flex items-center gap-2 cursor-pointer select-none">
-                      <input
-                        type="checkbox"
-                        checked={prodForm.isJainAvailable}
-                        onChange={(e) => setProdForm({ ...prodForm, isJainAvailable: e.target.checked })}
-                        className="w-4 h-4 rounded text-orange-500 border-neutral-300 focus:ring-orange-400 cursor-pointer"
-                      />
-                      <span className="text-xs font-extrabold text-neutral-800">
-                        Jain Friendly (No Onion/Garlic)
+                {/* Food Type Badges & Jain Friendly Toggle */}
+                {isTeaStall ? (
+                  <div className="flex items-center justify-between p-2.5 bg-neutral-50 rounded-xl border border-neutral-200 text-xs">
+                    <div className="flex items-center gap-2">
+                      <span className={`w-2.5 h-2.5 rounded-full ${prodForm.foodType === 'veg' ? 'bg-emerald-600' : 'bg-red-600'}`} />
+                      <span className="text-[11px] font-bold text-neutral-700">
+                        Item Type: <strong className="text-neutral-900">{prodForm.foodType === 'veg' ? '100% Vegetarian' : 'Non-Veg / Egg'}</strong>
                       </span>
-                    </label>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setProdForm({ ...prodForm, foodType: prodForm.foodType === 'veg' ? 'non_veg' : 'veg' })}
+                      className="text-[10.5px] font-bold text-orange-600 hover:text-orange-700 cursor-pointer underline"
+                    >
+                      {prodForm.foodType === 'veg' ? 'Switch to Non-Veg' : 'Switch to Veg'}
+                    </button>
                   </div>
-                </div>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3 bg-neutral-50 rounded-2xl border border-neutral-200">
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-black text-neutral-500 uppercase tracking-wider block">
+                        Indian Food Badge
+                      </label>
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setProdForm({ ...prodForm, foodType: 'veg' })}
+                          className={`flex-1 py-1.5 rounded-xl border text-xs font-extrabold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                            prodForm.foodType === 'veg'
+                              ? 'bg-emerald-50 border-emerald-500 text-emerald-800 shadow-xs'
+                              : 'bg-white border-neutral-200 text-neutral-600'
+                          }`}
+                        >
+                          <span className="w-2.5 h-2.5 rounded-full bg-emerald-600" />
+                          <span>Veg</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setProdForm({ ...prodForm, foodType: 'non_veg' })}
+                          className={`flex-1 py-1.5 rounded-xl border text-xs font-extrabold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                            prodForm.foodType === 'non_veg'
+                              ? 'bg-red-50 border-red-500 text-red-800 shadow-xs'
+                              : 'bg-white border-neutral-200 text-neutral-600'
+                          }`}
+                        >
+                          <span className="w-2.5 h-2.5 rounded-full bg-red-600" />
+                          <span>Non-Veg</span>
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between sm:justify-end gap-3 pt-4 sm:pt-0">
+                      <label className="flex items-center gap-2 cursor-pointer select-none">
+                        <input
+                          type="checkbox"
+                          checked={prodForm.isJainAvailable}
+                          onChange={(e) => setProdForm({ ...prodForm, isJainAvailable: e.target.checked })}
+                          className="w-4 h-4 rounded text-orange-500 border-neutral-300 focus:ring-orange-400 cursor-pointer"
+                        />
+                        <span className="text-xs font-extrabold text-neutral-800">
+                          Jain Friendly (No Onion/Garlic)
+                        </span>
+                      </label>
+                    </div>
+                  </div>
+                )}
 
                 {/* Pricing Type & Columnar Variants */}
                 <div className="space-y-3 p-4 bg-orange-50/50 rounded-2xl border border-orange-200">
@@ -1249,35 +1661,72 @@ export default function BranchMenuPage() {
                     <div className="space-y-3">
                       {/* Presets */}
                       <div className="flex items-center gap-1.5 flex-wrap">
-                        <span className="text-[9px] font-bold text-neutral-400 uppercase">Presets:</span>
-                        <button
-                          type="button"
-                          onClick={() => applyVariantPreset('burger')}
-                          className="px-2 py-0.5 rounded-md bg-white border border-neutral-200 hover:border-orange-500 text-[10px] font-bold text-neutral-700 cursor-pointer shadow-3xs"
-                        >
-                          🍔 Burger (Lite / Heavy)
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => applyVariantPreset('half_full')}
-                          className="px-2 py-0.5 rounded-md bg-white border border-neutral-200 hover:border-orange-500 text-[10px] font-bold text-neutral-700 cursor-pointer shadow-3xs"
-                        >
-                          🍛 Main Course (Half / Full)
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => applyVariantPreset('pizza')}
-                          className="px-2 py-0.5 rounded-md bg-white border border-neutral-200 hover:border-orange-500 text-[10px] font-bold text-neutral-700 cursor-pointer shadow-3xs"
-                        >
-                          🍕 Pizza (Normal / Extra Cheese)
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => applyVariantPreset('shake')}
-                          className="px-2 py-0.5 rounded-md bg-white border border-neutral-200 hover:border-orange-500 text-[10px] font-bold text-neutral-700 cursor-pointer shadow-3xs"
-                        >
-                          🥤 Shake (Normal / Ice Cream / VIP)
-                        </button>
+                        <span className="text-[9px] font-bold text-neutral-400 uppercase">
+                          {isTeaStall ? 'Tapri Presets:' : 'Presets:'}
+                        </span>
+                        {isTeaStall ? (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => applyVariantPreset('chai')}
+                              className="px-2 py-0.5 rounded-md bg-white border border-neutral-200 hover:border-orange-500 text-[10px] font-bold text-neutral-700 cursor-pointer shadow-3xs"
+                            >
+                              ☕ Chai (Cutting / Full / Kulhad)
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => applyVariantPreset('bun_maska')}
+                              className="px-2 py-0.5 rounded-md bg-white border border-neutral-200 hover:border-orange-500 text-[10px] font-bold text-neutral-700 cursor-pointer shadow-3xs"
+                            >
+                              🍞 Bun Maska (Plain / Jam / Extra)
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => applyVariantPreset('snack_plate')}
+                              className="px-2 py-0.5 rounded-md bg-white border border-neutral-200 hover:border-orange-500 text-[10px] font-bold text-neutral-700 cursor-pointer shadow-3xs"
+                            >
+                              🥟 Snacks (Single / Plate)
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => applyVariantPreset('maggi')}
+                              className="px-2 py-0.5 rounded-md bg-white border border-neutral-200 hover:border-orange-500 text-[10px] font-bold text-neutral-700 cursor-pointer shadow-3xs"
+                            >
+                              🍜 Maggi (Plain / Veg / Cheese)
+                            </button>
+                          </>
+                        ) : (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => applyVariantPreset('burger')}
+                              className="px-2 py-0.5 rounded-md bg-white border border-neutral-200 hover:border-orange-500 text-[10px] font-bold text-neutral-700 cursor-pointer shadow-3xs"
+                            >
+                              🍔 Burger (Lite / Heavy)
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => applyVariantPreset('half_full')}
+                              className="px-2 py-0.5 rounded-md bg-white border border-neutral-200 hover:border-orange-500 text-[10px] font-bold text-neutral-700 cursor-pointer shadow-3xs"
+                            >
+                              🍛 Main Course (Half / Full)
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => applyVariantPreset('pizza')}
+                              className="px-2 py-0.5 rounded-md bg-white border border-neutral-200 hover:border-orange-500 text-[10px] font-bold text-neutral-700 cursor-pointer shadow-3xs"
+                            >
+                              🍕 Pizza (Normal / Extra Cheese)
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => applyVariantPreset('shake')}
+                              className="px-2 py-0.5 rounded-md bg-white border border-neutral-200 hover:border-orange-500 text-[10px] font-bold text-neutral-700 cursor-pointer shadow-3xs"
+                            >
+                              🥤 Shake (Normal / Ice Cream / VIP)
+                            </button>
+                          </>
+                        )}
                       </div>
 
                       {/* Variant Rows */}
@@ -1349,6 +1798,11 @@ export default function BranchMenuPage() {
                 <div className="space-y-1.5">
                   <label className="text-[10px] font-black text-neutral-500 uppercase tracking-wider flex items-center justify-between">
                     <span>Dish Photo</span>
+                    {!prodForm.image && (
+                      <span className="text-[9.5px] text-amber-600 font-extrabold normal-case">
+                        {isTeaStall ? '✨ Smart Alternative Photo Active' : 'Automatic fallback active'}
+                      </span>
+                    )}
                   </label>
 
                   {prodForm.image ? (
@@ -1361,7 +1815,7 @@ export default function BranchMenuPage() {
                           {prodForm.image.split('/').pop()}
                         </p>
                         <span className="inline-flex items-center gap-1 text-[9px] font-extrabold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded mt-1">
-                          Uploaded
+                          Custom Photo Uploaded
                         </span>
                       </div>
                       <div className="flex flex-col gap-1">
@@ -1385,33 +1839,51 @@ export default function BranchMenuPage() {
                       </div>
                     </div>
                   ) : (
-                    <label className="border-2 border-dashed border-neutral-200 hover:border-orange-500 bg-neutral-50/70 hover:bg-orange-50/20 rounded-2xl p-4 flex flex-col items-center justify-center gap-1.5 cursor-pointer transition-all group">
-                      {uploadingProdImg ? (
-                        <div className="flex flex-col items-center gap-2 py-2 text-orange-600">
-                          <Loader2 size={24} className="animate-spin" />
-                          <span className="text-[11px] font-bold">Uploading...</span>
+                    <div className="p-3 bg-neutral-50/80 rounded-2xl border border-neutral-200 flex items-center gap-3">
+                      <div className="w-14 h-14 rounded-xl overflow-hidden bg-white border border-neutral-200 shrink-0 relative">
+                        <img
+                          src={getAlternativeImage(prodForm.name)}
+                          alt="Alternative Preview"
+                          className="w-full h-full object-cover"
+                        />
+                        <div className="absolute inset-0 bg-black/10" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-[11px] font-extrabold text-neutral-800">
+                            {isTeaStall ? '✨ Smart Tapri Photo Active' : 'Automatic Fallback Image'}
+                          </span>
+                          <span className="text-[9px] font-bold bg-amber-100 text-amber-800 px-1.5 py-0.2 rounded">
+                            Auto
+                          </span>
                         </div>
-                      ) : (
-                        <>
-                          <div className="w-10 h-10 rounded-xl bg-orange-100 text-orange-600 flex items-center justify-center group-hover:scale-105 transition-transform">
-                            <UploadCloud size={20} />
-                          </div>
-                          <p className="text-xs font-black text-neutral-800">
-                            Click to upload dish photo
-                          </p>
-                          <p className="text-[9.5px] text-neutral-400 font-medium">
-                            PNG, JPG, WEBP up to 5MB (Auto-compressed to 800x800)
-                          </p>
-                        </>
-                      )}
-                      <input
-                        type="file"
-                        accept="image/*"
-                        className="hidden"
-                        disabled={uploadingProdImg}
-                        onChange={(e) => handleUploadProductImg(e.target.files?.[0])}
-                      />
-                    </label>
+                        <p className="text-[10px] text-neutral-500 mt-0.5">
+                          {isTeaStall
+                            ? 'High-res image matched for Chai/Snacks. You can upload custom photo anytime.'
+                            : 'Preview shown. You can upload a custom dish image anytime.'}
+                        </p>
+                      </div>
+                      <label className="px-3 py-1.5 bg-white hover:bg-orange-50 border border-neutral-300 hover:border-orange-500 text-orange-600 rounded-xl text-xs font-bold cursor-pointer transition-all shrink-0 shadow-xs flex items-center gap-1.5">
+                        {uploadingProdImg ? (
+                          <>
+                            <Loader2 size={13} className="animate-spin" />
+                            <span>Uploading...</span>
+                          </>
+                        ) : (
+                          <>
+                            <UploadCloud size={14} />
+                            <span>Upload Photo</span>
+                          </>
+                        )}
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          disabled={uploadingProdImg}
+                          onChange={(e) => handleUploadProductImg(e.target.files?.[0])}
+                        />
+                      </label>
+                    </div>
                   )}
                 </div>
 

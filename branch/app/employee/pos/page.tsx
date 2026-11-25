@@ -21,7 +21,33 @@ export default function PosPage() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   // Tablet: which panel is shown in the bottom sheet/drawer (null = hidden)
   const [tabletPanel, setTabletPanel] = useState<"order" | "cart" | null>(null);
-  const { fetchMenu, cartItems } = usePosStore();
+  const { fetchMenu, cartItems, categories } = usePosStore();
+  const [isTeaStall, setIsTeaStall] = useState(false);
+
+  useEffect(() => {
+    const updateBranchType = () => {
+      if (typeof window !== "undefined") {
+        const raw = localStorage.getItem("rms_branch");
+        if (raw) {
+          try {
+            const b = JSON.parse(raw);
+            setIsTeaStall(b.restaurantType === "tea_stall");
+          } catch {
+            setIsTeaStall(false);
+          }
+        } else {
+          setIsTeaStall(false);
+        }
+      }
+    };
+    updateBranchType();
+    window.addEventListener("rms_branch_updated", updateBranchType);
+    window.addEventListener("storage", updateBranchType);
+    return () => {
+      window.removeEventListener("rms_branch_updated", updateBranchType);
+      window.removeEventListener("storage", updateBranchType);
+    };
+  }, []);
 
   useEffect(() => {
     // Clear any dangling draft carts from previous sessions so they don't get stuck in the Kitchen Dashboard
@@ -58,10 +84,12 @@ export default function PosPage() {
         {/* Navbar */}
         <PosNavbar onToggleSidebar={() => setIsSidebarOpen(true)} />
 
-        {/* ── Top: Full-Width Horizontal Category Carousel (Image 1 Style) ── */}
-        <div className="flex-shrink-0 px-2.5 md:px-3 pt-2 md:pt-2.5 pb-1">
-          <CategoryCarousel />
-        </div>
+        {/* ── Top: Full-Width Horizontal Category Carousel (Hidden ONLY for Chai Tapri / tea_stall) ── */}
+        {!isTeaStall && (
+          <div className="flex-shrink-0 px-2.5 md:px-3 pt-2 md:pt-2.5 pb-1">
+            <CategoryCarousel />
+          </div>
+        )}
 
         {/* ── Mobile (<md): Menu Grid fills rest ── */}
         <div className="flex md:hidden flex-col flex-1 overflow-hidden min-h-0 px-2 pt-1 pb-20">

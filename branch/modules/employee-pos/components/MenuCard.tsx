@@ -16,6 +16,18 @@ const BADGE_STYLES: Record<string, string> = {
   new: "bg-emerald-500 text-white",
 };
 
+const getCardFallback = (name: string): string => {
+  const n = (name || '').toLowerCase();
+  if (n.includes('chai') || n.includes('tea')) return 'https://images.unsplash.com/photo-1544787219-7f47ccb76574?w=400&q=80';
+  if (n.includes('coffee')) return 'https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?w=400&q=80';
+  if (n.includes('samosa') || n.includes('kachori') || n.includes('pakora') || n.includes('snack')) return 'https://images.unsplash.com/photo-1601050690597-df0568f70950?w=400&q=80';
+  if (n.includes('bun') || n.includes('maska') || n.includes('bread') || n.includes('toast') || n.includes('rusk') || n.includes('biscuit')) return 'https://images.unsplash.com/photo-1509440159596-0249088772ff?w=400&q=80';
+  if (n.includes('poha')) return 'https://images.unsplash.com/photo-1626777552726-4a6b54c97e46?w=400&q=80';
+  if (n.includes('vada') || n.includes('pav') || n.includes('burger')) return 'https://images.unsplash.com/photo-1589301760014-d929f3979dbc?w=400&q=80';
+  if (n.includes('maggi') || n.includes('noodle')) return 'https://images.unsplash.com/photo-1612927601601-6638404737ce?w=400&q=80';
+  return 'https://images.unsplash.com/photo-1546833999-b9f581a1996d?w=400&auto=format&fit=crop&q=60';
+};
+
 export default function MenuCard({ item, onOpenModifiers }: MenuCardProps) {
   const { addToCart, addVariantToCart } = usePosStore();
   const hasVariants = !!(item.variants && item.variants.length > 0);
@@ -106,14 +118,10 @@ export default function MenuCard({ item, onOpenModifiers }: MenuCardProps) {
       {/* Image Thumbnail */}
       <div className="h-[95px] lg:h-[110px] w-full overflow-hidden bg-neutral-100 relative flex-shrink-0">
         <img
-          src={
-            item.image ||
-            "https://images.unsplash.com/photo-1546833999-b9f581a1996d?w=200&auto=format&fit=crop&q=60"
-          }
+          src={item.image || getCardFallback(item.name)}
           alt={item.name}
           onError={(e) => {
-            (e.target as HTMLImageElement).src =
-              "https://images.unsplash.com/photo-1546833999-b9f581a1996d?w=200&auto=format&fit=crop&q=60";
+            (e.target as HTMLImageElement).src = getCardFallback(item.name);
           }}
           className={`w-full h-full object-cover transition-transform duration-300 ${
             !isOutOfStock ? "group-hover:scale-105" : "grayscale"

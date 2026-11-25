@@ -39,6 +39,15 @@ export default function MenuGrid({ onOpenModifiers }: MenuGridProps) {
 
   const [showCustomer, setShowCustomer] = useState(false);
   const [showTableModal, setShowTableModal] = useState(false);
+  const [branchType, setBranchType] = useState<string>(() => {
+    if (typeof window === "undefined") return "general";
+    try {
+      const raw = localStorage.getItem("rms_branch");
+      if (raw) return JSON.parse(raw).restaurantType || "general";
+    } catch {}
+    return "general";
+  });
+  const isTeaStall = branchType === "tea_stall";
   const [branchToggles, setBranchToggles] = useState<Record<string, boolean>>(() => {
     if (typeof window === "undefined") return {};
     try {
@@ -58,6 +67,7 @@ export default function MenuGrid({ onOpenModifiers }: MenuGridProps) {
         if (raw) {
           const b = JSON.parse(raw);
           setBranchToggles(b.featureToggles || {});
+          setBranchType(b.restaurantType || "general");
         }
       } catch {}
     };
@@ -89,15 +99,16 @@ export default function MenuGrid({ onOpenModifiers }: MenuGridProps) {
   }, [availableOrderTypes, orderType, setOrderType, editingOrderId, branchToggles]);
 
   const catName = useMemo(() => {
+    if (isTeaStall) return "Menu Items";
     return (
       categories.find((c) => c.id === selectedCategory)?.name ??
       (categories[0]?.name || "Menu")
     );
-  }, [selectedCategory, categories]);
+  }, [selectedCategory, categories, isTeaStall]);
 
   const items = useMemo(() => {
     let list =
-      !selectedCategory || selectedCategory === "all"
+      !selectedCategory || selectedCategory === "all" || isTeaStall
         ? menuItems
         : menuItems.filter((i) => i.categoryId === selectedCategory);
 
@@ -143,128 +154,130 @@ export default function MenuGrid({ onOpenModifiers }: MenuGridProps) {
 
   return (
     <div className="flex flex-col h-full">
-      {/* Header Bar */}
-      <div className="flex flex-wrap items-center justify-between pb-2 border-b border-neutral-200 flex-shrink-0 gap-2">
-        {/* Left: Category Title & Count */}
-        <div className="flex-shrink-0">
-          <h2 className="text-[13px] md:text-[14px] lg:text-[15.5px] font-extrabold text-neutral-900">
-            {catName}
-          </h2>
-          <p className="text-[10px] md:text-[11px] text-neutral-500 font-semibold mt-0.5">
-            {items.length} item{items.length !== 1 ? "s" : ""} available
-          </p>
-        </div>
+      {/* Header Bar (Hidden for Chai Tapri / tea_stall to give clean edge-to-edge menu cards) */}
+      {!isTeaStall && (
+        <div className="flex flex-wrap items-center justify-between pb-2 border-b border-neutral-200 flex-shrink-0 gap-2">
+          {/* Left: Category Title & Count */}
+          <div className="flex-shrink-0 flex items-center gap-2">
+            <h2 className="text-[13px] md:text-[14px] lg:text-[15.5px] font-extrabold text-neutral-900">
+              {catName}
+            </h2>
+            <span className="text-[10px] md:text-[11px] text-neutral-500 font-bold bg-neutral-100 px-2 py-0.5 rounded-full border border-neutral-200">
+              {items.length} item{items.length !== 1 ? "s" : ""}
+            </span>
+          </div>
 
-        {/* Center: Order Type Tabs & Food Type Filter */}
-        <div className="flex items-center gap-1.5 flex-wrap">
-          {/* Order Types */}
-          <div className="flex items-center gap-0.5 bg-neutral-100 p-0.5 rounded-xl border border-neutral-200 flex-shrink-0">
-            {availableOrderTypes.map(({ id, label }) => {
-              const active = orderType === id;
-              return (
+          {/* Center: Order Type Tabs & Food Type Filter */}
+          <div className="flex items-center gap-1.5 flex-wrap">
+            {/* Order Types */}
+            <div className="flex items-center gap-0.5 bg-neutral-100 p-0.5 rounded-xl border border-neutral-200 flex-shrink-0">
+              {availableOrderTypes.map(({ id, label }) => {
+                const active = orderType === id;
+                return (
+                  <button
+                    key={id}
+                    onClick={() => {
+                      setOrderType(id as any);
+                      if (id === "delivery") setShowCustomer(true);
+                      if (id === "dine-in" && !selectedTable) setShowTableModal(true);
+                    }}
+                    className={`px-2 md:px-3 py-1 rounded-lg text-[10.5px] md:text-[11.5px] font-bold transition-all cursor-pointer ${
+                      active
+                        ? "bg-neutral-900 text-white shadow-xs"
+                        : "text-neutral-700 hover:bg-neutral-200/60"
+                    }`}
+                  >
+                    {label}
+                  </button>
+                );
+              })}
+
+              {/* Dine-In Selected Table indicator / selector */}
+              {orderType === "dine-in" && (
                 <button
-                  key={id}
-                  onClick={() => {
-                    setOrderType(id as any);
-                    if (id === "delivery") setShowCustomer(true);
-                    if (id === "dine-in" && !selectedTable) setShowTableModal(true);
-                  }}
-                  className={`px-2 md:px-3 py-1 rounded-lg text-[10.5px] md:text-[11.5px] font-bold transition-all cursor-pointer ${
-                    active
-                      ? "bg-neutral-900 text-white shadow-xs"
-                      : "text-neutral-700 hover:bg-neutral-200/60"
+                  onClick={() => setShowTableModal(true)}
+                  className={`ml-0.5 px-2 py-1 rounded-lg border text-[10px] md:text-[11px] font-bold flex items-center gap-1 transition-all cursor-pointer ${
+                    selectedTable
+                      ? "bg-emerald-50 border-emerald-500 text-emerald-800 shadow-2xs"
+                      : "bg-white border-neutral-300 text-neutral-800 hover:bg-neutral-50 animate-pulse"
+                  }`}
+                  title="Select Dining Table"
+                >
+                  <TableProperties size={11} className={selectedTable ? "text-emerald-600" : "text-neutral-500"} />
+                  <span className="truncate max-w-[85px]">
+                    {selectedTable ? selectedTable.name : "+ Table"}
+                  </span>
+                </button>
+              )}
+
+              {branchToggles.customers !== false && (
+                <button
+                  onClick={() => setShowCustomer(true)}
+                  className={`ml-0.5 px-2 py-1 rounded-lg border text-[10px] md:text-[11px] font-bold flex items-center gap-1 transition-all cursor-pointer ${
+                    selectedCustomer
+                      ? "bg-orange-50 border-orange-500 text-orange-600"
+                      : "bg-white border-neutral-200 text-neutral-800 hover:bg-neutral-50"
                   }`}
                 >
-                  {label}
+                  <UserPlus size={11} />
+                  <span className="truncate max-w-[80px]">
+                    {selectedCustomer ? selectedCustomer.name : "+ Customer"}
+                  </span>
                 </button>
-              );
-            })}
+              )}
+            </div>
 
-            {/* Dine-In Selected Table indicator / selector */}
-            {orderType === "dine-in" && (
+            {/* Indian Food Type Toggle (Veg / Non-Veg / Egg / All) */}
+            <div className="flex items-center gap-0.5 bg-neutral-100 p-0.5 rounded-xl border border-neutral-200 flex-shrink-0">
               <button
-                onClick={() => setShowTableModal(true)}
-                className={`ml-0.5 px-2 py-1 rounded-lg border text-[10px] md:text-[11px] font-bold flex items-center gap-1 transition-all cursor-pointer ${
-                  selectedTable
-                    ? "bg-emerald-50 border-emerald-500 text-emerald-800 shadow-2xs"
-                    : "bg-white border-neutral-300 text-neutral-800 hover:bg-neutral-50 animate-pulse"
-                }`}
-                title="Select Dining Table"
-              >
-                <TableProperties size={11} className={selectedTable ? "text-emerald-600" : "text-neutral-500"} />
-                <span className="truncate max-w-[85px]">
-                  {selectedTable ? selectedTable.name : "+ Table"}
-                </span>
-              </button>
-            )}
-
-            {branchToggles.customers !== false && (
-              <button
-                onClick={() => setShowCustomer(true)}
-                className={`ml-0.5 px-2 py-1 rounded-lg border text-[10px] md:text-[11px] font-bold flex items-center gap-1 transition-all cursor-pointer ${
-                  selectedCustomer
-                    ? "bg-orange-50 border-orange-500 text-orange-600"
-                    : "bg-white border-neutral-200 text-neutral-800 hover:bg-neutral-50"
+                onClick={() => setFoodTypeFilter("all")}
+                className={`px-2 py-1 rounded-lg text-[10.5px] font-bold transition-all cursor-pointer ${
+                  foodTypeFilter === "all"
+                    ? "bg-white text-neutral-900 shadow-xs border border-neutral-200"
+                    : "text-neutral-600 hover:text-neutral-900"
                 }`}
               >
-                <UserPlus size={11} />
-                <span className="truncate max-w-[80px]">
-                  {selectedCustomer ? selectedCustomer.name : "+ Customer"}
-                </span>
+                All
               </button>
-            )}
+              <button
+                onClick={() => setFoodTypeFilter("veg")}
+                className={`px-2 py-1 rounded-lg text-[10.5px] font-bold flex items-center gap-1 transition-all cursor-pointer ${
+                  foodTypeFilter === "veg"
+                    ? "bg-emerald-600 text-white shadow-xs"
+                    : "text-emerald-700 hover:bg-emerald-50"
+                }`}
+                title="Show Pure Veg only"
+              >
+                <span className="w-1.5 h-1.5 rounded-full bg-current" />
+                <span>Veg</span>
+              </button>
+              <button
+                onClick={() => setFoodTypeFilter("non_veg")}
+                className={`px-2 py-1 rounded-lg text-[10.5px] font-bold flex items-center gap-1 transition-all cursor-pointer ${
+                  foodTypeFilter === "non_veg"
+                    ? "bg-red-600 text-white shadow-xs"
+                    : "text-red-700 hover:bg-red-50"
+                }`}
+                title="Show Non-Veg only"
+              >
+                <span className="w-1.5 h-1.5 rounded-full bg-current" />
+                <span>Non-Veg</span>
+              </button>
+            </div>
           </div>
 
-          {/* Indian Food Type Toggle (Veg / Non-Veg / Egg / All) */}
-          <div className="flex items-center gap-0.5 bg-neutral-100 p-0.5 rounded-xl border border-neutral-200 flex-shrink-0">
-            <button
-              onClick={() => setFoodTypeFilter("all")}
-              className={`px-2 py-1 rounded-lg text-[10.5px] font-bold transition-all cursor-pointer ${
-                foodTypeFilter === "all"
-                  ? "bg-white text-neutral-900 shadow-xs border border-neutral-200"
-                  : "text-neutral-600 hover:text-neutral-900"
-              }`}
-            >
-              All
-            </button>
-            <button
-              onClick={() => setFoodTypeFilter("veg")}
-              className={`px-2 py-1 rounded-lg text-[10.5px] font-bold flex items-center gap-1 transition-all cursor-pointer ${
-                foodTypeFilter === "veg"
-                  ? "bg-emerald-600 text-white shadow-xs"
-                  : "text-emerald-700 hover:bg-emerald-50"
-              }`}
-              title="Show Pure Veg only"
-            >
-              <span className="w-1.5 h-1.5 rounded-full bg-current" />
-              <span>Veg</span>
-            </button>
-            <button
-              onClick={() => setFoodTypeFilter("non_veg")}
-              className={`px-2 py-1 rounded-lg text-[10.5px] font-bold flex items-center gap-1 transition-all cursor-pointer ${
-                foodTypeFilter === "non_veg"
-                  ? "bg-red-600 text-white shadow-xs"
-                  : "text-red-700 hover:bg-red-50"
-              }`}
-              title="Show Non-Veg only"
-            >
-              <span className="w-1.5 h-1.5 rounded-full bg-current" />
-              <span>Non-Veg</span>
-            </button>
+          {/* Right: Search & Sort */}
+          <div className="flex items-center gap-1 md:gap-1.5 flex-shrink-0">
+            <div className="w-[110px] md:w-[140px] lg:w-[170px]">
+              <SearchBar />
+            </div>
+            <SortDropdown />
           </div>
         </div>
-
-        {/* Right: Search & Sort */}
-        <div className="flex items-center gap-1 md:gap-1.5 flex-shrink-0">
-          <div className="w-[110px] md:w-[140px] lg:w-[170px]">
-            <SearchBar />
-          </div>
-          <SortDropdown />
-        </div>
-      </div>
+      )}
 
       {/* Grid */}
-      <div className="flex-1 overflow-y-auto pt-3 min-h-0 pr-0.5">
+      <div className={`flex-1 overflow-y-auto min-h-0 pr-0.5 ${isTeaStall ? 'pt-1' : 'pt-3'}`}>
         {loadingMenu ? (
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4 2xl:grid-cols-5 gap-2.5 md:gap-3">
             {Array.from({ length: 12 }).map((_, idx) => (
