@@ -55,6 +55,7 @@ export interface Order {
   kitchenCleared: any;
   _id?: string;
   orderNumber: string;
+  tokenNumber?: number;
   orderType: "takeout" | "delivery" | "drive-through" | "dine-in";
   orderSource: "pos" | "online" | "doordash" | "skip" | "ubereats" | "zomato" | "swiggy";
   table: TableInfo | null;

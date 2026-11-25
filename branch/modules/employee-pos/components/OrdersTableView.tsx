@@ -140,6 +140,14 @@ export default function OrdersTableView({
       );
     }
 
+    if (rawMethod === 'upi' || rawMethod === 'qr') {
+      return (
+        <span className="px-2.5 py-0.5 rounded text-[9.5px] lg:text-[11px] font-800 uppercase tracking-wider bg-blue-50 text-blue-700 border border-blue-200/80">
+          UPI
+        </span>
+      );
+    }
+
     if (rawMethod === 'cash') {
       return (
         <span className="px-2.5 py-0.5 rounded text-[9.5px] lg:text-[11px] font-800 uppercase tracking-wider bg-emerald-50 text-emerald-700 border border-emerald-200/80">
@@ -262,15 +270,22 @@ export default function OrdersTableView({
                   >
                     {/* Order Number in a nice mono tag */}
                     <td className="px-5 py-4">
-                      {order.orderTiming === 'later' && order.scheduledAt ? (
-                        <span className="font-mono text-[10.5px] lg:text-[12.5px] font-800 text-purple-700 bg-purple-50 px-2.5 py-1 rounded border border-purple-300 tracking-wide shadow-3xs">
-                          {shortNum}
-                        </span>
-                      ) : (
-                        <span className="font-mono text-[10.5px] lg:text-[12.5px] font-700 text-neutral-700 bg-neutral-100/80 px-2.5 py-1 rounded border border-neutral-200/80 tracking-wide shadow-3xs">
-                          {shortNum}
-                        </span>
-                      )}
+                      <div className="flex flex-col gap-1 items-start">
+                        {order.orderTiming === 'later' && order.scheduledAt ? (
+                          <span className="font-mono text-[10.5px] lg:text-[12.5px] font-800 text-purple-700 bg-purple-50 px-2.5 py-1 rounded border border-purple-300 tracking-wide shadow-3xs">
+                            {shortNum}
+                          </span>
+                        ) : (
+                          <span className="font-mono text-[10.5px] lg:text-[12.5px] font-700 text-neutral-700 bg-neutral-100/80 px-2.5 py-1 rounded border border-neutral-200/80 tracking-wide shadow-3xs">
+                            {shortNum}
+                          </span>
+                        )}
+                        {order.tokenNumber && (
+                          <span className="font-mono text-[9.5px] lg:text-[11px] font-850 text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200/90 shadow-3xs">
+                            Token #{order.tokenNumber}
+                          </span>
+                        )}
+                      </div>
                     </td>
 
                     {/* Customer with profile avatar initials */}

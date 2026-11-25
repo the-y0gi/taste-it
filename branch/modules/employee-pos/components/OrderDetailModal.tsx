@@ -558,9 +558,16 @@ export default function OrderDetailModal({
           {/* Order Meta Info Section */}
           <div className="bg-white border border-neutral-200 rounded-xl p-4 flex flex-wrap items-center justify-between gap-4 shadow-xs">
             <div className="space-y-1.5">
-              <span className="font-mono text-[10.5px] font-700 text-neutral-700 bg-neutral-100/80 px-2.5 py-1 rounded border border-neutral-200/80 tracking-wide shadow-3xs select-none">
-                {order.orderNumber}
-              </span>
+              <div className="flex items-center gap-2">
+                <span className="font-mono text-[10.5px] font-700 text-neutral-700 bg-neutral-100/80 px-2.5 py-1 rounded border border-neutral-200/80 tracking-wide shadow-3xs select-none">
+                  {order.orderNumber}
+                </span>
+                {order.tokenNumber && (
+                  <span className="font-mono text-[10.5px] font-900 text-emerald-800 bg-emerald-50 px-2.5 py-1 rounded border border-emerald-200 shadow-3xs select-none">
+                    Token #{order.tokenNumber}
+                  </span>
+                )}
+              </div>
               <p className="text-neutral-400 text-[10.5px] font-600 pl-1 mt-1">
                 Created At: {formatDate(order.createdAt)}
               </p>

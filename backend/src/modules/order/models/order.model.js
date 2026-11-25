@@ -111,6 +111,7 @@ const orderSchema = new mongoose.Schema(
       default: "MAIN",
     },
     orderNumber: { type: String, index: true },
+    tokenNumber: { type: Number, default: null, index: true },
     orderType: {
       type: String,
       enum: ["takeout", "drive-through", "dine-in", "delivery"],
@@ -255,7 +256,10 @@ orderSchema.statics.generateOrderNumber = async function (
   );
 
   const orderSeq = counter.count + 100;
-  return String(orderSeq);
+  return {
+    orderNumber: String(orderSeq),
+    tokenNumber: counter.count,
+  };
 };
 
 orderSchema.statics.previewNextOrderNumber = async function (

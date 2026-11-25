@@ -80,11 +80,12 @@ const branchSchema = new mongoose.Schema(
     },
     restaurantType: {
       type: String,
-      enum: ["cafe", "fine_dine", "qsr", "pizzeria", "bakery", "cloud_kitchen", "bar_pub", "general"],
+      enum: ["cafe", "fine_dine", "qsr", "pizzeria", "bakery", "cloud_kitchen", "bar_pub", "general", "tea_stall"],
       default: "general",
     },
     featureToggles: {
       pos: { type: Boolean, default: true },
+      expressBilling: { type: Boolean, default: false },
       kds: { type: Boolean, default: true },
       kotKitchen: { type: Boolean, default: true }, // backward-compatibility alias
       reception: { type: Boolean, default: false },

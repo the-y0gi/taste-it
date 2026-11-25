@@ -96,6 +96,12 @@ export default function ThermalReceipt({ order }: ThermalReceiptProps) {
 
         {/* Order Header */}
         <div className="text-center space-y-1 mb-3">
+          {order.tokenNumber ? (
+            <div className="border-2 border-black p-2 my-2 text-center">
+              <span className="text-[10px] font-black uppercase tracking-wider block">TOKEN NUMBER</span>
+              <span className="text-3xl font-black">#{order.tokenNumber}</span>
+            </div>
+          ) : null}
           <h1 className="text-xl font-900 tracking-tight uppercase">
             Order # : {order.orderNumber.replace(/^[#A-Za-z\-]+/, "")}
           </h1>

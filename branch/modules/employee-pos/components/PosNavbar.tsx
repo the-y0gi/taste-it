@@ -15,7 +15,7 @@ export default function PosNavbar({ onToggleSidebar }: PosNavbarProps) {
   const pathname = usePathname();
   const router = useRouter();
   const { search, setSearch, orders } = usePosStore();
-  const [branchInfo, setBranchInfo] = React.useState<{ name: string; code: string; _id?: string; logo?: string } | null>(null);
+  const [branchInfo, setBranchInfo] = React.useState<{ name: string; code: string; _id?: string; logo?: string; restaurantType?: string } | null>(null);
   const [loadingBranchInfo, setLoadingBranchInfo] = React.useState(true);
   const [activeEmployee, setActiveEmployee] = React.useState<any>(null);
   const [isLocationPending, setIsLocationPending] = React.useState(false);
@@ -40,7 +40,7 @@ export default function PosNavbar({ onToggleSidebar }: PosNavbarProps) {
           const b = JSON.parse(raw);
           setBranchFeatureToggles(b.featureToggles || {});
           if (b.name && b.code) {
-            setBranchInfo({ name: b.name, code: b.code, _id: b._id, logo: b.logo || '' });
+            setBranchInfo({ name: b.name, code: b.code, _id: b._id, logo: b.logo || '', restaurantType: b.restaurantType });
           }
         }
       } catch {}
@@ -75,7 +75,7 @@ export default function PosNavbar({ onToggleSidebar }: PosNavbarProps) {
           const b = JSON.parse(raw);
           token = b.token || '';
           if (isMounted && b.name && b.code) {
-            setBranchInfo({ name: b.name, code: b.code, _id: b._id, logo: b.logo || '' });
+            setBranchInfo({ name: b.name, code: b.code, _id: b._id, logo: b.logo || '', restaurantType: b.restaurantType });
             const hasLoc = b.isLocationConfigured || (b.lat !== null && b.lng !== null && b.lat !== undefined && b.lng !== undefined && !(b.lat === 0 && b.lng === 0));
             setIsLocationPending(!hasLoc);
             if (b.featureToggles) setBranchFeatureToggles(b.featureToggles);
@@ -96,7 +96,7 @@ export default function PosNavbar({ onToggleSidebar }: PosNavbarProps) {
         if (res.data.success && res.data.data) {
           const freshData = res.data.data;
           if (isMounted) {
-            setBranchInfo({ name: freshData.name, code: freshData.code, _id: freshData._id, logo: freshData.logo || '' });
+            setBranchInfo({ name: freshData.name, code: freshData.code, _id: freshData._id, logo: freshData.logo || '', restaurantType: freshData.restaurantType });
             const hasLoc = freshData.isLocationConfigured || (freshData.lat !== null && freshData.lng !== null && freshData.lat !== undefined && freshData.lng !== undefined && !(freshData.lat === 0 && freshData.lng === 0));
             setIsLocationPending(!hasLoc);
             if (freshData.featureToggles) {
@@ -189,6 +189,7 @@ export default function PosNavbar({ onToggleSidebar }: PosNavbarProps) {
   const navLinks = rawNavLinks.filter((link) => {
     // ── 1. Branch Operational Module check ──
     if (link.key === 'tables') {
+      if (branchInfo?.restaurantType === 'tea_stall') return false;
       const isTableEnabled = branchFeatureToggles.tableManagement ?? false;
       if (!isTableEnabled) return false;
     }
@@ -217,6 +218,7 @@ export default function PosNavbar({ onToggleSidebar }: PosNavbarProps) {
   });
 
   const [isImpersonated, setIsImpersonated] = React.useState(false);
+  const isExpressMode = branchInfo?.restaurantType === 'tea_stall' || Boolean(branchFeatureToggles.expressBilling);
 
   React.useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -305,6 +307,12 @@ export default function PosNavbar({ onToggleSidebar }: PosNavbarProps) {
               {isImpersonated && (
                 <span className="ml-1 px-2 py-0.5 bg-amber-500 text-white text-[9.5px] font-900 rounded-md uppercase tracking-wider flex items-center gap-1 shadow-2xs">
                   <span>Super Admin View</span>
+                </span>
+              )}
+              {isExpressMode && (
+                <span className="ml-1 px-2 py-0.5 bg-amber-500/15 text-amber-900 border border-amber-300 text-[9.5px] font-900 rounded-md uppercase tracking-wider flex items-center gap-1 shadow-2xs">
+                  <Zap size={10} className="fill-amber-600 text-amber-600" />
+                  <span>Express Tapri</span>
                 </span>
               )}
             </div>

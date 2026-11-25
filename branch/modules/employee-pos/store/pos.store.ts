@@ -144,6 +144,7 @@ interface PosState {
   applyManualDiscount: (type: "percentage" | "flat", value: number) => void;
   removeDiscount: () => void;
   placeOrder: () => Promise<Order | null>;
+  placeExpressOrder: (method: "cash" | "upi") => Promise<Order | null>;
   loadOrderForEditing: (order: Order) => void;
   cancelEditingOrder: () => void;
   updateOrder: () => Promise<Order | null>;
@@ -868,6 +869,25 @@ export const usePosStore = create<PosState>((set, get) => ({
     });
     get().calculateTotals();
     toast.success("Discount removed.");
+  },
+
+  // ── Place Express Order (1-Tap for Tapri / Kiosks) ────────────
+  placeExpressOrder: async (method: "cash" | "upi") => {
+    const { total, cartItems } = get();
+    if (cartItems.length === 0) {
+      toast.error("Cart is empty.");
+      return null;
+    }
+    set({
+      orderType: "takeout",
+      paymentTiming: "pay-now",
+      paymentType: "one-time",
+      paymentMethod: method,
+      cashGiven: method === "cash" ? total : 0,
+      changeAmount: 0,
+      selectedTable: null,
+    });
+    return await get().placeOrder();
   },
 
   // ── Place Order (API) ─────────────────────────────────────────

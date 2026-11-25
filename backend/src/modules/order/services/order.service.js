@@ -133,11 +133,13 @@ const getOrderBusinessDate = (order) => {
 // ── Create Order ──────────────────────────────────────────────
 exports.createOrder = async (orderData) => {
   try {
-    const orderNumber = await Order.generateOrderNumber(
+    const genOrderSeq = await Order.generateOrderNumber(
       orderData.orderType,
       orderData.orderTiming === "later" ? orderData.scheduledAt : null,
       orderData.branchId || null,
     );
+    const orderNumber = typeof genOrderSeq === "object" ? genOrderSeq.orderNumber : String(genOrderSeq);
+    const tokenNumber = typeof genOrderSeq === "object" ? genOrderSeq.tokenNumber : null;
 
     // If pay-later → paymentStatus = unpaid, no payments array needed
     let paymentStatus =
@@ -311,6 +313,7 @@ exports.createOrder = async (orderData) => {
           ? orderData.customer
           : { name: "No Name", phone: "", email: "" },
       orderNumber,
+      tokenNumber,
       paymentStatus,
       payments,
       dueAt,

@@ -502,6 +502,11 @@ exports.generateReceiptPdfStream = async (
     ctext(stars, starFs, true);
     doc.moveDown(0.35);
 
+    if (order.tokenNumber) {
+      ctext(`TOKEN #: ${order.tokenNumber}`, is58mm ? 16 : 20, true);
+      doc.moveDown(0.25);
+    }
+
     // ── 3. ORDER INFO ────────────────────────────────────────────────────────
     const infoFs = is58mm ? 10.5 : 11.5;
     const orderNumStr = order.orderNumber

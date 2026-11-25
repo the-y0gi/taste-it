@@ -45,10 +45,12 @@ import {
   UploadCloud,
   Loader2,
   Palette,
+  Zap,
 } from "lucide-react";
 
 interface FeatureToggles {
   pos: boolean;
+  expressBilling?: boolean;
   kds: boolean;
   kotKitchen?: boolean;
   reception: boolean;
@@ -78,6 +80,25 @@ const COLOR_PRESETS = [
 
 const getPresetFeatureToggles = (format: string): FeatureToggles => {
   switch (format) {
+    case "tea_stall":
+      return {
+        pos: true,
+        expressBilling: true,
+        kds: false,
+        kotKitchen: false,
+        reception: false,
+        receptionView: false,
+        delivery: false,
+        deliveryFleet: false,
+        tableManagement: false,
+        accountClosing: true,
+        expenses: true,
+        attendance: true,
+        employeeAttendance: true,
+        reports: true,
+        customers: false,
+        onlineOrders: false,
+      };
     case "qsr":
       return {
         pos: true,
@@ -182,7 +203,7 @@ interface Branch {
   logo?: string;
   themeColor?: string;
   password?: string;
-  restaurantType?: "general" | "qsr" | "cafe" | "cloud_kitchen" | "fine_dine";
+  restaurantType?: "general" | "qsr" | "cafe" | "cloud_kitchen" | "fine_dine" | "tea_stall";
   gstNumber?: string;
   featureToggles?: FeatureToggles;
   settings?: {
@@ -202,6 +223,7 @@ interface Branch {
 // Indian Restaurant Formats
 const RESTAURANT_TYPES = [
   { id: "general", label: "Multi-Cuisine", icon: Utensils, desc: "Standard restaurant with multi-station kitchen" },
+  { id: "tea_stall", label: "Chai & Snacks (Tapri)", icon: Coffee, desc: "Fast 1-tap counter billing & token slips for tea stalls and kiosks" },
   { id: "qsr", label: "Fast Food / QSR", icon: Sandwich, desc: "Quick-service counter with burger/pizza/rolls" },
   { id: "cafe", label: "Café & Beverages", icon: Coffee, desc: "Coffee, shakes, bakery & snacks format" },
   { id: "cloud_kitchen", label: "Cloud Kitchen", icon: ChefHat, desc: "Delivery & takeaway focused ghost kitchen" },
@@ -219,7 +241,7 @@ export default function BranchesPage() {
   const [formData, setFormData] = useState<{
     name: string;
     code: string;
-    restaurantType: "general" | "qsr" | "cafe" | "cloud_kitchen" | "fine_dine";
+    restaurantType: "general" | "qsr" | "cafe" | "cloud_kitchen" | "fine_dine" | "tea_stall";
     address: string;
     city: string;
     phone: string;
@@ -332,6 +354,7 @@ export default function BranchesPage() {
         themeColor: branch.themeColor || "#F97316",
         featureToggles: {
           pos: bT.pos ?? true,
+          expressBilling: bT.expressBilling ?? (branch.restaurantType === "tea_stall"),
           kds: bT.kds ?? bT.kotKitchen ?? true,
           kotKitchen: bT.kds ?? bT.kotKitchen ?? true,
           reception: bT.reception ?? bT.receptionView ?? false,
@@ -1309,6 +1332,13 @@ export default function BranchesPage() {
                       desc: "Rapid order taking, Indian portion variants (Half/Full), addon modifiers, promo discounts & counter checkout",
                       icon: ShoppingBag,
                       badge: "Core",
+                    },
+                    {
+                      key: "expressBilling",
+                      label: "1-Tap Express Billing",
+                      desc: "Instant 1-tap cash/UPI billing dock & automatic sequential token slips for tea stalls, kiosks & snack counters",
+                      icon: Zap,
+                      badge: "Tapri / Kiosk",
                     },
                     {
                       key: "kds",
