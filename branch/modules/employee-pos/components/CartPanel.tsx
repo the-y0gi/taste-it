@@ -13,7 +13,6 @@ import {
   QrCode,
   Zap,
   Printer,
-  CheckCircle2,
   X,
 } from "lucide-react";
 import toast from "react-hot-toast";
@@ -47,7 +46,6 @@ export default function CartPanel() {
 
   const [editingCartItem, setEditingCartItem] = useState<CartItemType | null>(null);
   const [isExpressMode, setIsExpressMode] = useState(false);
-  const [placedTokenOrder, setPlacedTokenOrder] = useState<Order | null>(null);
   const [isPrintingToken, setIsPrintingToken] = useState(false);
 
   useEffect(() => {
@@ -69,15 +67,6 @@ export default function CartPanel() {
       window.removeEventListener("storage", checkExpress);
     };
   }, []);
-
-  // Auto-dismiss token modal after 2.5 seconds
-  useEffect(() => {
-    if (!placedTokenOrder) return;
-    const timer = setTimeout(() => {
-      setPlacedTokenOrder(null);
-    }, 2500);
-    return () => clearTimeout(timer);
-  }, [placedTokenOrder]);
 
   const playToneChime = () => {
     try {
@@ -107,7 +96,6 @@ export default function CartPanel() {
       const order = await placeExpressOrder(method);
       if (order) {
         playToneChime();
-        setPlacedTokenOrder(order);
         const tokenNum = order.tokenNumber ? `#${order.tokenNumber}` : order.orderNumber;
 
         // 🖨️ Auto Silent Print direct to Thermal Printer!
@@ -115,7 +103,7 @@ export default function CartPanel() {
           handlePrintTokenSlip(order._id);
         }
 
-        toast.success(`Token ${tokenNum} Placed & Sent to Printer! 🖨️`, {
+        toast.success(`⚡ Token ${tokenNum} Placed & Slip Printed!`, {
           duration: 3500,
         });
       }
@@ -283,7 +271,7 @@ export default function CartPanel() {
         {/* ── Footer ── */}
         <div className="border-t border-neutral-100 px-3.5 py-3 space-y-3 flex-shrink-0">
           {/* Add More */}
-          <button
+          {/* <button
             onClick={() =>
               document
                 .getElementById("menu-grid-section")
@@ -293,7 +281,7 @@ export default function CartPanel() {
           >
             <Plus size={12} />
             Add More Items
-          </button>
+          </button> */}
 
           {/* Totals in INR ₹ */}
           <div className="space-y-1.5">
@@ -418,78 +406,6 @@ export default function CartPanel() {
           )}
         </div>
       </div>
-
-      {/* ── Express Token Confirmation Modal / Slip ── */}
-      {placedTokenOrder && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-sm w-full p-6 text-center shadow-2xl border border-neutral-200 relative animate-in fade-in zoom-in duration-150">
-            {/* Close Button */}
-            <button
-              onClick={() => setPlacedTokenOrder(null)}
-              className="absolute top-3 right-3 text-neutral-400 hover:text-neutral-700 p-1 rounded-lg hover:bg-neutral-100 transition-all cursor-pointer"
-            >
-              <X size={18} />
-            </button>
-
-            {/* Success Icon */}
-            <div className="w-12 h-12 rounded-full bg-emerald-100 text-emerald-600 mx-auto flex items-center justify-center mb-3">
-              <CheckCircle2 size={28} />
-            </div>
-
-            <span className="text-[11px] font-bold uppercase tracking-wider text-neutral-500 block mb-0.5">
-              Token Number
-            </span>
-            <div className="text-5xl font-black text-brand-primary mb-2 tracking-tight">
-              #{placedTokenOrder.tokenNumber || placedTokenOrder.orderNumber}
-            </div>
-
-            <div className="bg-neutral-50 rounded-xl p-3 border border-neutral-200/80 mb-4 text-left">
-              <div className="flex justify-between items-center text-xs font-bold text-neutral-700 pb-1.5 border-b border-neutral-200">
-                <span>Order #{placedTokenOrder.orderNumber}</span>
-                <span className="px-2 py-0.5 rounded uppercase text-[10px] bg-emerald-100 text-emerald-800 font-extrabold">
-                  {placedTokenOrder.paymentMethod || "PAID"}
-                </span>
-              </div>
-              <div className="py-2 space-y-1 max-h-32 overflow-y-auto">
-                {placedTokenOrder.items?.map((it, idx) => (
-                  <div key={idx} className="flex justify-between text-xs text-neutral-600">
-                    <span className="font-semibold truncate max-w-[180px]">{it.quantity}x {it.name}</span>
-                    <span className="font-bold">₹{it.totalPrice}</span>
-                  </div>
-                ))}
-              </div>
-              <div className="pt-1.5 border-t border-neutral-200 flex justify-between items-center text-sm font-black text-neutral-900">
-                <span>Total Paid:</span>
-                <span className="text-emerald-700">₹{placedTokenOrder.total}</span>
-              </div>
-            </div>
-
-            {/* Silent Print Auto Status */}
-            <div className="text-[11px] font-bold text-emerald-700 flex items-center justify-center gap-1.5 mb-3 bg-emerald-50 py-1.5 px-3 rounded-lg border border-emerald-200/80">
-              <Printer size={13} className={isPrintingToken ? "animate-pulse" : ""} />
-              <span>{isPrintingToken ? "Printing slip to thermal printer..." : "Slip auto-sent to thermal printer 🖨️"}</span>
-            </div>
-
-            <div className="flex gap-2">
-              <button
-                onClick={() => handlePrintTokenSlip(placedTokenOrder._id)}
-                disabled={isPrintingToken}
-                className="flex-1 py-2.5 rounded-xl border border-neutral-300 hover:border-neutral-400 text-neutral-800 text-xs font-bold flex items-center justify-center gap-1.5 hover:bg-neutral-50 transition-all cursor-pointer"
-              >
-                <Printer size={15} />
-                <span>{isPrintingToken ? "Printing..." : "Re-Print Slip"}</span>
-              </button>
-              <button
-                onClick={() => setPlacedTokenOrder(null)}
-                className="flex-1 py-2.5 rounded-xl bg-brand-primary hover:bg-brand-primary-hover text-white text-xs font-black shadow-sm transition-all cursor-pointer"
-              >
-                Next Order
-              </button>
-            </div>
-            <p className="text-[10px] text-neutral-400 mt-2 font-medium">Auto-closing in 2.5s for fast counter flow...</p>
-          </div>
-        </div>
-      )}
     </>
   );
 }

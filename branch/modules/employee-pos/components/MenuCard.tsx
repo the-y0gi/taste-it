@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { ShoppingCart, Plus, SlidersHorizontal } from "lucide-react";
+import { ShoppingCart, Plus, Minus, SlidersHorizontal } from "lucide-react";
 import { MenuItem } from "../types";
 import { usePosStore } from "../store/pos.store";
 
@@ -29,10 +29,28 @@ const getCardFallback = (name: string): string => {
 };
 
 export default function MenuCard({ item, onOpenModifiers }: MenuCardProps) {
-  const { addToCart, addVariantToCart } = usePosStore();
+  const {
+    addToCart,
+    addVariantToCart,
+    cartItems,
+    increaseQuantity,
+    decreaseQuantity,
+  } = usePosStore();
   const hasVariants = !!(item.variants && item.variants.length > 0);
   const hasModifiers = !!(item.modifierGroups && item.modifierGroups.length > 0);
   const isOutOfStock = !!item.isOutOfStock;
+
+  // Matching cart items & counts for instant on-card steppers
+  const itemId = item.id || (item as any)._id;
+  const matchingCartItems = cartItems.filter(
+    (c) =>
+      c.menuItemId === itemId ||
+      c.menuItemId === item.id ||
+      (item._id && c.menuItemId === item._id)
+  );
+  const totalItemQty = matchingCartItems.reduce((sum, c) => sum + c.quantity, 0);
+  const singleCartItem = matchingCartItems.find((c) => !c.selectedVariant);
+  const singleQty = singleCartItem?.quantity || 0;
 
   const handleCardClick = () => {
     if (isOutOfStock) return;
@@ -61,10 +79,12 @@ export default function MenuCard({ item, onOpenModifiers }: MenuCardProps) {
       className={`group relative flex flex-col bg-white rounded-xl border overflow-hidden transition-all duration-200 ${
         isOutOfStock
           ? "border-neutral-200 bg-neutral-50/70 opacity-60 cursor-not-allowed select-none"
+          : totalItemQty > 0
+          ? "border-orange-500 ring-2 ring-orange-500/25 shadow-md shadow-orange-500/10 cursor-pointer"
           : "border-neutral-200 hover:border-orange-500/50 hover:shadow-md hover:shadow-orange-500/10 cursor-pointer active:scale-[0.99]"
       }`}
     >
-      {/* Badges Bar (Food Type, Badge, Shortcode) */}
+      {/* Badges Bar (Food Type, Badge, Shortcode, Cart Counter) */}
       <div className="absolute top-2 left-2 right-2 z-10 flex items-center justify-between pointer-events-none">
         <div className="flex items-center gap-1.5">
           {/* Indian Veg / Non-Veg / Egg Symbol */}
@@ -103,6 +123,13 @@ export default function MenuCard({ item, onOpenModifiers }: MenuCardProps) {
               }`}
             >
               {item.badge}
+            </span>
+          )}
+
+          {/* Active Cart Counter Badge */}
+          {totalItemQty > 0 && !isOutOfStock && (
+            <span className="text-[9px] font-black bg-orange-600 text-white px-1.5 py-0.5 rounded shadow-xs animate-scale-up">
+              {totalItemQty} in order
             </span>
           )}
         </div>
@@ -178,13 +205,62 @@ export default function MenuCard({ item, onOpenModifiers }: MenuCardProps) {
         {/* Pricing / Quick Variant Pills Section */}
         <div className="mt-1">
           {hasVariants ? (
-            /* Variant Pills: 1-Step Instant Add */
+            /* Variant Pills: 1-Step Instant Add / Stepper */
             <div className="flex flex-wrap gap-1">
               {item.variants
                 ?.filter((v) => v.isEnabled !== false)
                 .map((v) => {
                   const varName = v.name || v.sizeName || v.sizeCode || "";
-                  return (
+                  const varCartItem = matchingCartItems.find(
+                    (c) => c.selectedVariant?.name === varName
+                  );
+                  const varQty = varCartItem?.quantity || 0;
+
+                  return varQty > 0 ? (
+                    /* Active Stepper Pill [-] Qty [+] */
+                    <div
+                      key={varName}
+                      onClick={(e) => e.stopPropagation()}
+                      className="flex-1 min-w-[70px] py-0.5 px-1 rounded-lg bg-orange-600 text-white flex items-center justify-between text-[10px] font-bold shadow-xs select-none"
+                    >
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (varCartItem) decreaseQuantity(varCartItem.id);
+                        }}
+                        className="w-5 h-5 flex items-center justify-center hover:bg-orange-700 active:scale-90 rounded text-white cursor-pointer transition-all"
+                        title="Decrease"
+                      >
+                        <Minus size={11} strokeWidth={3} />
+                      </button>
+                      <div className="flex flex-col items-center leading-none px-1">
+                        <span className="truncate max-w-[46px] font-bold text-[8.5px] text-orange-100">
+                          {varName}
+                        </span>
+                        <span className="font-black text-[11px]">{varQty}</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (varCartItem) {
+                            increaseQuantity(varCartItem.id);
+                          } else {
+                            addVariantToCart(item, {
+                              name: varName,
+                              price: v.price,
+                            });
+                          }
+                        }}
+                        className="w-5 h-5 flex items-center justify-center hover:bg-orange-700 active:scale-90 rounded text-white cursor-pointer transition-all"
+                        title="Increase"
+                      >
+                        <Plus size={11} strokeWidth={3} />
+                      </button>
+                    </div>
+                  ) : (
+                    /* Default Variant Pill */
                     <button
                       key={varName}
                       type="button"
@@ -207,24 +283,65 @@ export default function MenuCard({ item, onOpenModifiers }: MenuCardProps) {
                 })}
             </div>
           ) : (
-            /* Single Price: 1-Click Instant Add */
+            /* Single Price: 1-Click Instant Add / Stepper */
             <div className="flex items-center justify-between">
               <span className="text-[14px] lg:text-[15px] font-black text-neutral-900">
                 ₹{item.price}
               </span>
 
               {!isOutOfStock ? (
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    addToCart(item, []);
-                  }}
-                  className="px-2.5 py-1 rounded-lg bg-orange-50 hover:bg-orange-500 text-orange-700 hover:text-white border border-orange-200 text-[11px] font-bold transition-all flex items-center gap-1 cursor-pointer active:scale-95 shadow-2xs"
-                >
-                  <Plus size={12} strokeWidth={2.5} />
-                  <span>Add</span>
-                </button>
+                singleQty > 0 ? (
+                  /* Active Quantity Stepper [-] [Qty] [+] */
+                  <div
+                    onClick={(e) => e.stopPropagation()}
+                    className="flex items-center bg-orange-600 text-white rounded-lg p-0.5 shadow-xs select-none"
+                  >
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (singleCartItem) decreaseQuantity(singleCartItem.id);
+                      }}
+                      className="w-6 h-6 flex items-center justify-center hover:bg-orange-700 active:scale-90 rounded text-white transition-all cursor-pointer"
+                      title="Decrease quantity"
+                    >
+                      <Minus size={12} strokeWidth={3} />
+                    </button>
+
+                    <span className="w-6 text-center text-xs font-black">
+                      {singleQty}
+                    </span>
+
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (singleCartItem) {
+                          increaseQuantity(singleCartItem.id);
+                        } else {
+                          addToCart(item, []);
+                        }
+                      }}
+                      className="w-6 h-6 flex items-center justify-center hover:bg-orange-700 active:scale-90 rounded text-white transition-all cursor-pointer"
+                      title="Increase quantity"
+                    >
+                      <Plus size={12} strokeWidth={3} />
+                    </button>
+                  </div>
+                ) : (
+                  /* Default Add Button */
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      addToCart(item, []);
+                    }}
+                    className="px-2.5 py-1 rounded-lg bg-orange-50 hover:bg-orange-500 text-orange-700 hover:text-white border border-orange-200 text-[11px] font-bold transition-all flex items-center gap-1 cursor-pointer active:scale-95 shadow-2xs"
+                  >
+                    <Plus size={12} strokeWidth={2.5} />
+                    <span>Add</span>
+                  </button>
+                )
               ) : (
                 <span className="text-[9px] font-bold text-neutral-400 bg-neutral-100 px-1.5 py-0.5 rounded">
                   Unavailable
