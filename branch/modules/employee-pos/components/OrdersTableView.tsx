@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Eye, Printer, Smartphone, Store } from 'lucide-react';
 import axios from 'axios';
 import toast from 'react-hot-toast';
@@ -16,6 +16,7 @@ interface OrdersTableViewProps {
   entriesPerPage?: number;
   setEntriesPerPage?: (limit: number) => void;
   totalEntries?: number;
+  hasKds?: boolean;
 }
 
 export default function OrdersTableView({ 
@@ -26,11 +27,42 @@ export default function OrdersTableView({
   setCurrentPage,
   entriesPerPage,
   setEntriesPerPage,
-  totalEntries
+  totalEntries,
+  hasKds: propHasKds,
 }: OrdersTableViewProps) {
   // ── Local Pagination States (Fallback for client-side) ──
   const [localCurrentPage, setLocalCurrentPage] = useState(1);
   const [localEntriesPerPage, setLocalEntriesPerPage] = useState(25);
+
+  // ── Check if Branch has KDS / Kitchen Station enabled ──
+  const [internalHasKds, setInternalHasKds] = useState(true);
+
+  useEffect(() => {
+    const checkKds = () => {
+      if (typeof window === 'undefined') return;
+      try {
+        const raw = localStorage.getItem('rms_branch');
+        if (raw) {
+          const b = JSON.parse(raw);
+          if (b.restaurantType === 'tea_stall') {
+            setInternalHasKds(false);
+            return;
+          }
+          const kds = b.featureToggles?.kds !== undefined ? b.featureToggles.kds : b.featureToggles?.kotKitchen;
+          setInternalHasKds(kds !== false);
+        }
+      } catch {}
+    };
+    checkKds();
+    window.addEventListener('rms_branch_updated', checkKds);
+    window.addEventListener('storage', checkKds);
+    return () => {
+      window.removeEventListener('rms_branch_updated', checkKds);
+      window.removeEventListener('storage', checkKds);
+    };
+  }, []);
+
+  const isKdsActive = propHasKds !== undefined ? propHasKds : internalHasKds;
 
   // ── 24-Hour Date Formatting (Alberta Timezone) ──
   const formatDate = (dateStr: string) => {
@@ -217,7 +249,7 @@ export default function OrdersTableView({
               <th className="px-5 py-3.5">Order Placed</th>
               <th className="px-5 py-3.5">Payment</th>
               <th className="px-5 py-3.5">Payment Type</th>
-              <th className="px-5 py-3.5">Order Status</th>
+              {isKdsActive && <th className="px-5 py-3.5">Order Status</th>}
               <th className="px-5 py-3.5">Order Date</th>
               <th className="px-5 py-3.5 text-center">Action</th>
             </tr>
@@ -376,9 +408,11 @@ export default function OrdersTableView({
                     </td>
 
                     {/* Order Status */}
-                    <td className="px-5 py-4">
-                      {renderOrderStatusBadge(order.status)}
-                    </td>
+                    {isKdsActive && (
+                      <td className="px-5 py-4">
+                        {renderOrderStatusBadge(order.status)}
+                      </td>
+                    )}
 
                     {/* Date */}
                     <td className="px-5 py-4 text-neutral-450 font-550 text-[11px] lg:text-[12.5px]">
@@ -409,7 +443,7 @@ export default function OrdersTableView({
               })
             ) : (
               <tr>
-                <td colSpan={10} className="px-5 py-16 text-center text-neutral-450 font-700">
+                <td colSpan={isKdsActive ? 11 : 10} className="px-5 py-16 text-center text-neutral-450 font-700">
                   No orders found.
                 </td>
               </tr>

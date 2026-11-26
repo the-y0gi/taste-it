@@ -119,16 +119,34 @@ export default function OrdersDashboard() {
   const [empPerms, setEmpPerms] = useState<Record<string, boolean>>({});
   const [managerMode, setManagerMode] = useState(false);
 
-  let branchFeatureToggles: Record<string, boolean> = {};
-  if (typeof window !== "undefined") {
-    try {
-      const rawBranch = localStorage.getItem("rms_branch");
-      if (rawBranch) {
-        const parsed = JSON.parse(rawBranch);
-        if (parsed.featureToggles) branchFeatureToggles = parsed.featureToggles;
-      }
-    } catch (e) {}
-  }
+  const [branchFeatureToggles, setBranchFeatureToggles] = useState<Record<string, boolean>>({});
+  const [hasKds, setHasKds] = useState(true);
+
+  useEffect(() => {
+    const syncBranchInfo = () => {
+      if (typeof window === "undefined") return;
+      try {
+        const rawBranch = localStorage.getItem("rms_branch");
+        if (rawBranch) {
+          const parsed = JSON.parse(rawBranch);
+          if (parsed.featureToggles) setBranchFeatureToggles(parsed.featureToggles);
+          if (parsed.restaurantType === "tea_stall") {
+            setHasKds(false);
+            return;
+          }
+          const kds = parsed.featureToggles?.kds !== undefined ? parsed.featureToggles.kds : parsed.featureToggles?.kotKitchen;
+          setHasKds(kds !== false);
+        }
+      } catch (e) {}
+    };
+    syncBranchInfo();
+    window.addEventListener("rms_branch_updated", syncBranchInfo);
+    window.addEventListener("storage", syncBranchInfo);
+    return () => {
+      window.removeEventListener("rms_branch_updated", syncBranchInfo);
+      window.removeEventListener("storage", syncBranchInfo);
+    };
+  }, []);
 
   // Helper: is this sub-tab accessible? Maps URL tab key → permission key & branch operational module
   const canAccessTab = (tabKey: string): boolean => {
@@ -949,22 +967,24 @@ export default function OrdersDashboard() {
                     )}
                   </div>
 
-                  {/* Order Status Select */}
-                  <div className="relative">
-                    <select
-                      value={statusFilter}
-                      onChange={(e) => setStatusFilter(e.target.value)}
-                      className="appearance-none bg-white border border-neutral-300 rounded-full pl-5 pr-10 py-1.5 text-[12px] font-750 text-neutral-750 hover:border-neutral-400 focus:outline-none focus:border-brand-primary cursor-pointer transition-all shadow-sm"
-                    >
-                      <option value="">Select Order Status</option>
-                      <option value="cancelled">Cancelled</option>
-                      <option value="pending">Pending</option>
-                    </select>
-                    <ChevronDown
-                      size={13}
-                      className="absolute right-4.5 top-1/2 -translate-y-1/2 text-neutral-400 pointer-events-none"
-                    />
-                  </div>
+                  {/* Order Status Select (Hidden when branch has no Kitchen KDS) */}
+                  {hasKds && (
+                    <div className="relative">
+                      <select
+                        value={statusFilter}
+                        onChange={(e) => setStatusFilter(e.target.value)}
+                        className="appearance-none bg-white border border-neutral-300 rounded-full pl-5 pr-10 py-1.5 text-[12px] font-750 text-neutral-750 hover:border-neutral-400 focus:outline-none focus:border-brand-primary cursor-pointer transition-all shadow-sm"
+                      >
+                        <option value="">Select Order Status</option>
+                        <option value="cancelled">Cancelled</option>
+                        <option value="pending">Pending</option>
+                      </select>
+                      <ChevronDown
+                        size={13}
+                        className="absolute right-4.5 top-1/2 -translate-y-1/2 text-neutral-400 pointer-events-none"
+                      />
+                    </div>
+                  )}
 
                   {/* More Search Button */}
                   <button
@@ -1045,8 +1065,8 @@ export default function OrdersDashboard() {
                     )}
                   </div>
 
-                  {/* Order Status Select */}
-                  {activeSubTab === "orders" && (
+                  {/* Order Status Select (Hidden when branch has no Kitchen KDS) */}
+                  {hasKds && activeSubTab === "orders" && (
                     <div className="relative">
                       <select
                         value={statusFilter}
@@ -1282,6 +1302,7 @@ export default function OrdersDashboard() {
                 searchKeyword={searchKeyword}
                 statusFilter={statusFilter}
                 selectedDate={singleDate}
+                hasKds={hasKds}
               />
             ) : activeSubTab === "refund_orders" ? (
               <RefundOrdersView
@@ -1290,6 +1311,7 @@ export default function OrdersDashboard() {
                 searchKeyword={searchKeyword}
                 statusFilter={statusFilter}
                 selectedDate={singleDate}
+                hasKds={hasKds}
               />
             ) : activeSubTab === "cash_out_summary" ||
               activeSubTab === "cash_out_report" ? (
@@ -1310,6 +1332,7 @@ export default function OrdersDashboard() {
                 entriesPerPage={entriesPerPage}
                 setEntriesPerPage={setEntriesPerPage}
                 totalEntries={totalCount}
+                hasKds={hasKds}
               />
             )}
           </>
@@ -1494,6 +1517,7 @@ export default function OrdersDashboard() {
         order={selectedOrder}
         onClose={() => setSelectedOrder(null)}
         onRefresh={fetchOrders}
+        hasKds={hasKds}
       />
     </main>
   );

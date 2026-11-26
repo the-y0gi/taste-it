@@ -1,6 +1,7 @@
 const mongoose = require("mongoose");
 const Order = require("../models/order.model");
 const Table = require("../models/table.model");
+const Branch = require("../../company/models/branch.model");
 const Product = require("../../menu/models/product.model");
 const Category = require("../../menu/models/category.model");
 const Expense = require("../../expense/models/expense.model");
@@ -28,6 +29,26 @@ const {
 const round2 = (num) => {
   if (typeof num !== "number" || isNaN(num)) return 0;
   return Math.round((num + Number.EPSILON) * 100) / 100;
+};
+
+// Helper: Check if branch has Kitchen Display / KDS feature enabled
+const isBranchKdsEnabled = async (branchId) => {
+  try {
+    let b = null;
+    if (branchId) {
+      b = await Branch.findById(branchId).select("restaurantType featureToggles").lean();
+    }
+    if (!b) {
+      b = await Branch.findOne().select("restaurantType featureToggles").lean();
+    }
+    if (!b) return true;
+    if (b.restaurantType === "tea_stall") return false;
+    const kds = b.featureToggles?.kds !== undefined ? b.featureToggles.kds : b.featureToggles?.kotKitchen;
+    return kds !== false;
+  } catch (err) {
+    logger.warn(`Could not check branch KDS status: ${err.message}`);
+    return true;
+  }
 };
 
 const buildDateFilter = (start, end, baseFilter = {}) => {
@@ -295,16 +316,35 @@ exports.createOrder = async (orderData) => {
     });
 
     const hasItems = (orderData.items || []).length > 0;
-    const makeTableStatus = hasPizza ? "pending" : (hasItems ? "pending" : "completed");
-    const wingsStatus = hasWings ? "pending" : (hasItems ? "pending" : "completed");
+    const hasKds = await isBranchKdsEnabled(orderData.branchId);
+
+    const makeTableStatus = !hasKds
+      ? "completed"
+      : hasPizza
+        ? "pending"
+        : hasItems
+          ? "pending"
+          : "completed";
+    const wingsStatus = !hasKds
+      ? "completed"
+      : hasWings
+        ? "pending"
+        : hasItems
+          ? "pending"
+          : "completed";
+    const initialStatus =
+      !hasKds && paymentStatus === "paid" ? "completed" : "pending";
     const resolvedPaymentMethod =
       orderData.paymentMethod ||
       (payments.length > 0 ? payments[payments.length - 1].method : "cash");
 
     const order = new Order({
       ...orderData,
+      status: initialStatus,
       makeTableStatus,
       wingsStatus,
+      kitchenCleared: !hasKds,
+      receptionCompleted: !hasKds,
       paymentMethod: resolvedPaymentMethod,
       customer:
         orderData.customer &&
@@ -320,9 +360,12 @@ exports.createOrder = async (orderData) => {
       tip: Number(orderData.tip) || 0,
       statusHistory: [
         {
-          status: "pending",
+          status: initialStatus,
           changedAt: new Date(),
-          note: "New order placed",
+          note:
+            !hasKds && paymentStatus === "paid"
+              ? "New order placed & completed (Express / No Kitchen KDS)"
+              : "New order placed",
           userName: orderData.placedBy || "Manager",
         },
       ],
@@ -727,6 +770,27 @@ exports.markOrderPaid = async (id, payments) => {
     if (paymentsTotal >= order.total - 0.01) {
       order.paymentStatus = "paid";
       order.paymentTiming = "pay-now";
+
+      // If branch has no KDS, auto-complete the order upon payment settlement
+      try {
+        const hasKds = await isBranchKdsEnabled(order.branchId);
+        if (!hasKds && order.status !== "cancelled") {
+          order.status = "completed";
+          order.makeTableStatus = "completed";
+          order.wingsStatus = "completed";
+          order.kitchenCleared = true;
+          order.receptionCompleted = true;
+          if (!order.statusHistory) order.statusHistory = [];
+          order.statusHistory.push({
+            status: "completed",
+            changedAt: new Date(),
+            note: "Payment settled - order completed (No Kitchen KDS)",
+            userName: "System",
+          });
+        }
+      } catch (kdsErr) {
+        logger.warn(`Could not verify branch KDS on recordPayment: ${kdsErr.message}`);
+      }
     } else {
       order.paymentStatus = "unpaid"; // still partially unpaid
     }

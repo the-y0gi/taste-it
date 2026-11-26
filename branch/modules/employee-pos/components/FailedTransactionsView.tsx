@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Eye, Smartphone, Store, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Order } from '../types';
 
@@ -10,6 +10,7 @@ interface FailedTransactionsViewProps {
   searchKeyword: string;
   statusFilter: string;
   selectedDate: string;
+  hasKds?: boolean;
 }
 
 export default function FailedTransactionsView({
@@ -17,12 +18,43 @@ export default function FailedTransactionsView({
   onSelectOrder,
   searchKeyword,
   statusFilter,
-  selectedDate
+  selectedDate,
+  hasKds: propHasKds,
 }: FailedTransactionsViewProps) {
 
   // Local Pagination
   const [currentPage, setCurrentPage] = useState(1);
   const [entriesPerPage, setEntriesPerPage] = useState(25);
+
+  // KDS reactive check
+  const [internalHasKds, setInternalHasKds] = useState(true);
+
+  useEffect(() => {
+    const checkKds = () => {
+      if (typeof window === 'undefined') return;
+      try {
+        const raw = localStorage.getItem('rms_branch');
+        if (raw) {
+          const b = JSON.parse(raw);
+          if (b.restaurantType === 'tea_stall') {
+            setInternalHasKds(false);
+            return;
+          }
+          const kds = b.featureToggles?.kds !== undefined ? b.featureToggles.kds : b.featureToggles?.kotKitchen;
+          setInternalHasKds(kds !== false);
+        }
+      } catch {}
+    };
+    checkKds();
+    window.addEventListener('rms_branch_updated', checkKds);
+    window.addEventListener('storage', checkKds);
+    return () => {
+      window.removeEventListener('rms_branch_updated', checkKds);
+      window.removeEventListener('storage', checkKds);
+    };
+  }, []);
+
+  const isKdsActive = propHasKds !== undefined ? propHasKds : internalHasKds;
 
   // ── Date Formatting ──
   const formatDate = (dateStr: string) => {
@@ -158,7 +190,7 @@ export default function FailedTransactionsView({
               <th className="px-5 py-3.5">Order Type</th>
               <th className="px-5 py-3.5">Order Placed</th>
               <th className="px-5 py-3.5">Payment</th>
-              <th className="px-5 py-3.5">Order Status</th>
+              {isKdsActive && <th className="px-5 py-3.5">Order Status</th>}
               <th className="px-5 py-3.5">Order Date</th>
               <th className="px-5 py-3.5 text-center">Action</th>
             </tr>
@@ -273,9 +305,11 @@ export default function FailedTransactionsView({
                     </td>
 
                     {/* Order Status */}
-                    <td className="px-5 py-4">
-                      {renderOrderStatusBadge(order.status)}
-                    </td>
+                    {isKdsActive && (
+                      <td className="px-5 py-4">
+                        {renderOrderStatusBadge(order.status)}
+                      </td>
+                    )}
 
                     {/* Order Date */}
                     <td className="px-5 py-4 text-neutral-450 font-550 text-[11px]">
@@ -298,7 +332,7 @@ export default function FailedTransactionsView({
               })
             ) : (
               <tr>
-                <td colSpan={10} className="px-5 py-16 text-center text-neutral-400 font-700">
+                <td colSpan={isKdsActive ? 10 : 9} className="px-5 py-16 text-center text-neutral-400 font-700">
                   No data available in table
                 </td>
               </tr>

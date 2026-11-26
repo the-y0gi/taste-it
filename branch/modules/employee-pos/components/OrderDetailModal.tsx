@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   X,
   CheckCircle2,
@@ -28,12 +28,14 @@ interface OrderDetailModalProps {
   order: Order | null;
   onClose: () => void;
   onRefresh: () => void;
+  hasKds?: boolean;
 }
 
 export default function OrderDetailModal({
   order,
   onClose,
   onRefresh,
+  hasKds: propHasKds,
 }: OrderDetailModalProps) {
   const [updating, setUpdating] = useState(false);
   const [showPayForm, setShowPayForm] = useState(false);
@@ -45,6 +47,39 @@ export default function OrderDetailModal({
   const [cashGivenInput, setCashGivenInput] = useState("");
   const router = useRouter();
   const { loadOrderForEditing } = usePosStore();
+
+  // ── KDS / Kitchen Station Check ──
+  const [internalHasKds, setInternalHasKds] = useState(true);
+
+  useEffect(() => {
+    const checkKds = () => {
+      if (typeof window === "undefined") return;
+      try {
+        const raw = localStorage.getItem("rms_branch");
+        if (raw) {
+          const b = JSON.parse(raw);
+          if (b.restaurantType === "tea_stall") {
+            setInternalHasKds(false);
+            return;
+          }
+          const kds =
+            b.featureToggles?.kds !== undefined
+              ? b.featureToggles.kds
+              : b.featureToggles?.kotKitchen;
+          setInternalHasKds(kds !== false);
+        }
+      } catch {}
+    };
+    checkKds();
+    window.addEventListener("rms_branch_updated", checkKds);
+    window.addEventListener("storage", checkKds);
+    return () => {
+      window.removeEventListener("rms_branch_updated", checkKds);
+      window.removeEventListener("storage", checkKds);
+    };
+  }, []);
+
+  const isKdsActive = propHasKds !== undefined ? propHasKds : internalHasKds;
 
   const handleEditOrder = () => {
     if (!order) return;
@@ -595,29 +630,31 @@ export default function OrderDetailModal({
                 {order.paymentStatus}
               </span>
 
-              {/* Order Status Badge */}
-              <span
-                className={`px-2.5 py-1 rounded-full text-[10px] font-750 uppercase tracking-wider inline-flex items-center gap-1.5 border ${
-                  order.status === "completed"
-                    ? "bg-emerald-50 text-emerald-700 border-emerald-200/60"
-                    : order.status === "cancelled"
-                      ? "bg-red-50 text-red-700 border-red-200/60"
-                      : order.status === "ready"
-                        ? "bg-sky-50 text-sky-700 border-sky-200/60"
-                        : order.status === "preparing"
-                          ? "bg-blue-50 text-blue-700 border-blue-200/60"
-                          : "bg-orange-50 text-brand-primary border-brand-primary-muted/50"
-                }`}
-              >
-                <span className="w-1.5 h-1.5 rounded-full bg-current" />
-                {order.status === "completed"
-                  ? "Completed"
-                  : order.status === "ready"
-                    ? "Ready Pick"
-                    : order.status === "preparing"
-                      ? "Preparing"
-                      : order.status}
-              </span>
+              {/* Order Status Badge (Hidden when KDS / Kitchen Station is not used) */}
+              {isKdsActive && (
+                <span
+                  className={`px-2.5 py-1 rounded-full text-[10px] font-750 uppercase tracking-wider inline-flex items-center gap-1.5 border ${
+                    order.status === "completed"
+                      ? "bg-emerald-50 text-emerald-700 border-emerald-200/60"
+                      : order.status === "cancelled"
+                        ? "bg-red-50 text-red-700 border-red-200/60"
+                        : order.status === "ready"
+                          ? "bg-sky-50 text-sky-700 border-sky-200/60"
+                          : order.status === "preparing"
+                            ? "bg-blue-50 text-blue-700 border-blue-200/60"
+                            : "bg-orange-50 text-brand-primary border-brand-primary-muted/50"
+                  }`}
+                >
+                  <span className="w-1.5 h-1.5 rounded-full bg-current" />
+                  {order.status === "completed"
+                    ? "Completed"
+                    : order.status === "ready"
+                      ? "Ready Pick"
+                      : order.status === "preparing"
+                        ? "Preparing"
+                        : order.status}
+                </span>
+              )}
 
               <button className="flex items-center gap-1.5 px-4 py-2 bg-neutral-900 hover:bg-neutral-850 text-white rounded-full text-[11px] font-800 uppercase tracking-wider transition-all active:scale-95 shadow-xs cursor-pointer">
                 <RefreshCw size={12} />
@@ -805,8 +842,8 @@ export default function OrderDetailModal({
                   </div>
                 ) : (
                   <>
-                    {/* Advance Order Status Trigger */}
-                    {nextStatus && (
+                    {/* Advance Order Status Trigger (Only when KDS / Kitchen Station is active) */}
+                    {isKdsActive && nextStatus && (
                       <button
                         onClick={() => handleUpdateStatus(nextStatus.target)}
                         className="w-full py-2 bg-brand-primary text-white text-[11.5px] font-800 rounded-full hover:bg-brand-primary-hover active:scale-[0.98] transition-all cursor-pointer shadow-sm shadow-brand-primary/10 uppercase tracking-wider"
