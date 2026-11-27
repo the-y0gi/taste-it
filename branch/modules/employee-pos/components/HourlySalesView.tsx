@@ -134,7 +134,7 @@ export default function HourlySalesView({ startDate, endDate }: HourlySalesViewP
           <div className="space-y-1 font-600">
             <p className="text-[#3B82F6] flex items-center gap-2">
               <span className="w-2 h-2 rounded-full bg-[#3B82F6]" />
-              Paid Amount: <span className="font-800">${payload[0].value.toFixed(2)}</span>
+              Paid Amount: <span className="font-800">₹{payload[0].value.toFixed(2)}</span>
             </p>
             {payload[1] && (
               <p className="text-[#F43F5E] flex items-center gap-2">
@@ -166,7 +166,7 @@ export default function HourlySalesView({ startDate, endDate }: HourlySalesViewP
               <tr key={idx} className="hover:bg-neutral-50/70 border-b border-neutral-100 transition-colors">
                 <td className="py-2.5 px-5 font-700 text-neutral-900">{slot.label}</td>
                 <td className="py-2.5 px-4 text-center font-600 text-neutral-700">{slot.orderCount}</td>
-                <td className="py-2.5 px-5 text-right font-700 text-neutral-800">${slot.totalSales.toFixed(2)}</td>
+                <td className="py-2.5 px-5 text-right font-700 text-neutral-800 font-mono">₹{slot.totalSales.toFixed(2)}</td>
               </tr>
             ))}
 
@@ -180,7 +180,7 @@ export default function HourlySalesView({ startDate, endDate }: HourlySalesViewP
               </td>
               {/* Highlight total sales column with beige background */}
               <td className="py-3 px-5 text-right text-neutral-900 font-900 bg-amber-50/80 border-l border-neutral-100 text-[12px]">
-                ${totalSales.toFixed(2)}
+                ₹{totalSales.toFixed(2)}
               </td>
             </tr>
           </tbody>

@@ -1217,10 +1217,10 @@ exports.generateSalesSummaryReceiptPdf = async (
         const emp = exp.employee || "Manager";
         const mode = exp.paymentMode || "cash";
         drawRow(`${emp} (${mode})`, fmt(exp.total), true);
-        if (exp.pst || exp.gst || exp.hst) {
+        if (exp.gst) {
           doc.font("Helvetica-Bold").fontSize(9).fillColor("#000000");
           doc.text(
-            `   PST: ${fmt(exp.pst)} | GST: ${fmt(exp.gst)} | HST: ${fmt(exp.hst)}`,
+            `   GST Included: ${fmt(exp.gst)}`,
             startX,
             doc.y,
           );
@@ -1647,10 +1647,9 @@ exports.generateAccountClosingReceiptPdf = async (
         // Build category breakdown string for entry
         const parts = [];
         if (dep.cash > 0) parts.push(`Cash: ${fmt(dep.cash)}`);
-        if (dep.interac > 0) parts.push(`Debit: ${fmt(dep.interac)}`);
-        if (dep.visa > 0) parts.push(`Visa: ${fmt(dep.visa)}`);
-        if (dep.mastercard > 0) parts.push(`MC: ${fmt(dep.mastercard)}`);
-        if (dep.giftCard > 0) parts.push(`Gift: ${fmt(dep.giftCard)}`);
+        if (dep.upi > 0) parts.push(`UPI: ${fmt(dep.upi)}`);
+        const cardAmt = dep.card || ((dep.interac || 0) + (dep.visa || 0) + (dep.mastercard || 0) + (dep.giftCard || 0));
+        if (cardAmt > 0) parts.push(`Card: ${fmt(cardAmt)}`);
 
         if (parts.length > 0) {
           doc.font("Helvetica").fontSize(10).fillColor("#333333");

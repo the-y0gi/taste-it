@@ -263,13 +263,13 @@ export default function RefundOrdersView({
 
                     {/* Sub Total */}
                     <td className="px-5 py-4 text-right font-750 text-neutral-500 text-[11.5px] lg:text-[13.5px]">
-                      ${order.subtotal.toFixed(2)}
+                      ₹{order.subtotal.toFixed(2)}
                     </td>
 
                     {/* Grand Total */}
                     <td className="px-5 py-4 text-right">
                       <span className="font-900 text-[12.5px] lg:text-[14.5px] text-neutral-900">
-                        ${order.total.toFixed(2)}
+                        ₹{order.total.toFixed(2)}
                       </span>
                     </td>
 

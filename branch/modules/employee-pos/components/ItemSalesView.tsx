@@ -145,7 +145,7 @@ export default function ItemSalesView({ startDate, endDate }: ItemSalesViewProps
                     <td className="py-2.5 px-5 font-700 text-neutral-900">{item.name}</td>
                     <td className="py-2.5 px-4 text-center font-600 text-neutral-500">{item.productId || 'M----'}</td>
                     <td className="py-2.5 px-4 text-center font-600 text-neutral-700">{item.quantitySold}</td>
-                    <td className="py-2.5 px-4 text-right font-700 text-neutral-800">${item.totalSales.toFixed(2)}</td>
+                    <td className="py-2.5 px-4 text-right font-700 text-neutral-800 font-mono">₹{item.totalSales.toFixed(2)}</td>
                     <td className="py-2.5 px-5 text-right font-600 text-neutral-500">{item.percentageSales.toFixed(2)} %</td>
                   </tr>
                 ))}
@@ -160,7 +160,7 @@ export default function ItemSalesView({ startDate, endDate }: ItemSalesViewProps
                     {category.subtotalSold}
                   </td>
                   <td className="py-3 px-4 text-right text-brand-primary font-850">
-                    ${category.subtotalSales.toFixed(2)}
+                    ₹{category.subtotalSales.toFixed(2)}
                   </td>
                   <td className="py-3 px-5"></td>
                 </tr>

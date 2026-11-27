@@ -31,16 +31,18 @@ import { getLocalTodayStr, formatLocalTime } from "../utils/timezone";
 
 // ── Helpers ──
 const fmt = (val: number) =>
-  `$${(typeof val === "number" && !isNaN(val) ? val : 0).toFixed(2)}`;
+  `₹${(typeof val === "number" && !isNaN(val) ? val : 0).toFixed(2)}`;
 
 interface TerminalDeposit {
   _id?: string;
   id?: string;
   cash: number;
-  interac: number;
-  visa: number;
-  mastercard: number;
-  giftCard: number;
+  upi?: number;
+  card?: number;
+  interac?: number;
+  visa?: number;
+  mastercard?: number;
+  giftCard?: number;
   totalDeposit: number;
   comments: string;
   time: string;
@@ -74,6 +76,8 @@ export default function AccountClosingView() {
   // ── Form State ──
   const [editingDepositId, setEditingDepositId] = useState<string | null>(null);
   const [enteredCash, setEnteredCash] = useState("0");
+  const [enteredUpi, setEnteredUpi] = useState("0");
+  const [enteredCard, setEnteredCard] = useState("0");
   const [enteredInterac, setEnteredInterac] = useState("0");
   const [enteredVisa, setEnteredVisa] = useState("0");
   const [enteredMastercard, setEnteredMastercard] = useState("0");
@@ -148,49 +152,34 @@ export default function AccountClosingView() {
     fetchData();
   }, [fetchData]);
 
-  // ── Live Computations ──
+  // ── Live Computations (Indian Modes: Cash, UPI, Card) ──
   const currentFormTotal = useMemo(() => {
     const cash = parseFloat(enteredCash) || 0;
-    const interac = parseFloat(enteredInterac) || 0;
-    const visa = parseFloat(enteredVisa) || 0;
-    const mc = parseFloat(enteredMastercard) || 0;
-    const gift = parseFloat(enteredGiftCard) || 0;
-    return cash + interac + visa + mc + gift;
-  }, [
-    enteredCash,
-    enteredInterac,
-    enteredVisa,
-    enteredMastercard,
-    enteredGiftCard,
-  ]);
+    const upi = parseFloat(enteredUpi) || 0;
+    const card = parseFloat(enteredCard) || 0;
+    return cash + upi + card;
+  }, [enteredCash, enteredUpi, enteredCard]);
 
   const cumulativeTotals = useMemo(() => {
-    const totalCash = submittedDeposits.reduce((sum, d) => sum + d.cash, 0);
-    const totalInterac = submittedDeposits.reduce(
-      (sum, d) => sum + d.interac,
-      0,
-    );
-    const totalVisa = submittedDeposits.reduce((sum, d) => sum + d.visa, 0);
-    const totalMastercard = submittedDeposits.reduce(
-      (sum, d) => sum + d.mastercard,
-      0,
-    );
-    const totalGiftCard = submittedDeposits.reduce(
-      (sum, d) => sum + d.giftCard,
+    const totalCash = submittedDeposits.reduce((sum, d) => sum + (d.cash || 0), 0);
+    const totalUpi = submittedDeposits.reduce((sum, d) => sum + (d.upi || 0), 0);
+    const totalCard = submittedDeposits.reduce(
+      (sum, d) => sum + (d.card || (d.interac || 0) + (d.visa || 0) + (d.mastercard || 0) + (d.giftCard || 0)),
       0,
     );
 
-    const grandTotalDeposited =
-      totalCash + totalInterac + totalVisa + totalMastercard + totalGiftCard;
+    const grandTotalDeposited = totalCash + totalUpi + totalCard;
     const currentShortage =
       grandTotalDeposited - (systemData.expectedNetDeposit || 0);
 
     return {
       totalCash,
-      totalInterac,
-      totalVisa,
-      totalMastercard,
-      totalGiftCard,
+      totalUpi,
+      totalCard,
+      totalInterac: 0,
+      totalVisa: totalCard,
+      totalMastercard: 0,
+      totalGiftCard: 0,
       grandTotalDeposited,
       currentShortage,
     };
@@ -299,7 +288,7 @@ export default function AccountClosingView() {
     e.preventDefault();
     if (isSubmitting) return;
     if (currentFormTotal <= 0) {
-      toast.error("Deposit total must be greater than $0.00");
+      toast.error("Deposit total must be greater than ₹0.00");
       return;
     }
 
@@ -352,6 +341,8 @@ export default function AccountClosingView() {
 
       setEditingDepositId(null);
       setEnteredCash("0");
+      setEnteredUpi("0");
+      setEnteredCard("0");
       setEnteredInterac("0");
       setEnteredVisa("0");
       setEnteredMastercard("0");
@@ -373,8 +364,10 @@ export default function AccountClosingView() {
     const id = dep._id || dep.id;
     if (!id) return;
     setEditingDepositId(id);
-    setEnteredCash(String(dep.cash));
-    setEnteredInterac(String(dep.interac));
+    setEnteredCash(String(dep.cash || 0));
+    setEnteredUpi(String(dep.upi || 0));
+    setEnteredCard(String(dep.card || (dep.interac || 0) + (dep.visa || 0) + (dep.mastercard || 0) + (dep.giftCard || 0)));
+    setEnteredInterac(String(dep.interac || 0));
     setEnteredVisa(String(dep.visa));
     setEnteredMastercard(String(dep.mastercard));
     setEnteredGiftCard(String(dep.giftCard));
@@ -386,6 +379,8 @@ export default function AccountClosingView() {
   const handleCancelEdit = () => {
     setEditingDepositId(null);
     setEnteredCash("0");
+    setEnteredUpi("0");
+    setEnteredCard("0");
     setEnteredInterac("0");
     setEnteredVisa("0");
     setEnteredMastercard("0");
@@ -689,10 +684,10 @@ export default function AccountClosingView() {
                       </thead>
                       <tbody className="divide-y divide-neutral-200/60 font-650">
                         <tr className="hover:bg-neutral-50/60">
-                          <td className="py-2 px-3 text-neutral-800 font-700 text-xs lg:text-sm">
-                            Cash
+                          <td className="py-2.5 px-3 text-neutral-800 font-750 text-xs lg:text-sm">
+                            Cash (Drawer)
                           </td>
-                          <td className="py-1.5 px-3 text-right">
+                          <td className="py-2 px-3 text-right">
                             <input
                               type="number"
                               step="0.01"
@@ -700,77 +695,39 @@ export default function AccountClosingView() {
                               value={enteredCash}
                               disabled={isDayClosed || isSubmitting}
                               onChange={(e) => setEnteredCash(e.target.value)}
-                              className="w-32 rounded-lg px-3 py-1 text-right font-800 font-mono text-xs lg:text-sm border border-neutral-300 focus:border-brand-primary focus:outline-none bg-white text-neutral-900"
+                              className="w-36 rounded-lg px-3 py-1.5 text-right font-800 font-mono text-xs lg:text-sm border border-neutral-300 focus:border-brand-primary focus:outline-none bg-white text-neutral-900"
                             />
                           </td>
                         </tr>
                         <tr className="hover:bg-neutral-50/60">
-                          <td className="py-2 px-3 text-neutral-800 font-700 text-xs lg:text-sm">
-                            Interac / Debit
+                          <td className="py-2.5 px-3 text-neutral-800 font-750 text-xs lg:text-sm">
+                            UPI (QR / Digital)
                           </td>
-                          <td className="py-1.5 px-3 text-right">
+                          <td className="py-2 px-3 text-right">
                             <input
                               type="number"
                               step="0.01"
                               min="0"
-                              value={enteredInterac}
+                              value={enteredUpi}
                               disabled={isDayClosed || isSubmitting}
-                              onChange={(e) =>
-                                setEnteredInterac(e.target.value)
-                              }
-                              className="w-32 rounded-lg px-3 py-1 text-right font-800 font-mono text-xs lg:text-sm border border-neutral-300 focus:border-brand-primary focus:outline-none bg-white text-neutral-900"
+                              onChange={(e) => setEnteredUpi(e.target.value)}
+                              className="w-36 rounded-lg px-3 py-1.5 text-right font-800 font-mono text-xs lg:text-sm border border-neutral-300 focus:border-brand-primary focus:outline-none bg-white text-neutral-900"
                             />
                           </td>
                         </tr>
                         <tr className="hover:bg-neutral-50/60">
-                          <td className="py-2 px-3 text-neutral-800 font-700 text-xs lg:text-sm">
-                            Visa
+                          <td className="py-2.5 px-3 text-neutral-800 font-750 text-xs lg:text-sm">
+                            Card (POS EDC Swipe)
                           </td>
-                          <td className="py-1.5 px-3 text-right">
+                          <td className="py-2 px-3 text-right">
                             <input
                               type="number"
                               step="0.01"
                               min="0"
-                              value={enteredVisa}
+                              value={enteredCard}
                               disabled={isDayClosed || isSubmitting}
-                              onChange={(e) => setEnteredVisa(e.target.value)}
-                              className="w-32 rounded-lg px-3 py-1 text-right font-800 font-mono text-xs lg:text-sm border border-neutral-300 focus:border-brand-primary focus:outline-none bg-white text-neutral-900"
-                            />
-                          </td>
-                        </tr>
-                        <tr className="hover:bg-neutral-50/60">
-                          <td className="py-2 px-3 text-neutral-800 font-700 text-xs lg:text-sm">
-                            Mastercard
-                          </td>
-                          <td className="py-1.5 px-3 text-right">
-                            <input
-                              type="number"
-                              step="0.01"
-                              min="0"
-                              value={enteredMastercard}
-                              disabled={isDayClosed || isSubmitting}
-                              onChange={(e) =>
-                                setEnteredMastercard(e.target.value)
-                              }
-                              className="w-32 rounded-lg px-3 py-1 text-right font-800 font-mono text-xs lg:text-sm border border-neutral-300 focus:border-brand-primary focus:outline-none bg-white text-neutral-900"
-                            />
-                          </td>
-                        </tr>
-                        <tr className="hover:bg-neutral-50/60">
-                          <td className="py-2 px-3 text-neutral-800 font-700 text-xs lg:text-sm">
-                            Gift Card
-                          </td>
-                          <td className="py-1.5 px-3 text-right">
-                            <input
-                              type="number"
-                              step="0.01"
-                              min="0"
-                              value={enteredGiftCard}
-                              disabled={isDayClosed || isSubmitting}
-                              onChange={(e) =>
-                                setEnteredGiftCard(e.target.value)
-                              }
-                              className="w-32 rounded-lg px-3 py-1 text-right font-800 font-mono text-xs lg:text-sm border border-neutral-300 focus:border-brand-primary focus:outline-none bg-white text-neutral-900"
+                              onChange={(e) => setEnteredCard(e.target.value)}
+                              className="w-36 rounded-lg px-3 py-1.5 text-right font-800 font-mono text-xs lg:text-sm border border-neutral-300 focus:border-brand-primary focus:outline-none bg-white text-neutral-900"
                             />
                           </td>
                         </tr>
@@ -853,13 +810,9 @@ export default function AccountClosingView() {
                         <tr className="bg-neutral-100 text-neutral-700 font-800 text-[10px] lg:text-[12px] uppercase tracking-wider border-b border-neutral-200">
                           <th className="py-2.5 px-3">#</th>
                           <th className="py-2.5 px-3 text-right">Cash</th>
-                          <th className="py-2.5 px-3 text-right">Interac</th>
-                          <th className="py-2.5 px-3 text-right">Visa</th>
-                          <th className="py-2.5 px-3 text-right">Mastercard</th>
-                          <th className="py-2.5 px-3 text-right">Gift Card</th>
-                          <th className="py-2.5 px-3 text-right">
-                            Total Deposit
-                          </th>
+                          <th className="py-2.5 px-3 text-right">UPI</th>
+                          <th className="py-2.5 px-3 text-right">Card</th>
+                          <th className="py-2.5 px-3 text-right">Total Deposit</th>
                           <th className="py-2.5 px-3">Time / Notes</th>
                           <th className="py-2.5 px-3 text-center">Action</th>
                         </tr>
@@ -868,6 +821,8 @@ export default function AccountClosingView() {
                         {submittedDeposits.length > 0 ? (
                           submittedDeposits.map((dep, idx) => {
                             const depId = dep._id || dep.id || "";
+                            const upiVal = dep.upi || 0;
+                            const cardVal = dep.card || ((dep.interac || 0) + (dep.visa || 0) + (dep.mastercard || 0) + (dep.giftCard || 0));
                             return (
                               <tr
                                 key={depId || idx}
@@ -880,20 +835,14 @@ export default function AccountClosingView() {
                                 <td className="py-2.5 px-3 font-800 text-neutral-900">
                                   #{idx + 1}
                                 </td>
-                                <td className="py-2.5 px-3 text-right font-700 text-emerald-700">
+                                <td className="py-2.5 px-3 text-right font-700 text-emerald-700 font-mono">
                                   {fmt(dep.cash)}
                                 </td>
-                                <td className="py-2.5 px-3 text-right font-700 text-blue-700">
-                                  {fmt(dep.interac)}
+                                <td className="py-2.5 px-3 text-right font-700 text-indigo-700 font-mono">
+                                  {fmt(upiVal)}
                                 </td>
-                                <td className="py-2.5 px-3 text-right font-700 text-purple-700">
-                                  {fmt(dep.visa)}
-                                </td>
-                                <td className="py-2.5 px-3 text-right font-700 text-indigo-700">
-                                  {fmt(dep.mastercard)}
-                                </td>
-                                <td className="py-2.5 px-3 text-right font-700 text-amber-700">
-                                  {fmt(dep.giftCard)}
+                                <td className="py-2.5 px-3 text-right font-700 text-purple-700 font-mono">
+                                  {fmt(cardVal)}
                                 </td>
                                 <td className="py-2.5 px-3 text-right font-900 text-neutral-900 font-mono bg-neutral-50/80">
                                   {fmt(dep.totalDeposit)}
@@ -910,16 +859,20 @@ export default function AccountClosingView() {
                                 </td>
                                 <td className="py-2.5 px-3 text-center">
                                   <div className="flex items-center justify-center gap-1.5">
-                                    <button
-                                      type="button"
-                                      onClick={() => handlePrintDeposit(dep)}
-                                      className="px-2 py-1 text-[10px] font-800 text-emerald-700 bg-emerald-50 hover:bg-emerald-100 rounded-md border border-emerald-200 transition-all flex items-center gap-1 cursor-pointer"
-                                      title="Print Deposit Receipt"
-                                    >
-                                      <Printer size={11} /> Receipt
-                                    </button>
-                                    {!isDayClosed && (
+                                    {editingDepositId === depId ? (
+                                      <span className="text-[10px] font-800 text-amber-700 bg-amber-100 px-2 py-0.5 rounded">
+                                        Editing
+                                      </span>
+                                    ) : (
                                       <>
+                                        <button
+                                          type="button"
+                                          onClick={() => handlePrintDeposit(dep)}
+                                          className="p-1 text-[10px] text-neutral-500 hover:text-neutral-900 hover:bg-neutral-100 rounded transition-all cursor-pointer"
+                                          title="Print receipt"
+                                        >
+                                          <Printer size={12} />
+                                        </button>
                                         <button
                                           type="button"
                                           onClick={() => handleStartEdit(dep)}
@@ -930,9 +883,7 @@ export default function AccountClosingView() {
                                         </button>
                                         <button
                                           type="button"
-                                          onClick={() =>
-                                            handleVoidDeposit(depId)
-                                          }
+                                          onClick={() => handleVoidDeposit(depId)}
                                           className="p-1 text-[10px] text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded transition-all cursor-pointer"
                                           title="Delete deposit"
                                         >
@@ -948,11 +899,10 @@ export default function AccountClosingView() {
                         ) : (
                           <tr>
                             <td
-                              colSpan={9}
+                              colSpan={7}
                               className="py-6 text-center text-neutral-400 font-600 text-xs"
                             >
-                              No deposits submitted yet for today. Fill the form
-                              on the left to add a deposit.
+                              No deposits submitted yet for today. Fill the form on the left to add a deposit.
                             </td>
                           </tr>
                         )}
@@ -963,20 +913,14 @@ export default function AccountClosingView() {
                             <td className="py-3 px-3 uppercase tracking-wide">
                               TOTAL
                             </td>
-                            <td className="py-3 px-3 text-right text-emerald-400">
+                            <td className="py-3 px-3 text-right text-emerald-400 font-mono">
                               {fmt(cumulativeTotals.totalCash)}
                             </td>
-                            <td className="py-3 px-3 text-right text-blue-300">
-                              {fmt(cumulativeTotals.totalInterac)}
+                            <td className="py-3 px-3 text-right text-indigo-300 font-mono">
+                              {fmt(cumulativeTotals.totalUpi)}
                             </td>
-                            <td className="py-3 px-3 text-right text-purple-300">
-                              {fmt(cumulativeTotals.totalVisa)}
-                            </td>
-                            <td className="py-3 px-3 text-right text-indigo-300">
-                              {fmt(cumulativeTotals.totalMastercard)}
-                            </td>
-                            <td className="py-3 px-3 text-right text-amber-300">
-                              {fmt(cumulativeTotals.totalGiftCard)}
+                            <td className="py-3 px-3 text-right text-purple-300 font-mono">
+                              {fmt(cumulativeTotals.totalCard)}
                             </td>
                             <td
                               className="py-3 px-3 text-right text-emerald-400 font-mono text-sm"

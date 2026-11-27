@@ -22,7 +22,7 @@ export default function AddExpenseModal({ isOpen, onClose, onSuccess }: AddExpen
   const [gst, setGst] = useState('');
   const [hst, setHst] = useState('');
   const [description, setDescription] = useState('');
-  const [paymentMode, setPaymentMode] = useState<'cash' | 'card'>('cash');
+  const [paymentMode, setPaymentMode] = useState<'cash' | 'card' | 'upi'>('cash');
   const [submitting, setSubmitting] = useState(false);
   const [employeesList, setEmployeesList] = useState<{ id: string; name: string }[]>([]);
 
@@ -196,8 +196,8 @@ export default function AddExpenseModal({ isOpen, onClose, onSuccess }: AddExpen
             <label className="block text-neutral-700 font-750 mb-1.5 text-[12px] lg:text-[13.5px]">
               Payment Mode <span className="text-red-500">*</span>
             </label>
-            <div className="flex items-center gap-8 font-650 text-neutral-700 bg-white px-5 py-3 rounded-full border border-neutral-300 shadow-2xs">
-              <label className="flex items-center gap-3 cursor-pointer select-none">
+            <div className="flex items-center gap-6 font-650 text-neutral-700 bg-white px-5 py-3 rounded-full border border-neutral-300 shadow-2xs">
+              <label className="flex items-center gap-2 cursor-pointer select-none">
                 <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all ${paymentMode === 'cash' ? 'border-neutral-700 bg-white' : 'border-neutral-400 bg-white'}`}>
                   {paymentMode === 'cash' && (
                     <div className="w-3 h-3 rounded-full bg-brand-primary"></div>
@@ -211,10 +211,27 @@ export default function AddExpenseModal({ isOpen, onClose, onSuccess }: AddExpen
                   onChange={() => setPaymentMode('cash')}
                   className="sr-only"
                 />
-                <span className="text-neutral-800 font-600 text-xs">Cash</span>
+                <span className="text-neutral-800 font-700 text-xs">Cash</span>
               </label>
 
-              <label className="flex items-center gap-3 cursor-pointer select-none">
+              <label className="flex items-center gap-2 cursor-pointer select-none">
+                <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all ${paymentMode === 'upi' ? 'border-neutral-700 bg-white' : 'border-neutral-400 bg-white'}`}>
+                  {paymentMode === 'upi' && (
+                    <div className="w-3 h-3 rounded-full bg-brand-primary"></div>
+                  )}
+                </div>
+                <input
+                  type="radio"
+                  name="paymentMode"
+                  value="upi"
+                  checked={paymentMode === 'upi'}
+                  onChange={() => setPaymentMode('upi')}
+                  className="sr-only"
+                />
+                <span className="text-neutral-800 font-700 text-xs">UPI</span>
+              </label>
+
+              <label className="flex items-center gap-2 cursor-pointer select-none">
                 <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all ${paymentMode === 'card' ? 'border-neutral-700 bg-white' : 'border-neutral-400 bg-white'}`}>
                   {paymentMode === 'card' && (
                     <div className="w-3 h-3 rounded-full bg-brand-primary"></div>
@@ -228,7 +245,7 @@ export default function AddExpenseModal({ isOpen, onClose, onSuccess }: AddExpen
                   onChange={() => setPaymentMode('card')}
                   className="sr-only"
                 />
-                <span className="text-neutral-800 font-600 text-xs">Card</span>
+                <span className="text-neutral-800 font-700 text-xs">Card</span>
               </label>
             </div>
           </div>
@@ -271,7 +288,7 @@ export default function AddExpenseModal({ isOpen, onClose, onSuccess }: AddExpen
           {/* Final Total */}
           <div>
             <label className="block text-neutral-700 font-750 mb-1.5 text-[12px]">
-              Final Total <span className="text-red-500">*</span>
+              Final Total (₹) <span className="text-red-500">*</span>
             </label>
             <input
               type="number"
@@ -284,41 +301,19 @@ export default function AddExpenseModal({ isOpen, onClose, onSuccess }: AddExpen
             />
           </div>
 
-          {/* Tax Breakdown: PST, GST, HST */}
-          <div className="grid grid-cols-3 gap-3">
-            <div>
-              <label className="block text-neutral-700 font-750 mb-1.5 text-[12px]">PST</label>
-              <input
-                type="number"
-                step="0.01"
-                placeholder="Enter PST"
-                value={pst}
-                onChange={(e) => setPst(e.target.value)}
-                className="w-full px-3.5 py-2.5 rounded-2xl border border-neutral-300 bg-white focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/15 focus:outline-hidden font-600 text-neutral-800 placeholder:text-neutral-400 transition-all shadow-2xs"
-              />
-            </div>
-            <div>
-              <label className="block text-neutral-700 font-750 mb-1.5 text-[12px]">GST</label>
-              <input
-                type="number"
-                step="0.01"
-                placeholder="Enter GST"
-                value={gst}
-                onChange={(e) => setGst(e.target.value)}
-                className="w-full px-3.5 py-2.5 rounded-2xl border border-neutral-300 bg-white focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/15 focus:outline-hidden font-600 text-neutral-800 placeholder:text-neutral-400 transition-all shadow-2xs"
-              />
-            </div>
-            <div>
-              <label className="block text-neutral-700 font-750 mb-1.5 text-[12px]">HST</label>
-              <input
-                type="number"
-                step="0.01"
-                placeholder="Enter HST"
-                value={hst}
-                onChange={(e) => setHst(e.target.value)}
-                className="w-full px-3.5 py-2.5 rounded-2xl border border-neutral-300 bg-white focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/15 focus:outline-hidden font-600 text-neutral-800 placeholder:text-neutral-400 transition-all shadow-2xs"
-              />
-            </div>
+          {/* Tax Breakdown: Indian GST */}
+          <div>
+            <label className="block text-neutral-700 font-750 mb-1.5 text-[12px]">
+              GST Tax Included / Paid (₹)
+            </label>
+            <input
+              type="number"
+              step="0.01"
+              placeholder="Enter GST Amount (optional)"
+              value={gst}
+              onChange={(e) => setGst(e.target.value)}
+              className="w-full px-4 py-3 rounded-2xl border border-neutral-300 bg-white focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/15 focus:outline-hidden font-600 text-neutral-800 placeholder:text-neutral-400 transition-all shadow-2xs"
+            />
           </div>
 
           {/* Description */}

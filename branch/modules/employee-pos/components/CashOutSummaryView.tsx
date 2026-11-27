@@ -130,7 +130,7 @@ export default function CashOutSummaryView({
 
                   {/* Total Amount */}
                   <td className="px-5 py-4 text-right font-900 text-neutral-900 text-[12.5px] lg:text-[14.5px]">
-                    ${item.totalAmount.toFixed(2)}
+                    ₹{item.totalAmount.toFixed(2)}
                   </td>
 
                   {/* Action */}

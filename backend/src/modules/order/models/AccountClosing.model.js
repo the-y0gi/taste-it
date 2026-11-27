@@ -30,6 +30,8 @@ const accountClosingSchema = new mongoose.Schema(
     terminalDeposits: [
       {
         cash: { type: Number, default: 0 },
+        upi: { type: Number, default: 0 },
+        card: { type: Number, default: 0 },
         interac: { type: Number, default: 0 },
         visa: { type: Number, default: 0 },
         mastercard: { type: Number, default: 0 },
@@ -43,6 +45,8 @@ const accountClosingSchema = new mongoose.Schema(
 
     // ── Cumulative Totals across all Deposits ──
     enteredCash: { type: Number, default: 0 },
+    enteredUpi: { type: Number, default: 0 },
+    enteredCard: { type: Number, default: 0 },
     enteredInterac: { type: Number, default: 0 },
     enteredVisa: { type: Number, default: 0 },
     enteredMastercard: { type: Number, default: 0 },

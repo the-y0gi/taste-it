@@ -23,7 +23,7 @@ const expenseSchema = new mongoose.Schema(
     },
     paymentMode: {
       type: String,
-      enum: ['cash', 'card'],
+      enum: ['cash', 'card', 'upi'],
       default: 'cash',
     },
     amount: {

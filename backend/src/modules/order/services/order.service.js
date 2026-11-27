@@ -1200,11 +1200,14 @@ exports.getSalesSummary = async (filters = {}) => {
 
     let onlineTotal = 0;
     let posTotal = 0;
+    let zomatoTotal = 0;
+    let swiggyTotal = 0;
     let doordashTotal = 0;
     let skipTotal = 0;
     let ubereatsTotal = 0;
 
     let cashTotal = 0;
+    let upiTotal = 0;
     let cardTotal = 0;
     let accountPayTotal = 0;
     let visaTotal = 0;
@@ -1238,11 +1241,17 @@ exports.getSalesSummary = async (filters = {}) => {
           driveThroughTotal += order.total;
         else if (order.orderType === "delivery") deliveryTotal += order.total;
 
-        if (order.orderSource === "online") onlineTotal += order.total;
-        else if (order.orderSource === "doordash") doordashTotal += order.total;
-        else if (order.orderSource === "skip") skipTotal += order.total;
-        else if (order.orderSource === "ubereats") ubereatsTotal += order.total;
-        else posTotal += order.total;
+        if (order.orderSource === "zomato" || order.orderSource === "doordash") {
+          zomatoTotal += order.total;
+          doordashTotal += order.total;
+        } else if (order.orderSource === "swiggy" || order.orderSource === "skip") {
+          swiggyTotal += order.total;
+          skipTotal += order.total;
+        } else if (order.orderSource === "online" || order.orderSource === "website") {
+          onlineTotal += order.total;
+        } else {
+          posTotal += order.total;
+        }
 
         if (order.paymentStatus === "unpaid") {
           unpaidTotal += order.total || 0;
@@ -1276,37 +1285,34 @@ exports.getSalesSummary = async (filters = {}) => {
             const funding = (p.cardFunding || "").toLowerCase().trim();
 
             const isOnlinePrepaid =
-              ["online", "doordash", "skip", "ubereats"].includes(
+              ["online", "zomato", "swiggy", "doordash", "skip", "ubereats"].includes(
                 order.orderSource,
               ) ||
               method === "stripe" ||
               method === "account";
 
-            if (isOnlinePrepaid) {
-              accountPayTotal += pAmount;
+            if (method === "upi" || method.includes("upi") || method === "qr") {
+              upiTotal += pAmount;
             } else if (method === "cash") {
               cashTotal += pAmount;
             } else if (
+              method === "card" ||
+              method === "credit" ||
               method === "debit" ||
               method === "interac" ||
-              funding === "debit" ||
-              brand === "interac"
+              funding === "credit" ||
+              funding === "debit"
             ) {
               cardTotal += pAmount;
+              creditCardTotal += pAmount;
               debitCardTotal += pAmount;
               interacTotal += pAmount;
-            } else {
-              cardTotal += pAmount;
-              creditCardTotal += pAmount;
-
               if (brand === "visa") visaTotal += pAmount;
               else if (brand === "mastercard") mastercardTotal += pAmount;
-              else if (brand === "interac" || method === "interac")
-                interacTotal += pAmount;
-              else {
-                visaTotal += pAmount * 0.6;
-                mastercardTotal += pAmount * 0.4;
-              }
+            } else if (isOnlinePrepaid) {
+              accountPayTotal += pAmount;
+            } else {
+              cardTotal += pAmount;
             }
           }
         }
@@ -1392,34 +1398,31 @@ exports.getSalesSummary = async (filters = {}) => {
         total: round2(grossDiscount),
       },
       taxSummary: {
-        pst: 0,
+        cgst: round2(grossTax / 2),
+        sgst: round2(grossTax / 2),
         gst: round2(grossTax),
+        pst: 0,
         hst: 0,
         total: round2(grossTax),
       },
       salesReceived: {
-        accountPay: round2(accountPayTotal),
         cash: round2(cashTotal),
-        creditCardSales: round2(creditCardTotal),
-        debitCardSales: round2(debitCardTotal),
+        upi: round2(upiTotal),
+        card: round2(cardTotal),
         unpaidSales: round2(unpaidTotal),
         grandTotal: round2(grandTotal),
-        tips: round2(totalTips),
         finalAmount: round2(grandTotal),
+        accountPay: round2(accountPayTotal),
+        creditCardSales: round2(cardTotal),
+        debitCardSales: 0,
+        tips: 0,
       },
       cardTypeReceived: {
-        interac: {
-          total: round2(interacTotal),
-          tips: 0,
-          final: round2(interacTotal),
-        },
-        mastercard: {
-          total: round2(mastercardTotal),
-          tips: 0,
-          final: round2(mastercardTotal),
-        },
-        visa: { total: round2(visaTotal), tips: 0, final: round2(visaTotal) },
+        card: { total: round2(cardTotal), tips: 0, final: round2(cardTotal) },
         total: { total: round2(cardTotal), tips: 0, final: round2(cardTotal) },
+        interac: { total: round2(cardTotal), tips: 0, final: round2(cardTotal) },
+        mastercard: { total: 0, tips: 0, final: 0 },
+        visa: { total: 0, tips: 0, final: 0 },
       },
       orderTypeSummary: {
         takeout: round2(takeoutTotal),
@@ -1429,11 +1432,13 @@ exports.getSalesSummary = async (filters = {}) => {
         total: round2(grandTotal),
       },
       channelSummary: {
-        online: round2(onlineTotal),
-        doordash: round2(doordashTotal),
-        skip: round2(skipTotal),
-        ubereats: round2(ubereatsTotal),
         pos: round2(adjustedPosTotal),
+        zomato: round2(zomatoTotal),
+        swiggy: round2(swiggyTotal),
+        online: round2(onlineTotal),
+        doordash: round2(zomatoTotal),
+        skip: round2(swiggyTotal),
+        ubereats: 0,
       },
       expense: rawExpenses.map((e) => ({
         employee:
@@ -2986,6 +2991,10 @@ exports.getMonthlySalesSummary = async ({
       }
 
       day.cashSales = cashSales;
+      day.upiSales = upiSales;
+      day.cardSales = creditCardSales + debitCardSales;
+      day.zomatoSales = zomatoSales;
+      day.swiggySales = swiggySales;
       day.creditCardSales = creditCardSales;
       day.debitCardSales = debitCardSales;
       day.accountPaySales = accountPaySales;
@@ -3205,7 +3214,7 @@ exports.getMonthlySalesSummary = async ({
           refund: day.refundCount || 0,
           refundAmount: round2(day.refundAmount || 0),
         },
-        taxBreakdown: { pst: 0, gst, hst: 0, total: gst },
+        taxBreakdown: { cgst: round2(gst / 2), sgst: round2(gst / 2), pst: 0, gst, hst: 0, total: gst },
         cardType: {
           interac: interacFinalAmount,
           visa: visaFinalAmount,
@@ -3528,6 +3537,8 @@ const updateCumulativeClosing = async (closing, branchId, dateStr) => {
   const grandShortage = round2(enteredGrandTotal - totals.expectedNetDeposit);
 
   closing.enteredCash = enteredCash;
+  closing.enteredUpi = enteredUpi;
+  closing.enteredCard = enteredTotalCard;
   closing.enteredInterac = enteredInterac;
   closing.enteredVisa = enteredVisa;
   closing.enteredMastercard = enteredMastercard;
@@ -3616,6 +3627,8 @@ exports.saveTerminalDeposit = async (data) => {
       const existing = closing.terminalDeposits.id(depositId);
       if (!existing) throw new Error("Deposit entry not found.");
       existing.cash = round2(cash);
+      existing.upi = round2(upi);
+      existing.card = round2(card || (Number(interac) + Number(visa) + Number(mastercard) + Number(giftCard)));
       existing.interac = round2(interac);
       existing.visa = round2(visa);
       existing.mastercard = round2(mastercard);

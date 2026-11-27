@@ -727,7 +727,7 @@ export default function OrderDetailModal({
                                     <span>{mod.optionName}</span>
                                   )}
                                   {mod.price > 0
-                                    ? ` (+$${mod.price.toFixed(2)})`
+                                    ? ` (+₹${mod.price.toFixed(2)})`
                                     : ""}
                                 </p>
                               );
@@ -1131,10 +1131,10 @@ export default function OrderDetailModal({
                       {p.cashGiven !== undefined && p.cashGiven > 0 && (
                         <div className="flex justify-between text-neutral-500 font-600 text-[10px]">
                           <span>
-                            Cash Given: ${(p.cashGiven ?? 0).toFixed(2)}
+                            Cash Given: ₹{(p.cashGiven ?? 0).toFixed(2)}
                           </span>
                           <span>
-                            Change: ${(p.changeGiven ?? 0).toFixed(2)}
+                            Change: ₹{(p.changeGiven ?? 0).toFixed(2)}
                           </span>
                         </div>
                       )}
@@ -1326,7 +1326,7 @@ export default function OrderDetailModal({
                   Confirm Order Refund
                 </h3>
                 <p className="text-[11px] text-neutral-500 font-500">
-                  Order {order.orderNumber} · Total ${order.total.toFixed(2)}
+                  Order {order.orderNumber} · Total ₹{order.total.toFixed(2)}
                 </p>
               </div>
             </div>
@@ -1396,7 +1396,7 @@ export default function OrderDetailModal({
                   Confirm Order Cancellation
                 </h3>
                 <p className="text-[11px] text-neutral-500 font-500">
-                  Order {order.orderNumber} · Total ${order.total.toFixed(2)}
+                  Order {order.orderNumber} · Total ₹{order.total.toFixed(2)}
                 </p>
               </div>
             </div>

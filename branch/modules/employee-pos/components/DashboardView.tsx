@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from 'recharts';
-import { ShoppingBag, DollarSign, UserCheck, Users } from 'lucide-react';
+import { ShoppingBag, IndianRupee, UserCheck, Users } from 'lucide-react';
 
 interface DashboardViewProps {
   metrics: {
@@ -133,14 +133,14 @@ export default function DashboardView({ metrics, loading }: DashboardViewProps) 
         {/* Total Earnings Card */}
         <div className="bg-white border border-neutral-200 rounded-xl p-5 shadow-xs flex items-center gap-4">
           <div className="w-12 h-12 bg-emerald-50 rounded-xl flex items-center justify-center text-emerald-600">
-            <DollarSign size={20} strokeWidth={2.5} />
+            <IndianRupee size={20} strokeWidth={2.5} />
           </div>
           <div>
             <span className="text-[10px] lg:text-[12px] text-neutral-450 font-800 tracking-wider uppercase block">
               Total Earning
             </span>
-            <span className="text-xl lg:text-2xl font-900 text-neutral-900 block leading-tight">
-              ${totalEarnings.toFixed(2)}
+            <span className="text-xl lg:text-2xl font-900 text-neutral-900 block leading-tight font-mono">
+              ₹{totalEarnings.toFixed(2)}
             </span>
           </div>
         </div>
