@@ -7,7 +7,7 @@ const paymentSchema = new mongoose.Schema(
     amount: { type: Number, required: true },
     paymentMethod: {
       type: String,
-      enum: ["cash", "card", "credit", "debit", "interac", "stripe"],
+      enum: ["cash", "card", "credit", "debit", "interac", "stripe", "upi"],
       required: true,
     },
     status: {
@@ -15,6 +15,8 @@ const paymentSchema = new mongoose.Schema(
       enum: ["pending", "succeeded", "failed", "refunded"],
       default: "pending",
     },
+    cashGiven: { type: Number, default: 0 },
+    changeGiven: { type: Number, default: 0 },
     transactionId: { type: String, default: "" },
     cardBrand: { type: String, default: "" },
     cardFunding: { type: String, default: "" },

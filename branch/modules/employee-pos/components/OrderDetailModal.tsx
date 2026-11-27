@@ -9,6 +9,8 @@ import {
   Printer,
   RefreshCw,
   CreditCard,
+  QrCode,
+  Banknote,
   RotateCcw,
   AlertTriangle,
   FileText,
@@ -41,9 +43,7 @@ export default function OrderDetailModal({
   const [showPayForm, setShowPayForm] = useState(false);
   const [showPrintReceipt, setShowPrintReceipt] = useState(false);
   const [isPrinting, setIsPrinting] = useState(false);
-  const [payMethod, setPayMethod] = useState<
-    "cash" | "card" | "debit" | "credit"
-  >("cash");
+  const [payMethod, setPayMethod] = useState<"cash" | "upi" | "card">("cash");
   const [cashGivenInput, setCashGivenInput] = useState("");
   const router = useRouter();
   const { loadOrderForEditing } = usePosStore();
@@ -875,8 +875,8 @@ export default function OrderDetailModal({
                         <div className="flex items-center gap-2">
                           {[
                             { id: "cash", label: "CASH" },
-                            { id: "interac", label: "INTERAC" },
-                            { id: "credit", label: "CREDIT" },
+                            { id: "upi", label: "UPI" },
+                            { id: "card", label: "CARD" },
                           ].map((tab) => (
                             <button
                               key={tab.id}
@@ -893,6 +893,7 @@ export default function OrderDetailModal({
                           ))}
                         </div>
 
+                        {/* CASH Payment Form */}
                         {payMethod === "cash" && (() => {
                           const orderTotal = order.total ?? 0;
                           const parsedCash = parseFloat(cashGivenInput);
@@ -900,11 +901,21 @@ export default function OrderDetailModal({
                           const changeToReturn = isCashEntered && parsedCash > orderTotal ? parsedCash - orderTotal : 0;
                           const isUnderpaid = isCashEntered && parsedCash < orderTotal;
 
+                          // Quick cash notes for fast checkout
+                          const quickNotes = [
+                            orderTotal,
+                            Math.ceil(orderTotal / 10) * 10 !== orderTotal ? Math.ceil(orderTotal / 10) * 10 : null,
+                            Math.ceil(orderTotal / 50) * 50 !== orderTotal ? Math.ceil(orderTotal / 50) * 50 : null,
+                            Math.ceil(orderTotal / 100) * 100 !== orderTotal ? Math.ceil(orderTotal / 100) * 100 : null,
+                            500 > orderTotal ? 500 : null,
+                          ].filter((v, i, arr): v is number => v !== null && arr.indexOf(v) === i && v >= orderTotal).slice(0, 4);
+
                           return (
                             <div className="space-y-2 bg-neutral-100/70 border border-neutral-200 p-2.5 rounded-lg">
                               <div className="flex items-center justify-between">
-                                <label className="text-[10px] text-neutral-600 font-700 uppercase tracking-wider">
-                                  Cash Given (₹)
+                                <label className="text-[10px] text-neutral-600 font-700 uppercase tracking-wider flex items-center gap-1">
+                                  <Banknote size={12} className="text-emerald-600" />
+                                  <span>Cash Given (₹)</span>
                                 </label>
                                 {cashGivenInput && (
                                   <button
@@ -924,8 +935,22 @@ export default function OrderDetailModal({
                                   setCashGivenInput(e.target.value)
                                 }
                                 placeholder={`₹${orderTotal.toFixed(2)}`}
-                                className="w-full bg-white border border-neutral-300 rounded-lg px-2.5 py-1.5 text-[12px] font-700 text-neutral-800 focus:outline-none focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/10 shadow-xs"
+                                className="w-full bg-white border border-neutral-300 rounded-lg px-2.5 py-1.5 text-[12px] font-700 text-neutral-800 focus:outline-none focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/10 shadow-xs font-mono"
                               />
+
+                              {/* Quick Cash Suggestions */}
+                              <div className="flex items-center gap-1.5 flex-wrap pt-0.5">
+                                {quickNotes.map((val) => (
+                                  <button
+                                    key={val}
+                                    type="button"
+                                    onClick={() => setCashGivenInput(val.toString())}
+                                    className="px-2 py-0.5 rounded-md bg-white border border-neutral-300 hover:border-emerald-500 hover:text-emerald-700 font-mono text-[9.5px] font-800 transition-colors shadow-3xs cursor-pointer"
+                                  >
+                                    {val === orderTotal ? "Exact " : ""}₹{val}
+                                  </button>
+                                ))}
+                              </div>
 
                               {/* Live Return Change Display */}
                               {isCashEntered && (
@@ -942,7 +967,7 @@ export default function OrderDetailModal({
                                         ? "Remaining Due"
                                         : "Change to Return"}
                                     </span>
-                                    <span className="text-[9.5px] opacity-80 block">
+                                    <span className="text-[9.5px] opacity-80 block font-mono">
                                       {isUnderpaid
                                         ? `Short by ₹${(orderTotal - parsedCash).toFixed(2)}`
                                         : `Customer Paid: ₹${parsedCash.toFixed(2)}`}
@@ -965,6 +990,44 @@ export default function OrderDetailModal({
                             </div>
                           );
                         })()}
+
+                        {/* UPI Payment Display */}
+                        {payMethod === "upi" && (
+                          <div className="space-y-2 bg-indigo-50/70 border border-indigo-200/80 p-3 rounded-lg text-center animate-fade-in">
+                            <div className="flex items-center justify-center gap-1.5 text-indigo-700 font-800 text-[11px] uppercase tracking-wider">
+                              <QrCode size={15} />
+                              <span>UPI QR / Digital Payment</span>
+                            </div>
+                            <p className="text-[10px] text-neutral-600 font-600 leading-tight">
+                              Scan counter QR code via Google Pay, PhonePe, Paytm or BHIM UPI
+                            </p>
+                            <div className="bg-white border border-indigo-200 rounded-md py-1.5 px-3 flex items-center justify-between shadow-3xs">
+                              <span className="text-[10px] font-700 text-neutral-500">Payable Amount:</span>
+                              <span className="text-[14px] font-900 font-mono text-indigo-700">
+                                ₹{(order.total ?? 0).toFixed(2)}
+                              </span>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* CARD Payment Display */}
+                        {payMethod === "card" && (
+                          <div className="space-y-2 bg-purple-50/70 border border-purple-200/80 p-3 rounded-lg text-center animate-fade-in">
+                            <div className="flex items-center justify-center gap-1.5 text-purple-700 font-800 text-[11px] uppercase tracking-wider">
+                              <CreditCard size={15} />
+                              <span>POS Card Terminal</span>
+                            </div>
+                            <p className="text-[10px] text-neutral-600 font-600 leading-tight">
+                              Swipe or tap customer debit/credit card on POS EDC Machine
+                            </p>
+                            <div className="bg-white border border-purple-200 rounded-md py-1.5 px-3 flex items-center justify-between shadow-3xs">
+                              <span className="text-[10px] font-700 text-neutral-500">Swipe Amount:</span>
+                              <span className="text-[14px] font-900 font-mono text-purple-700">
+                                ₹{(order.total ?? 0).toFixed(2)}
+                              </span>
+                            </div>
+                          </div>
+                        )}
 
                         <div className="flex items-center gap-2 pt-1">
                           <button

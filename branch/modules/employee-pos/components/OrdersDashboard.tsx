@@ -31,6 +31,14 @@ import {
   Download,
   FileText,
   FileSpreadsheet,
+  IndianRupee,
+  Receipt,
+  QrCode,
+  Banknote,
+  AlertCircle,
+  Utensils,
+  ShoppingBag,
+  Bike,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import {
@@ -691,6 +699,65 @@ export default function OrdersDashboard() {
     return orders;
   }, [orders]);
 
+  // ── Indian POS: Live Running Hisab & Quick Stats ──
+  const orderLiveStats = React.useMemo(() => {
+    let totalSales = 0;
+    let upiSales = 0;
+    let cashSales = 0;
+    let cardSales = 0;
+    let unpaidCount = 0;
+    let unpaidAmount = 0;
+    let dineInCount = 0;
+    let takeawayCount = 0;
+    let deliveryCount = 0;
+
+    orders.forEach((o) => {
+      const isPaid = o.paymentStatus === "paid";
+      const total = o.total || 0;
+      if (isPaid) {
+        totalSales += total;
+        let method = (o.paymentMethod || "").toLowerCase().trim();
+        if (!method && o.payments && o.payments.length > 0) {
+          method = (o.payments[o.payments.length - 1].method || "").toLowerCase().trim();
+        }
+        if (method === "upi" || method === "qr") upiSales += total;
+        else if (method === "cash") cashSales += total;
+        else if (
+          method === "card" ||
+          method === "credit" ||
+          method === "debit" ||
+          method === "interac" ||
+          method === "stripe"
+        ) {
+          cardSales += total;
+        } else {
+          upiSales += total;
+        }
+      } else {
+        unpaidCount++;
+        unpaidAmount += total;
+      }
+
+      const type = (o.orderType || "").toLowerCase();
+      if (type === "dine-in") dineInCount++;
+      else if (type === "takeout") takeawayCount++;
+      else if (type === "delivery") deliveryCount++;
+    });
+
+    return {
+      totalCount: totalCount || orders.length,
+      totalSales,
+      upiSales,
+      cashSales,
+      cardSales,
+      unpaidCount,
+      unpaidAmount,
+      dineInCount,
+      takeawayCount,
+      deliveryCount,
+    };
+  }, [orders, totalCount]);
+
   return (
     <main className="h-screen flex flex-col overflow-hidden bg-brand-bg text-neutral-900 font-sans">
       {/* Navbar Header */}
@@ -1323,17 +1390,225 @@ export default function OrdersDashboard() {
             ) : activeSubTab === "item_wise_sales" ? (
               <DummyReportView title="Item Wise Sales" />
             ) : (
-              <OrdersTableView
-                orders={filteredOrders}
-                onSelectOrder={handleSelectOrder}
-                isServerSide={true}
-                currentPage={currentPage}
-                setCurrentPage={setCurrentPage}
-                entriesPerPage={entriesPerPage}
-                setEntriesPerPage={setEntriesPerPage}
-                totalEntries={totalCount}
-                hasKds={hasKds}
-              />
+              <div className="flex-1 flex flex-col min-h-0 space-y-3.5">
+                {/* ── Mini Live Stats Strip (Running Hisab Bar) ── */}
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 flex-shrink-0">
+                  <div className="bg-white border border-neutral-200/90 rounded-xl p-3 shadow-2xs flex items-center justify-between">
+                    <div>
+                      <p className="text-[10px] font-800 uppercase tracking-wider text-neutral-450">
+                        Total Orders
+                      </p>
+                      <p className="text-base lg:text-lg font-900 text-neutral-900">
+                        {orderLiveStats.totalCount}
+                      </p>
+                    </div>
+                    <div className="w-8 h-8 rounded-lg bg-neutral-100 flex items-center justify-center text-neutral-600">
+                      <Receipt size={16} />
+                    </div>
+                  </div>
+
+                  <div className="bg-white border border-neutral-200/90 rounded-xl p-3 shadow-2xs flex items-center justify-between">
+                    <div>
+                      <p className="text-[10px] font-800 uppercase tracking-wider text-neutral-450">
+                        Total Collection
+                      </p>
+                      <p className="text-base lg:text-lg font-900 text-emerald-600 font-mono">
+                        ₹{orderLiveStats.totalSales.toFixed(2)}
+                      </p>
+                    </div>
+                    <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center">
+                      <IndianRupee size={16} />
+                    </div>
+                  </div>
+
+                  <div className="bg-white border border-neutral-200/90 rounded-xl p-3 shadow-2xs flex items-center justify-between">
+                    <div>
+                      <p className="text-[10px] font-800 uppercase tracking-wider text-neutral-450">
+                        UPI Collection
+                      </p>
+                      <p className="text-base lg:text-lg font-900 text-indigo-600 font-mono">
+                        ₹{orderLiveStats.upiSales.toFixed(2)}
+                      </p>
+                    </div>
+                    <div className="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center">
+                      <QrCode size={16} />
+                    </div>
+                  </div>
+
+                  <div className="bg-white border border-neutral-200/90 rounded-xl p-3 shadow-2xs flex items-center justify-between">
+                    <div>
+                      <p className="text-[10px] font-800 uppercase tracking-wider text-neutral-450">
+                        Cash Collection
+                      </p>
+                      <p className="text-base lg:text-lg font-900 text-emerald-700 font-mono">
+                        ₹{orderLiveStats.cashSales.toFixed(2)}
+                      </p>
+                    </div>
+                    <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center">
+                      <Banknote size={16} />
+                    </div>
+                  </div>
+
+                  <div
+                    className={`border rounded-xl p-3 shadow-2xs flex items-center justify-between col-span-2 sm:col-span-1 ${
+                      orderLiveStats.unpaidCount > 0
+                        ? "bg-rose-50/70 border-rose-200"
+                        : "bg-white border-neutral-200/90"
+                    }`}
+                  >
+                    <div>
+                      <p
+                        className={`text-[10px] font-800 uppercase tracking-wider ${
+                          orderLiveStats.unpaidCount > 0
+                            ? "text-rose-700 font-900"
+                            : "text-neutral-450"
+                        }`}
+                      >
+                        Unpaid / Due ({orderLiveStats.unpaidCount})
+                      </p>
+                      <p
+                        className={`text-base lg:text-lg font-900 font-mono ${
+                          orderLiveStats.unpaidCount > 0
+                            ? "text-rose-600"
+                            : "text-neutral-900"
+                        }`}
+                      >
+                        ₹{orderLiveStats.unpaidAmount.toFixed(2)}
+                      </p>
+                    </div>
+                    <div
+                      className={`w-8 h-8 rounded-lg flex items-center justify-center ${
+                        orderLiveStats.unpaidCount > 0
+                          ? "bg-rose-100 text-rose-600"
+                          : "bg-neutral-100 text-neutral-400"
+                      }`}
+                    >
+                      <AlertCircle size={16} />
+                    </div>
+                  </div>
+                </div>
+
+                {/* ── Quick Filter Pills ── */}
+                <div className="flex items-center gap-2 overflow-x-auto pb-1 flex-shrink-0 select-none">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPaymentFilter("");
+                      setOrderTypeFilter("");
+                      setStatusFilter("");
+                    }}
+                    className={`px-3.5 py-1.5 rounded-full text-[11px] lg:text-[12px] font-800 transition-all cursor-pointer flex items-center gap-1.5 ${
+                      !paymentFilter && !orderTypeFilter && !statusFilter
+                        ? "bg-brand-primary text-white shadow-xs"
+                        : "bg-white border border-neutral-200 text-neutral-600 hover:border-neutral-350"
+                    }`}
+                  >
+                    <span>All Orders</span>
+                    <span className="text-[10px] px-1.5 py-0.2 bg-black/10 rounded-full font-mono">
+                      {orderLiveStats.totalCount}
+                    </span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPaymentFilter(paymentFilter === "unpaid" ? "" : "unpaid");
+                      setOrderTypeFilter("");
+                    }}
+                    className={`px-3.5 py-1.5 rounded-full text-[11px] lg:text-[12px] font-800 transition-all cursor-pointer flex items-center gap-1.5 ${
+                      paymentFilter === "unpaid"
+                        ? "bg-rose-600 text-white shadow-xs"
+                        : orderLiveStats.unpaidCount > 0
+                        ? "bg-rose-50 border border-rose-200 text-rose-700 hover:bg-rose-100"
+                        : "bg-white border border-neutral-200 text-neutral-600 hover:border-neutral-350"
+                    }`}
+                  >
+                    <span className="w-1.5 h-1.5 rounded-full bg-current animate-pulse" />
+                    <span>Unpaid / Due</span>
+                    {orderLiveStats.unpaidCount > 0 && (
+                      <span className="text-[10px] px-1.5 py-0.2 bg-black/10 rounded-full font-mono">
+                        {orderLiveStats.unpaidCount}
+                      </span>
+                    )}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPaymentFilter("");
+                      setOrderTypeFilter(orderTypeFilter === "dine-in" ? "" : "dine-in");
+                    }}
+                    className={`px-3.5 py-1.5 rounded-full text-[11px] lg:text-[12px] font-800 transition-all cursor-pointer flex items-center gap-1.5 ${
+                      orderTypeFilter === "dine-in"
+                        ? "bg-blue-600 text-white shadow-xs"
+                        : "bg-white border border-neutral-200 text-neutral-600 hover:border-neutral-350"
+                    }`}
+                  >
+                    <Utensils size={12} />
+                    <span>Dine-In (Tables)</span>
+                    {orderLiveStats.dineInCount > 0 && (
+                      <span className="text-[10px] px-1.5 py-0.2 bg-black/10 rounded-full font-mono">
+                        {orderLiveStats.dineInCount}
+                      </span>
+                    )}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPaymentFilter("");
+                      setOrderTypeFilter(orderTypeFilter === "takeout" ? "" : "takeout");
+                    }}
+                    className={`px-3.5 py-1.5 rounded-full text-[11px] lg:text-[12px] font-800 transition-all cursor-pointer flex items-center gap-1.5 ${
+                      orderTypeFilter === "takeout"
+                        ? "bg-amber-600 text-white shadow-xs"
+                        : "bg-white border border-neutral-200 text-neutral-600 hover:border-neutral-350"
+                    }`}
+                  >
+                    <ShoppingBag size={12} />
+                    <span>Takeaway (Parcel)</span>
+                    {orderLiveStats.takeawayCount > 0 && (
+                      <span className="text-[10px] px-1.5 py-0.2 bg-black/10 rounded-full font-mono">
+                        {orderLiveStats.takeawayCount}
+                      </span>
+                    )}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPaymentFilter("");
+                      setOrderTypeFilter(orderTypeFilter === "delivery" ? "" : "delivery");
+                    }}
+                    className={`px-3.5 py-1.5 rounded-full text-[11px] lg:text-[12px] font-800 transition-all cursor-pointer flex items-center gap-1.5 ${
+                      orderTypeFilter === "delivery"
+                        ? "bg-purple-600 text-white shadow-xs"
+                        : "bg-white border border-neutral-200 text-neutral-600 hover:border-neutral-350"
+                    }`}
+                  >
+                    <Bike size={12} />
+                    <span>Online / Delivery</span>
+                    {orderLiveStats.deliveryCount > 0 && (
+                      <span className="text-[10px] px-1.5 py-0.2 bg-black/10 rounded-full font-mono">
+                        {orderLiveStats.deliveryCount}
+                      </span>
+                    )}
+                  </button>
+                </div>
+
+                {/* ── Streamlined Orders Table ── */}
+                <OrdersTableView
+                  orders={filteredOrders}
+                  onSelectOrder={handleSelectOrder}
+                  isServerSide={true}
+                  currentPage={currentPage}
+                  setCurrentPage={setCurrentPage}
+                  entriesPerPage={entriesPerPage}
+                  setEntriesPerPage={setEntriesPerPage}
+                  totalEntries={totalCount}
+                  hasKds={hasKds}
+                />
+              </div>
             )}
           </>
         )}
