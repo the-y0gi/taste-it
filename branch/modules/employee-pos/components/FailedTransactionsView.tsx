@@ -341,7 +341,7 @@ export default function FailedTransactionsView({
         </table>
       </div>
 
-      {/* Pagination Footer */}
+      {/* Pagination Footer*/}
       {totalEntries > 0 && (
         <div className="bg-white border-t border-neutral-200 px-6 py-4 flex flex-col sm:flex-row items-center justify-between gap-4 text-[11px] lg:text-[12.5px] text-neutral-500 font-600 select-none">
           
